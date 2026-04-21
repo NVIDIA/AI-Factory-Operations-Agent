@@ -1,0 +1,7 @@
+.DS_Store
+.thor-bridge/
+__pycache__/
+*.pyc
+*.pid
+*.log
+*.next
