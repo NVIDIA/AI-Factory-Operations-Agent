@@ -45,3 +45,8 @@ nodeSelector:
 {{ toYaml .Values.global.nodeSelector | indent 2 }}
 {{- end }}
 {{- end -}}
+
+{{- define "mosaic-stack.clusterScopedBase" -}}
+{{- $base := printf "%s-%s" (include "mosaic-stack.fullname" .) .Release.Namespace -}}
+{{- printf "%s-%s" ($base | trunc 42 | trimSuffix "-") (sha256sum $base | trunc 8) -}}
+{{- end -}}
