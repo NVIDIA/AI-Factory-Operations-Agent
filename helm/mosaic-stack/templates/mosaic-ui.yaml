@@ -1,0 +1,96 @@
+{{- if .Values.mosaicUi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosaic-ui
+  labels:
+    app: mosaic-ui
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mosaicUi.replicaCount }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: mosaic-ui
+  template:
+    metadata:
+      labels:
+        app: mosaic-ui
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: mosaic-ui
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      containers:
+        - name: mosaic-ui
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            - name: MOSAIC_RUNTIME_MODE
+              value: cluster
+            - name: MOSAIC_KUBECTL_BIN
+              value: /usr/local/bin/kubectl
+            - name: NEXT_PUBLIC_THOR_DEFAULT_HOSTNAME
+              value: {{ .Values.mosaicUi.env.NEXT_PUBLIC_THOR_DEFAULT_HOSTNAME | quote }}
+            - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
+              value: {{ .Values.mosaicUi.deploymentVersion | quote }}
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MOSAIC_OPENCLAW_DEPLOYMENT
+              value: openclaw
+            - name: MOSAIC_AUDIT_DIR
+              value: /var/lib/mosaic-audit
+            - name: MOSAIC_PROMETHEUS_URL
+              value: {{ printf "http://prometheus.%s.svc.cluster.local:9090" .Values.global.observabilityNamespace | quote }}
+            - name: MOSAIC_GRAFANA_URL
+              value: {{ printf "http://grafana.%s.svc.cluster.local:3000" .Values.global.observabilityNamespace | quote }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: audit-log
+              mountPath: /var/lib/mosaic-audit
+      volumes:
+        - name: audit-log
+          persistentVolumeClaim:
+            claimName: mosaic-audit-log
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosaic-ui
+  labels:
+    app: mosaic-ui
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: mosaic-ui
+  ports:
+    - name: http
+      port: {{ .Values.mosaicUi.service.port }}
+      targetPort: http
+  type: ClusterIP
+{{- end }}

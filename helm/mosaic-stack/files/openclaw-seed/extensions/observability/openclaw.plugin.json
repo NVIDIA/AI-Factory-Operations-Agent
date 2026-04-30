@@ -1,0 +1,32 @@
+{
+  "id": "observability",
+  "contracts": {
+    "tools": [
+      "observability_health",
+      "observability_metric_names",
+      "observability_query",
+      "observability_range_query",
+      "observability_cluster_summary"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "Mosaic observability Prometheus base URL."
+      },
+      "enabledTools": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Optional allowlist of observability tool names to register."
+      },
+      "disabledTools": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Optional list of observability tool names to suppress."
+      }
+    }
+  }
+}

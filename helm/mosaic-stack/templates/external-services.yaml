@@ -1,0 +1,15 @@
+{{- if .Values.externalServices.jobManager.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.externalServices.jobManager.name }}
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  type: ExternalName
+  externalName: {{ .Values.externalServices.jobManager.externalName }}
+  ports:
+    - name: http
+      port: {{ .Values.externalServices.jobManager.port }}
+      targetPort: {{ .Values.externalServices.jobManager.port }}
+{{- end }}

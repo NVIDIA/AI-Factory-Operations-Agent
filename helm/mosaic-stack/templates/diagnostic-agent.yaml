@@ -1,0 +1,78 @@
+{{- if .Values.diagnosticAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagnostic-agent
+  labels:
+    app: diagnostic-agent
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diagnostic-agent
+  template:
+    metadata:
+      labels:
+        app: diagnostic-agent
+    spec:
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: diagnostic-agent
+          image: {{ include "mosaic-stack.image" .Values.diagnosticAgent.image | quote }}
+          imagePullPolicy: {{ .Values.diagnosticAgent.image.pullPolicy }}
+          command: ["diagnostic-agent", "server", "--host=0.0.0.0", "--port=8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DEBUGHUB_INFERENCE__ENDPOINT
+              value: {{ .Values.global.vllmBaseUrl | quote }}
+            - name: DEBUGHUB_INFERENCE__MODEL
+              value: {{ .Values.global.vllmModel | quote }}
+            - name: DEBUGHUB_PLAYBOOK__PATH
+              value: /opt/debuggability/playbooks
+            - name: DEBUGHUB_PLAYBOOK_PATH
+              value: /opt/debuggability/playbooks
+            - name: BCM_WEBHOOK_TIMEOUT_SECONDS
+              value: "60"
+          envFrom:
+            {{- range .Values.diagnosticAgent.existingSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: diagnostic-agent
+  labels:
+    app: diagnostic-agent
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: diagnostic-agent
+  ports:
+    - name: http
+      port: {{ .Values.diagnosticAgent.service.port }}
+      targetPort: http
+{{- end }}

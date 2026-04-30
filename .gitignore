@@ -1,7 +1,9 @@
 .DS_Store
 .thor-bridge/
+.thor-demo-bridge/
 __pycache__/
 *.pyc
 *.pid
 *.log
 *.next
+helm/**/values-secrets*.yaml
