@@ -27,6 +27,9 @@ function resolveBaseUrl(pluginConfig: unknown): string {
   ) {
     return ((pluginConfig as { baseUrl: string }).baseUrl || "").replace(/\/+$/, "");
   }
+  if (typeof process !== "undefined" && process.env?.MOSAIC_PROMETHEUS_URL) {
+    return process.env.MOSAIC_PROMETHEUS_URL.replace(/\/+$/, "");
+  }
   return DEFAULT_BASE_URL;
 }
 
