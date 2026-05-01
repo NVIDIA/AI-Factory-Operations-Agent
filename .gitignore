@@ -1,6 +1,4 @@
 .DS_Store
-.thor-bridge/
-.thor-demo-bridge/
 __pycache__/
 *.pyc
 *.pid

@@ -40,8 +40,6 @@ spec:
               value: cluster
             - name: MOSAIC_KUBECTL_BIN
               value: /usr/local/bin/kubectl
-            - name: NEXT_PUBLIC_THOR_DEFAULT_HOSTNAME
-              value: {{ .Values.mosaicUi.env.NEXT_PUBLIC_THOR_DEFAULT_HOSTNAME | quote }}
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
             - name: POD_NAMESPACE

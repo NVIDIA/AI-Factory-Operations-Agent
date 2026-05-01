@@ -394,7 +394,7 @@ export default definePluginEntry({
         const [grafanaHealth, prometheusHealth, uiHealth] = await Promise.allSettled([
           fetchJson(`${grafanaUrl}/api/health`, { headers }),
           fetchJson(`${prometheusUrl}/api/v1/query?query=up`),
-          fetchJson(`${uiUrl}/api/bridge/status`),
+          fetchJson(`${uiUrl}/api/composer/status`),
         ]);
         return jsonToolResult({
           grafanaUrl,
