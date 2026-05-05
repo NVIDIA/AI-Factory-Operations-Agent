@@ -52,6 +52,8 @@ spec:
               value: {{ printf "http://prometheus.%s.svc.cluster.local:9090" .Values.global.observabilityNamespace | quote }}
             - name: MOSAIC_GRAFANA_URL
               value: {{ printf "http://grafana.%s.svc.cluster.local:3000" .Values.global.observabilityNamespace | quote }}
+            - name: MOSAIC_ALERTMANAGER_URL
+              value: {{ printf "http://kube-prometheus-stack-alertmanager.%s.svc.cluster.local:9093" .Values.global.alertmanagerNamespace | quote }}
           readinessProbe:
             httpGet:
               path: /
