@@ -36,8 +36,6 @@ spec:
               value: "3000"
             - name: HOSTNAME
               value: "0.0.0.0"
-            - name: MOSAIC_RUNTIME_MODE
-              value: cluster
             - name: MOSAIC_KUBECTL_BIN
               value: /usr/local/bin/kubectl
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
