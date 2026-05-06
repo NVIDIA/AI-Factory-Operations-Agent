@@ -48,6 +48,8 @@ spec:
               value: openclaw
             - name: MOSAIC_AUDIT_DIR
               value: /var/lib/mosaic-audit
+            - name: MOSAIC_DASHBOARD_DIR
+              value: /var/lib/mosaic-audit/dashboard
             - name: MOSAIC_PROMETHEUS_URL
               value: {{ printf "http://prometheus.%s.svc.cluster.local:9090" .Values.global.observabilityNamespace | quote }}
             - name: MOSAIC_GRAFANA_URL
