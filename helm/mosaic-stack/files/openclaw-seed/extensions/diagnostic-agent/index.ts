@@ -67,6 +67,15 @@ function resolveSubagentEventsUrl(pluginConfig: unknown): string {
   return "http://mosaic-ui:3000/api/subagents/events";
 }
 
+function mosaicUiBaseUrlFromEventsUrl(eventsUrl: string) {
+  try {
+    const url = new URL(eventsUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "";
+  }
+}
+
 function readConfig(pluginConfig: unknown): DiagnosticConfig {
   const configuredUrl =
     stringConfig(pluginConfig, "baseUrl") ||
@@ -113,9 +122,79 @@ function objectParam(value: unknown) {
     : null;
 }
 
+function inferRecentMosaicSessionKey() {
+  try {
+    const fs = require("fs") as typeof import("fs");
+    const home = typeof process !== "undefined" ? process.env?.HOME || "/home/node" : "/home/node";
+    const paths = [
+      typeof process !== "undefined" ? process.env?.MOSAIC_OPENCLAW_SESSIONS_FILE || "" : "",
+      "/home/node/.openclaw/agents/default/sessions/sessions.json",
+      `${home}/.openclaw/agents/default/sessions/sessions.json`,
+    ].filter(Boolean);
+
+    for (const path of paths) {
+      if (!fs.existsSync(path)) {
+        continue;
+      }
+      const data = JSON.parse(fs.readFileSync(path, "utf8"));
+      if (!data || typeof data !== "object") {
+        continue;
+      }
+      let bestKey = "";
+      let bestUpdatedAt = -1;
+      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        const session = objectParam(value) || {};
+        const sessionKey = stringParam(session.sessionKey) || key;
+        if (!sessionKey.startsWith("agent:default:session-")) {
+          continue;
+        }
+        const updatedAt = typeof session.updatedAt === "number" && Number.isFinite(session.updatedAt)
+          ? session.updatedAt
+          : 0;
+        if (updatedAt > bestUpdatedAt) {
+          bestUpdatedAt = updatedAt;
+          bestKey = sessionKey;
+        }
+      }
+      if (bestKey) {
+        return bestKey;
+      }
+    }
+  } catch {
+    // Best-effort fallback for Mosaic UI sessions when the model omits runtime metadata.
+  }
+  return "";
+}
+
+function normalizeDutId(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return value.trim().replace(/^dgx[\s_-]*(\d+)$/i, (_match, id) => `dgx-${id}`);
+}
+
 function compactJson(value: unknown, maxChars = MAX_EVENT_CHARS) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   return truncate(text || "", maxChars);
+}
+
+function compactDefinedJson(value: Record<string, unknown>, maxChars = MAX_EVENT_CHARS) {
+  const defined = Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined && entry !== ""),
+  );
+  return Object.keys(defined).length > 0 ? compactJson(defined, maxChars) : "";
+}
+
+function triageStatusContent(triageId: string, status: Record<string, unknown>) {
+  const currentStatus = typeof status.status === "string" ? status.status : "unknown";
+  const details = compactDefinedJson({
+    root_cause: status.root_cause,
+    severity: status.severity,
+    confidence: status.confidence,
+    error: status.error,
+    next_action: status.next_action,
+  });
+  return [`Triage ${triageId}: ${currentStatus}`, details].filter(Boolean).join("\n");
 }
 
 function headers(config: DiagnosticConfig) {
@@ -188,6 +267,21 @@ async function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase,
   });
 }
 
+async function suppressMosaicAlertForTriage(config: DiagnosticConfig, triageId: string) {
+  const baseUrl = mosaicUiBaseUrlFromEventsUrl(config.subagentEventsUrl);
+  if (!baseUrl || !triageId) {
+    return;
+  }
+
+  await fetch(`${baseUrl}/api/alerts/suppress`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ triageId }),
+  }).catch(() => {
+    // Alert suppression is best-effort; diagnosis and terminal streaming should continue.
+  });
+}
+
 function subagentOptions(
   config: DiagnosticConfig,
   toolCallId: string,
@@ -230,14 +324,7 @@ async function pollTriage(
       await postSubagentEvent(
         options,
         terminalStatus(currentStatus) ? (currentStatus === "failed" || currentStatus === "error" ? "error" : "complete") : "delta",
-        `Triage ${triageId}: ${compactJson({
-          status: status.status,
-          root_cause: status.root_cause,
-          severity: status.severity,
-          confidence: status.confidence,
-          error: status.error,
-          next_action: status.next_action,
-        })}`,
+        triageStatusContent(triageId, status),
       );
     }
     if (terminalStatus(currentStatus)) {
@@ -287,7 +374,7 @@ export default definePluginEntry({
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "event_text"],
+        required: ["dut", "event_text", "mosaic_chat_session_key"],
         properties: {
           dut: {
             type: "object",
@@ -304,7 +391,7 @@ export default definePluginEntry({
           },
           mosaic_chat_session_key: {
             type: "string",
-            description: "Optional Mosaic chat session key. When supplied, diagnostic-agent streams nvdebug progress to the Terminal tab.",
+            description: "Required when called from Mosaic. Copy the exact value from the [Mosaic Runtime] block so diagnostic-agent can stream nvdebug progress to the matching Terminal tab.",
           },
           wait: {
             type: "boolean",
@@ -326,6 +413,7 @@ export default definePluginEntry({
         if (!dut) {
           throw new Error("dut is required");
         }
+        dut.id = normalizeDutId(dut.id);
         if (!eventText) {
           throw new Error("event_text is required");
         }
@@ -336,13 +424,13 @@ export default definePluginEntry({
           event_text: eventText,
         };
         const profileName = stringParam(rawParams.profile_name);
-        const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key);
+        const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key) || inferRecentMosaicSessionKey();
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
 
-        const dutId = typeof dut.id === "string" ? dut.id : "DUT";
+        const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
         const events = subagentOptions(config, toolCallId, "diagnostic_analyze_dut", "NVDebug analysis");
-        await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${dutId}\n${eventText}`);
+        await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
 
         try {
           const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
@@ -350,6 +438,9 @@ export default definePluginEntry({
             body: JSON.stringify(body),
           });
           const triageId = triageIdFrom(submitted);
+          if (mosaicSessionKey && triageId) {
+            await suppressMosaicAlertForTriage(config, triageId);
+          }
           await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson(submitted)}`);
 
           if (!wait || !triageId) {
@@ -362,7 +453,7 @@ export default definePluginEntry({
           const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
           const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
             .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
-          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${dutId}\n${compactJson({
+          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
             status: status.status,
             root_cause: status.root_cause,
             severity: status.severity,
