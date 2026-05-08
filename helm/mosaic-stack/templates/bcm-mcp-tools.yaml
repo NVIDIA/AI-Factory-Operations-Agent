@@ -1,0 +1,80 @@
+{{- if .Values.bcmMcp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.bcmMcp.service.name }}
+  labels:
+    app: {{ .Values.bcmMcp.service.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.bcmMcp.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.bcmMcp.service.name }}
+    spec:
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      containers:
+        - name: bcm-mcp
+          image: {{ include "mosaic-stack.image" .Values.bcmMcp.image | quote }}
+          imagePullPolicy: {{ .Values.bcmMcp.image.pullPolicy }}
+          command: ["bcm-support-mcp"]
+          args:
+            - --no-ssl
+            - --no-auth
+            {{- if .Values.bcmMcp.config.noCmshUser }}
+            - --no-cmsh-user
+            {{- end }}
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.bcmMcp.service.port | quote }}
+            - --exec-timeout
+            - {{ .Values.bcmMcp.config.execTimeout | quote }}
+            - --max-output-lines
+            - {{ .Values.bcmMcp.config.maxOutputLines | quote }}
+            - --max-output-chars
+            - {{ .Values.bcmMcp.config.maxOutputChars | quote }}
+            - --preloaded-modules
+            - {{ .Values.bcmMcp.config.preloadedModules | quote }}
+          env:
+            - name: MCP_CONFIG_DIR
+              value: /tmp/bcm-mcp-tools
+            - name: MCP_NOTES_DIR
+              value: /tmp/bcm-mcp-notes
+          ports:
+            - containerPort: {{ .Values.bcmMcp.service.port }}
+              name: http
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+{{ toYaml .Values.bcmMcp.resources | indent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.bcmMcp.service.name }}
+  labels:
+    app: {{ .Values.bcmMcp.service.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.bcmMcp.service.name }}
+  ports:
+    - name: http
+      port: {{ .Values.bcmMcp.service.port }}
+      targetPort: http
+  type: ClusterIP
+{{- end }}

@@ -6,3 +6,4 @@ __pycache__/
 *.next
 helm/**/values-secrets*.yaml
 /demo_artifacts
+pandas/README.md

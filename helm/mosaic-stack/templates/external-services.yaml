@@ -13,3 +13,19 @@ spec:
       port: {{ .Values.externalServices.jobManager.port }}
       targetPort: {{ .Values.externalServices.jobManager.port }}
 {{- end }}
+{{- if .Values.externalServices.bcmMcp.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.externalServices.bcmMcp.name }}
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  type: ExternalName
+  externalName: {{ .Values.externalServices.bcmMcp.externalName }}
+  ports:
+    - name: http
+      port: {{ .Values.externalServices.bcmMcp.port }}
+      targetPort: {{ .Values.externalServices.bcmMcp.port }}
+{{- end }}
