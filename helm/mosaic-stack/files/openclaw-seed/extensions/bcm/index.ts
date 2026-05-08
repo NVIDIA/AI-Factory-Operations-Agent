@@ -1,12 +1,14 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
+const DEFAULT_BCM_HEAD_HOST = "BCM-SERV-01";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_EVENT_CHARS = 4000;
 
 type BcmConfig = {
   mcpUrl: string;
   authToken?: string;
+  headHost: string;
   timeoutMs: number;
   subagentEventsUrl: string;
 };
@@ -94,6 +96,10 @@ function readConfig(pluginConfig: unknown): BcmConfig {
   return {
     mcpUrl: normalizeMcpUrl(configuredUrl || DEFAULT_MCP_URL),
     authToken: configuredToken || undefined,
+    headHost:
+      stringConfig(pluginConfig, "headHost") ||
+      (typeof process !== "undefined" ? process.env?.MOSAIC_BCM_HEAD_HOST || process.env?.BCM_HEAD_HOST || "" : "") ||
+      DEFAULT_BCM_HEAD_HOST,
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
@@ -142,6 +148,29 @@ function jsonToolResult(payload: unknown) {
     content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
     details: payload,
   };
+}
+
+function compactToolSummaries(tools: unknown[]) {
+  return tools
+    .map((tool) => {
+      if (!tool || typeof tool !== "object") {
+        return null;
+      }
+      const candidate = tool as Record<string, unknown>;
+      const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+      if (!name) {
+        return null;
+      }
+      const description =
+        typeof candidate.description === "string"
+          ? candidate.description
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .find(Boolean) || ""
+          : "";
+      return description ? { name, description: truncate(description, 180) } : { name };
+    })
+    .filter(Boolean);
 }
 
 function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase, content: string) {
@@ -328,6 +357,32 @@ function objectParam(value: unknown) {
     : undefined;
 }
 
+function stringArrayParam(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)
+    : [];
+}
+
+function mergeLoadedModule(context: Record<string, unknown>, moduleName: string) {
+  const modules = new Set(stringArrayParam(context.loaded_modules));
+  modules.add(moduleName);
+  context.loaded_modules = [...modules];
+}
+
+function defaultExecutionContext(config: BcmConfig, toolId: string, rawContext?: Record<string, unknown>) {
+  const context = rawContext ? { ...rawContext } : {};
+  if (!stringParam(context.ssh_host)) {
+    context.ssh_host = config.headHost;
+  }
+  if (toolId.startsWith("slurm.")) {
+    mergeLoadedModule(context, "slurm");
+  }
+  if (toolId.startsWith("kubernetes.")) {
+    mergeLoadedModule(context, "kubernetes");
+  }
+  return context;
+}
+
 function subagentOptions(
   config: BcmConfig,
   toolCallId: string,
@@ -370,7 +425,10 @@ export default definePluginEntry({
             getInfo = await bcmRpc(
               config,
               "tools/call",
-              { name: "execute_tool", arguments: { tool_id: "bcm.get_info" } },
+              {
+                name: "execute_tool",
+                arguments: { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } },
+              },
               45_000,
             );
           } catch (error) {
@@ -379,13 +437,19 @@ export default definePluginEntry({
           const tools = Array.isArray((toolsResult as { tools?: unknown }).tools)
             ? ((toolsResult as { tools: unknown[] }).tools)
             : [];
-          postSubagentEvent(options, "complete", `BCM MCP is reachable. Exposed MCP tools: ${tools.length}.`);
+          const toolSummaries = compactToolSummaries(tools);
+          const getInfoText = textFromResult(getInfo);
+          postSubagentEvent(
+            options,
+            "complete",
+            `BCM MCP is reachable. Exposed MCP tools: ${tools.length}.`,
+          );
           return jsonToolResult({
             mcpUrl: config.mcpUrl,
             reachable: true,
             toolCount: tools.length,
-            tools,
-            getInfo,
+            tools: toolSummaries,
+            getInfo: getInfoText ? truncate(getInfoText, 1500) : getInfo,
             ...(getInfoError ? { getInfoError } : {}),
           });
         } catch (error) {
@@ -404,7 +468,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_tool",
-          { tool_id: "bcm.get_info" },
+          { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } },
           subagentOptions(config, toolCallId, "bcm_get_info", "BCM cluster info"),
         );
       },
@@ -460,10 +524,10 @@ export default definePluginEntry({
         }
         const args: Record<string, unknown> = { tool_id: toolId };
         const toolKwargs = objectParam(rawParams.tool_kwargs);
-        const context = objectParam(rawParams.context);
+        const context = defaultExecutionContext(config, toolId, objectParam(rawParams.context));
         const filterOptions = objectParam(rawParams.filter_options);
         if (toolKwargs) args.tool_kwargs = toolKwargs;
-        if (context) args.context = context;
+        args.context = context;
         if (filterOptions) args.filter_options = filterOptions;
         return callBcmTool(
           config,

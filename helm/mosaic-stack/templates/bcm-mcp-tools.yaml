@@ -18,6 +18,32 @@ spec:
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- if .Values.bcmMcp.hostSshKeySecretName }}
+      initContainers:
+        - name: init-bcm-ssh
+          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.busyboxImage | quote }}
+          imagePullPolicy: {{ .Values.mosaicTerminal.busyboxImage.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /root-ssh
+              cp /etc/ssh-keys/id_ecdsa /root-ssh/id_ecdsa
+              chmod 600 /root-ssh/id_ecdsa
+              {
+                printf '%s\n' 'Host *'
+                printf '%s\n' '  IdentityFile /root/.ssh/id_ecdsa'
+                printf '%s\n' '  StrictHostKeyChecking accept-new'
+                printf '%s\n' '  UserKnownHostsFile /root/.ssh/known_hosts'
+              } > /root-ssh/config
+              chmod 600 /root-ssh/config
+          volumeMounts:
+            - name: bcm-host-ssh-key
+              mountPath: /etc/ssh-keys
+              readOnly: true
+            - name: bcm-ssh-dir
+              mountPath: /root-ssh
+      {{- end }}
       containers:
         - name: bcm-mcp
           image: {{ include "mosaic-stack.image" .Values.bcmMcp.image | quote }}
@@ -49,6 +75,11 @@ spec:
           ports:
             - containerPort: {{ .Values.bcmMcp.service.port }}
               name: http
+          {{- if .Values.bcmMcp.hostSshKeySecretName }}
+          volumeMounts:
+            - name: bcm-ssh-dir
+              mountPath: /root/.ssh
+          {{- end }}
           readinessProbe:
             tcpSocket:
               port: http
@@ -61,6 +92,15 @@ spec:
             periodSeconds: 20
           resources:
 {{ toYaml .Values.bcmMcp.resources | indent 12 }}
+      {{- if .Values.bcmMcp.hostSshKeySecretName }}
+      volumes:
+        - name: bcm-host-ssh-key
+          secret:
+            secretName: {{ .Values.bcmMcp.hostSshKeySecretName }}
+            defaultMode: 0400
+        - name: bcm-ssh-dir
+          emptyDir: {}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
