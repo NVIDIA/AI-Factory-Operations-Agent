@@ -67,6 +67,15 @@ function resolveSubagentEventsUrl(pluginConfig: unknown): string {
   return "http://mosaic-ui:3000/api/subagents/events";
 }
 
+function mosaicUiBaseUrlFromEventsUrl(eventsUrl: string) {
+  try {
+    const url = new URL(eventsUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "";
+  }
+}
+
 function readConfig(pluginConfig: unknown): DiagnosticConfig {
   const configuredUrl =
     stringConfig(pluginConfig, "baseUrl") ||
@@ -113,9 +122,35 @@ function objectParam(value: unknown) {
     : null;
 }
 
+function normalizeDutId(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return value.trim().replace(/^dgx[\s_-]*(\d+)$/i, (_match, id) => `dgx-${id}`);
+}
+
 function compactJson(value: unknown, maxChars = MAX_EVENT_CHARS) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   return truncate(text || "", maxChars);
+}
+
+function compactDefinedJson(value: Record<string, unknown>, maxChars = MAX_EVENT_CHARS) {
+  const defined = Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined && entry !== ""),
+  );
+  return Object.keys(defined).length > 0 ? compactJson(defined, maxChars) : "";
+}
+
+function triageStatusContent(triageId: string, status: Record<string, unknown>) {
+  const currentStatus = typeof status.status === "string" ? status.status : "unknown";
+  const details = compactDefinedJson({
+    root_cause: status.root_cause,
+    severity: status.severity,
+    confidence: status.confidence,
+    error: status.error,
+    next_action: status.next_action,
+  });
+  return [`Triage ${triageId}: ${currentStatus}`, details].filter(Boolean).join("\n");
 }
 
 function headers(config: DiagnosticConfig) {
@@ -188,6 +223,21 @@ async function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase,
   });
 }
 
+async function suppressMosaicAlertForTriage(config: DiagnosticConfig, triageId: string) {
+  const baseUrl = mosaicUiBaseUrlFromEventsUrl(config.subagentEventsUrl);
+  if (!baseUrl || !triageId) {
+    return;
+  }
+
+  await fetch(`${baseUrl}/api/alerts/suppress`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ triageId }),
+  }).catch(() => {
+    // Alert suppression is best-effort; diagnosis and terminal streaming should continue.
+  });
+}
+
 function subagentOptions(
   config: DiagnosticConfig,
   toolCallId: string,
@@ -230,14 +280,7 @@ async function pollTriage(
       await postSubagentEvent(
         options,
         terminalStatus(currentStatus) ? (currentStatus === "failed" || currentStatus === "error" ? "error" : "complete") : "delta",
-        `Triage ${triageId}: ${compactJson({
-          status: status.status,
-          root_cause: status.root_cause,
-          severity: status.severity,
-          confidence: status.confidence,
-          error: status.error,
-          next_action: status.next_action,
-        })}`,
+        triageStatusContent(triageId, status),
       );
     }
     if (terminalStatus(currentStatus)) {
@@ -326,6 +369,7 @@ export default definePluginEntry({
         if (!dut) {
           throw new Error("dut is required");
         }
+        dut.id = normalizeDutId(dut.id);
         if (!eventText) {
           throw new Error("event_text is required");
         }
@@ -350,6 +394,9 @@ export default definePluginEntry({
             body: JSON.stringify(body),
           });
           const triageId = triageIdFrom(submitted);
+          if (mosaicSessionKey && triageId) {
+            await suppressMosaicAlertForTriage(config, triageId);
+          }
           await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson(submitted)}`);
 
           if (!wait || !triageId) {
@@ -362,7 +409,7 @@ export default definePluginEntry({
           const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
           const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
             .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
-          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${dutId}\n${compactJson({
+          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${dutId}\n${compactDefinedJson({
             status: status.status,
             root_cause: status.root_cause,
             severity: status.severity,

@@ -44,6 +44,16 @@ Call `bcm_health` if there is any doubt that the BCM MCP endpoint is reachable. 
 - Use `bcm_add_note` only to save meaningful findings from the current investigation. Use `bcm_remove_note` only when the user explicitly asks to delete or replace a note.
 - Use `bcm_search_docs` when the configured BCM MCP server has local documentation search enabled. If it fails because docs search is unavailable, report that plainly and continue with live tools.
 
+## Cluster Inventory Checks
+
+For cluster inventory, GPU inventory, or drift checks:
+
+- Start with `bcm_health` and `bcm_get_info`.
+- Try CMSH once if device inventory is needed. If CMSH returns `cmsh: command not found`, do not retry CMSH with alternate formatting or guessed paths.
+- Try parallel host contexts once if useful. If output says `pdsh not found`, do not retry `pdsh` genders or hostlist variants.
+- When CMSH or `pdsh` is unavailable, fall back to working read-only evidence: `bcm_execute_tool` for direct system tools, BCM exporter metrics, DCGM GPU telemetry, and observability queries if those tools are available.
+- For a GPU drift answer, identify the nodes actually observed, their GPU counts/models/utilization if available, any missing exporters or unavailable inventory paths, and whether the observed GPU nodes disagree.
+
 ## Response Rules
 
 Preserve important identifiers from BCM output: node names, categories, software images, Kubernetes cluster names, device names, users, ports, package versions, and command/tool IDs.

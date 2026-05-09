@@ -144,6 +144,29 @@ function jsonToolResult(payload: unknown) {
   };
 }
 
+function compactToolSummaries(tools: unknown[]) {
+  return tools
+    .map((tool) => {
+      if (!tool || typeof tool !== "object") {
+        return null;
+      }
+      const candidate = tool as Record<string, unknown>;
+      const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+      if (!name) {
+        return null;
+      }
+      const description =
+        typeof candidate.description === "string"
+          ? candidate.description
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .find(Boolean) || ""
+          : "";
+      return description ? { name, description: truncate(description, 180) } : { name };
+    })
+    .filter(Boolean);
+}
+
 function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase, content: string) {
   if (!options.subagentEventsUrl) {
     return;
@@ -379,13 +402,19 @@ export default definePluginEntry({
           const tools = Array.isArray((toolsResult as { tools?: unknown }).tools)
             ? ((toolsResult as { tools: unknown[] }).tools)
             : [];
-          postSubagentEvent(options, "complete", `BCM MCP is reachable. Exposed MCP tools: ${tools.length}.`);
+          const toolSummaries = compactToolSummaries(tools);
+          const getInfoText = textFromResult(getInfo);
+          postSubagentEvent(
+            options,
+            "complete",
+            `BCM MCP is reachable. Exposed MCP tools: ${tools.length}.`,
+          );
           return jsonToolResult({
             mcpUrl: config.mcpUrl,
             reachable: true,
             toolCount: tools.length,
-            tools,
-            getInfo,
+            tools: toolSummaries,
+            getInfo: getInfoText ? truncate(getInfoText, 1500) : getInfo,
             ...(getInfoError ? { getInfoError } : {}),
           });
         } catch (error) {
