@@ -54,6 +54,17 @@ For cluster inventory, GPU inventory, or drift checks:
 - When CMSH or `pdsh` is unavailable, fall back to working read-only evidence: `bcm_execute_tool` for direct system tools, BCM exporter metrics, DCGM GPU telemetry, and observability queries if those tools are available.
 - For a GPU drift answer, identify the nodes actually observed, their GPU counts/models/utilization if available, any missing exporters or unavailable inventory paths, and whether the observed GPU nodes disagree.
 
+## Hardware Baseline Checks
+
+For hardware baseline, firmware baseline, pre-maintenance baseline, or platform inventory requests, keep the user prompt simple and do the detailed read-only collection here:
+
+- Use `bcm_execute_tool` with `system.file_read` for DMI and firmware paths such as `/sys/class/dmi/id/product_name`, `/sys/class/dmi/id/product_version`, `/sys/class/dmi/id/bios_vendor`, `/sys/class/dmi/id/bios_version`, `/sys/class/dmi/id/bios_date`, `/sys/class/dmi/id/board_version`, and `/proc/driver/nvidia/version`.
+- Use `bcm_execute_tool` with `system.file_read` for InfiniBand facts such as `/sys/class/infiniband/mlx5_0/fw_ver` and `/sys/class/infiniband/mlx5_0/ports/1/state` when those paths exist.
+- Use `bcm_execute_tool` with `system.file_read` for NVMe model and firmware paths such as `/sys/block/nvme0n1/device/model`, `/sys/block/nvme0n1/device/firmware_rev`, `/sys/block/nvme2n1/device/model`, and `/sys/block/nvme2n1/device/firmware_rev` when those block devices exist.
+- Use `bcm_execute_tool` with `system.lspci` to summarize PCIe topology for NVIDIA GPUs, Mellanox/ConnectX InfiniBand, BlueField if present, and NVMe controllers.
+- If tools such as `dmidecode`, `nvidia-smi`, `nvme`, or `ibv_devinfo` are missing inside the BCM runtime, state that once and use sysfs, procfs, and `lspci` instead.
+- Finish with the observed platform fingerprint, BIOS/driver/firmware versions, fabric/storage topology, mismatches worth checking before maintenance, and explicit note that the collection was read-only.
+
 ## Response Rules
 
 Preserve important identifiers from BCM output: node names, categories, software images, Kubernetes cluster names, device names, users, ports, package versions, and command/tool IDs.
