@@ -19,8 +19,32 @@ spec:
         app: diagnostic-agent
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
-      {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
       initContainers:
+        - name: init-nvdebug-wrapper
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cat > /opt/mosaic-bin/nvdebug <<'EOF'
+              #!/bin/sh
+              if [ "${1:-}" = "collect" ]; then
+                shift
+                for arg in "$@"; do
+                  if [ "$arg" = "--skip-zip-split" ] || [ "$arg" = "-Z" ]; then
+                    exec /usr/local/bin/nvdebug collect "$@"
+                  fi
+                done
+                exec /usr/local/bin/nvdebug collect --skip-zip-split "$@"
+              fi
+              exec /usr/local/bin/nvdebug "$@"
+              EOF
+              chmod 0755 /opt/mosaic-bin/nvdebug
+          volumeMounts:
+            - name: diagnostic-agent-bin
+              mountPath: /opt/mosaic-bin
+      {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
         - name: init-playbooks
           image: busybox:1.36
           command:
@@ -47,6 +71,8 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            - name: PATH
+              value: /opt/mosaic-bin:$(PATH)
             - name: DEBUGHUB_NVDEBUG__TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.nvdebugTimeoutSeconds | quote }}
             {{- if .Values.diagnosticAgent.hostSshKeySecretName }}
@@ -109,8 +135,9 @@ spec:
             timeoutSeconds: 15
           resources:
 {{ toYaml .Values.diagnosticAgent.resources | indent 12 }}
-          {{- if or .Values.diagnosticAgent.hostSshKeySecretName .Values.diagnosticAgent.playbooksConfigMapName }}
           volumeMounts:
+            - name: diagnostic-agent-bin
+              mountPath: /opt/mosaic-bin
             {{- if .Values.diagnosticAgent.hostSshKeySecretName }}
             - name: bcm-host-ssh-key
               mountPath: /etc/ssh-keys
@@ -121,9 +148,9 @@ spec:
               mountPath: /opt/debuggability/playbooks
               readOnly: true
             {{- end }}
-          {{- end }}
-      {{- if or .Values.diagnosticAgent.hostSshKeySecretName .Values.diagnosticAgent.playbooksConfigMapName }}
       volumes:
+        - name: diagnostic-agent-bin
+          emptyDir: {}
         {{- if .Values.diagnosticAgent.hostSshKeySecretName }}
         - name: bcm-host-ssh-key
           secret:
@@ -137,7 +164,6 @@ spec:
           configMap:
             name: {{ .Values.diagnosticAgent.playbooksConfigMapName }}
         {{- end }}
-      {{- end }}
 ---
 apiVersion: v1
 kind: Service
