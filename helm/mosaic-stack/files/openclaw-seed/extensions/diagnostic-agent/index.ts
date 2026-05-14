@@ -4,7 +4,6 @@ const DEFAULT_BASE_URL = "http://diagnostic-agent";
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_DGX_BASEBOARD = "Blackwell-HGX-8-GPU";
-const DEFAULT_MOSAIC_PROFILE = "mosaic_h1_only";
 const MAX_EVENT_CHARS = 4000;
 
 type DiagnosticConfig = {
@@ -432,7 +431,7 @@ export default definePluginEntry({
           dut,
           event_text: eventText,
         };
-        const profileName = stringParam(rawParams.profile_name) || DEFAULT_MOSAIC_PROFILE;
+        const profileName = stringParam(rawParams.profile_name);
         const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key) || inferRecentMosaicSessionKey();
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
