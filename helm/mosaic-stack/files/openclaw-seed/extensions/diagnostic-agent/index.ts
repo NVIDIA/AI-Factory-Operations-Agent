@@ -5,6 +5,7 @@ const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_DGX_BASEBOARD = "Blackwell-HGX-8-GPU";
 const DEFAULT_MOSAIC_PROFILE = "mosaic_h1_only";
+const DEFAULT_ANALYZE_ATTEMPTS = 2;
 const MAX_EVENT_CHARS = 4000;
 
 type DiagnosticConfig = {
@@ -316,6 +317,29 @@ function triageIdFrom(value: unknown) {
     : "";
 }
 
+function collectionIssue(status: Record<string, unknown>, report: Record<string, unknown>) {
+  const explicitFailure = stringParam(status.collection_failure) || stringParam(report.collection_failure);
+  if (explicitFailure) {
+    return explicitFailure;
+  }
+  const text = compactJson({
+    root_cause: status.root_cause,
+    fault_summary: report.fault_summary,
+    caveats: report.caveats || status.caveats,
+    timeline_text: report.timeline_text,
+    additional_data_needed: report.additional_data_needed,
+    tool_evidence: report.tool_evidence,
+  }, 12000).toLowerCase();
+  const failed = [
+    "collector skipped",
+    "dependency check failed",
+    "not available on dut",
+    "ssh command timed out",
+    "command timed out",
+  ].find(pattern => text.includes(pattern));
+  return failed ? `collection did not produce usable telemetry (${failed})` : "";
+}
+
 async function pollTriage(
   config: DiagnosticConfig,
   triageId: string,
@@ -442,33 +466,46 @@ export default definePluginEntry({
         await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
 
         try {
-          const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
-            method: "POST",
-            body: JSON.stringify(body),
-          });
-          const triageId = triageIdFrom(submitted);
-          if (mosaicSessionKey && triageId) {
-            await suppressMosaicAlertForTriage(config, triageId);
-          }
-          await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson(submitted)}`);
-
-          if (!wait || !triageId) {
-            await postSubagentEvent(events, "complete", `Diagnostic triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
-            return jsonToolResult({ submitted, waited: false });
-          }
-
           const pollIntervalMs = Math.round(numberParam(rawParams.pollIntervalSeconds, DEFAULT_POLL_INTERVAL_MS / 1000, 1, 120) * 1000);
           const pollTimeoutMs = Math.round(numberParam(rawParams.pollTimeoutSeconds, config.timeoutMs / 1000, 10, 3600) * 1000);
-          const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
-          const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
-            .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
-          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
-            status: status.status,
-            root_cause: status.root_cause,
-            severity: status.severity,
-            confidence: status.confidence,
-          })}`);
-          return jsonToolResult({ submitted, status, report });
+          const attempts: Array<Record<string, unknown>> = [];
+          for (let attempt = 1; attempt <= DEFAULT_ANALYZE_ATTEMPTS; attempt += 1) {
+            const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
+              method: "POST",
+              body: JSON.stringify(body),
+            });
+            const triageId = triageIdFrom(submitted);
+            if (mosaicSessionKey && triageId) {
+              await suppressMosaicAlertForTriage(config, triageId);
+            }
+            await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson({ attempt, submitted })}`);
+
+            if (!wait || !triageId) {
+              await postSubagentEvent(events, "complete", `Diagnostic triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
+              return jsonToolResult({ submitted, waited: false });
+            }
+
+            const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
+            const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
+              .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
+            const issue = collectionIssue(status, report);
+            attempts.push({ triageId, issue });
+            if (issue && attempt < DEFAULT_ANALYZE_ATTEMPTS) {
+              await postSubagentEvent(events, "delta", `NVDebug collection incomplete; retrying (${issue})`);
+              continue;
+            }
+            if (issue) {
+              throw new Error(`NVDebug collection did not produce usable telemetry after ${DEFAULT_ANALYZE_ATTEMPTS} attempts: ${issue}`);
+            }
+            await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
+              status: status.status,
+              root_cause: status.root_cause,
+              severity: status.severity,
+              confidence: status.confidence,
+            })}`);
+            return jsonToolResult({ submitted, status, report, attempts });
+          }
+          throw new Error("NVDebug collection did not produce a result");
         } catch (error) {
           await postSubagentEvent(events, "error", error instanceof Error ? error.message : String(error));
           throw error;
