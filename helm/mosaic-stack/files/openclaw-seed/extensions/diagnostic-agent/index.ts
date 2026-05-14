@@ -387,7 +387,7 @@ export default definePluginEntry({
           dut: {
             type: "object",
             additionalProperties: true,
-            description: "DUTInfo-style object. Requires id plus either nvdebug_config_ref or bmc.ip resolvable by BCM.",
+            description: "DUTInfo-style object. Provide the hostname as id; diagnostic-agent resolves BMC details and credentials.",
           },
           event_text: {
             type: "string",
