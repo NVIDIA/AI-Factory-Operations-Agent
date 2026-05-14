@@ -3,12 +3,16 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 const DEFAULT_BASE_URL = "http://diagnostic-agent";
 const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
+const DEFAULT_COLLECTION_MAX_ATTEMPTS = 2;
+const DEFAULT_COLLECTION_RETRY_DELAY_MS = 10_000;
 const MAX_EVENT_CHARS = 4000;
 
 type DiagnosticConfig = {
   baseUrl: string;
   apiKey?: string;
   timeoutMs: number;
+  collectionMaxAttempts: number;
+  collectionRetryDelayMs: number;
   subagentEventsUrl: string;
 };
 
@@ -19,6 +23,12 @@ type SubagentOptions = {
   toolName: string;
   title: string;
   subagentEventsUrl?: string;
+};
+
+type CollectionCheck = {
+  ok: boolean;
+  retryable: boolean;
+  reason: string;
 };
 
 function stringConfig(pluginConfig: unknown, key: string) {
@@ -35,6 +45,10 @@ function numberConfig(pluginConfig: unknown, key: string, fallback: number) {
   }
   const value = (pluginConfig as Record<string, unknown>)[key];
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function boundedNumberConfig(pluginConfig: unknown, key: string, fallback: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, numberConfig(pluginConfig, key, fallback)));
 }
 
 function stringArrayConfig(pluginConfig: unknown, key: string) {
@@ -92,6 +106,16 @@ function readConfig(pluginConfig: unknown): DiagnosticConfig {
     baseUrl: normalizeBaseUrl(configuredUrl || DEFAULT_BASE_URL),
     apiKey: configuredApiKey || undefined,
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
+    collectionMaxAttempts: Math.round(
+      boundedNumberConfig(pluginConfig, "collectionMaxAttempts", DEFAULT_COLLECTION_MAX_ATTEMPTS, 1, 5),
+    ),
+    collectionRetryDelayMs: boundedNumberConfig(
+      pluginConfig,
+      "collectionRetryDelayMs",
+      DEFAULT_COLLECTION_RETRY_DELAY_MS,
+      1_000,
+      120_000,
+    ),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
 }
@@ -183,6 +207,142 @@ function compactDefinedJson(value: Record<string, unknown>, maxChars = MAX_EVENT
     Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined && entry !== ""),
   );
   return Object.keys(defined).length > 0 ? compactJson(defined, maxChars) : "";
+}
+
+function valueIsPresent(value: unknown) {
+  if (value === null || value === undefined || value === false) {
+    return false;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return Boolean(normalized) && !["false", "none", "null", "no", "n/a"].includes(normalized);
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
+  return true;
+}
+
+function collectText(value: unknown, result: string[] = [], depth = 0) {
+  if (depth > 6 || result.join("\n").length > 80_000) {
+    return result;
+  }
+  if (typeof value === "string") {
+    if (value.trim()) {
+      result.push(value);
+    }
+    return result;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectText(entry, result, depth + 1);
+    }
+    return result;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      result.push(key);
+      collectText(entry, result, depth + 1);
+    }
+  }
+  return result;
+}
+
+function findPresentField(value: unknown, names: Set<string>, depth = 0): string {
+  if (!value || typeof value !== "object" || depth > 6) {
+    return "";
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const found = findPresentField(entry, names, depth + 1);
+      if (found) return found;
+    }
+    return "";
+  }
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (names.has(key.toLowerCase()) && valueIsPresent(entry)) {
+      return `${key}: ${compactJson(entry, 500)}`;
+    }
+    const found = findPresentField(entry, names, depth + 1);
+    if (found) return found;
+  }
+  return "";
+}
+
+function diagnosticCollectionCheck(status: Record<string, unknown>, report: Record<string, unknown>): CollectionCheck {
+  const normalizedStatus = typeof status.status === "string" ? status.status.toLowerCase() : "";
+  const allText = collectText({ status, report }).join("\n");
+  const lowerText = allText.toLowerCase();
+  const nonRetryable = /(unknown|unsupported|invalid)\s+(dut|host|baseboard)|not\s+found|unauthorized|forbidden|bad\s+request/.test(lowerText);
+
+  if (["failed", "error", "rejected"].includes(normalizedStatus)) {
+    return {
+      ok: false,
+      retryable: !nonRetryable,
+      reason: `diagnostic-agent returned terminal status ${normalizedStatus || "unknown"}`,
+    };
+  }
+
+  const presentFailureField = findPresentField(
+    { status, report },
+    new Set(["collection_failure", "collection_failures", "collection_error", "collection_errors", "reportfetcherror"]),
+  );
+  if (presentFailureField) {
+    return {
+      ok: false,
+      retryable: true,
+      reason: presentFailureField,
+    };
+  }
+
+  const incompletePatterns: Array<[RegExp, string]> = [
+    [/\bonly\s+\d+(?:\.\d+)?\s*%[^.\n]{0,160}\b(?:collected|collection|diagnostic\s+data)\b/i, "partial diagnostic collection"],
+    [/\bpartial(?:ly)?\s+(?:diagnostic\s+)?(?:data\s+)?collection\b/i, "partial diagnostic collection"],
+    [/\b(?:failed|partial|skipped)\s*[:=]\s*[1-9]\d*\b/i, "nvdebug reported incomplete collectors"],
+    [/\b(?:collector|collectors|collection)\b[^.\n]{0,220}\b(?:skipped\b(?!\s*[:=]\s*0)|timed\s*out|timeout|not\s+collected|missing)\b/i, "collector did not complete"],
+    [/\b(?:collector|collectors)\b[^.\n]{0,160}\bfailed\b(?!\s*[:=]\s*0)/i, "collector did not complete"],
+    [/\b(?:skipped\b(?!\s*[:=]\s*0)|failed\b(?!\s*[:=]\s*0)|timed\s*out|timeout|missing|not\s+collected)\b[^.\n]{0,220}\b(?:collector|collectors|dmesg|nvidia-smi|nvidia-bug-report|host-side\s+diagnostics|diagnostic\s+data|nvdebug)\b/i, "required diagnostic data was not collected"],
+    [/\bdependency[- ]check(?:s)?\b[^.\n]{0,160}\b(?:failed|failure|failures|skipped)\b/i, "nvdebug dependency check failed"],
+    [/\bno\s+actual\s+fault\s+timestamps?\b[^.\n]{0,160}\bcollected\s+data\b/i, "no fault evidence found in collected data"],
+    [/\bmissing\b[^.\n]{0,160}\b(?:dmesg|nvidia-smi|nvidia-bug-report|host-side\s+diagnostics)\b/i, "required host diagnostics are missing"],
+  ];
+  const matched = incompletePatterns.find(([pattern]) => pattern.test(allText));
+  if (matched) {
+    return {
+      ok: false,
+      retryable: true,
+      reason: matched[1],
+    };
+  }
+
+  return {
+    ok: true,
+    retryable: false,
+    reason: "nvdebug collection verified",
+  };
+}
+
+function collectionAttemptSummary(
+  attempt: number,
+  submitted: Record<string, unknown>,
+  status: Record<string, unknown>,
+  check: CollectionCheck,
+) {
+  return {
+    attempt,
+    triage_id: triageIdFrom(submitted),
+    status: status.status,
+    collection_verified: check.ok,
+    retryable: check.retryable,
+    reason: check.reason,
+  };
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function triageStatusContent(triageId: string, status: Record<string, unknown>) {
@@ -313,6 +473,7 @@ async function pollTriage(
   options: SubagentOptions,
   pollIntervalMs: number,
   timeoutMs: number,
+  completePhase: SubagentPhase = "complete",
 ) {
   const started = Date.now();
   let lastStatus = "";
@@ -323,7 +484,9 @@ async function pollTriage(
       lastStatus = currentStatus;
       await postSubagentEvent(
         options,
-        terminalStatus(currentStatus) ? (currentStatus === "failed" || currentStatus === "error" ? "error" : "complete") : "delta",
+        terminalStatus(currentStatus)
+          ? (completePhase === "delta" ? "delta" : currentStatus === "failed" || currentStatus === "error" ? "error" : completePhase)
+          : "delta",
         triageStatusContent(triageId, status),
       );
     }
@@ -433,33 +596,80 @@ export default definePluginEntry({
         await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
 
         try {
-          const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
-            method: "POST",
-            body: JSON.stringify(body),
-          });
-          const triageId = triageIdFrom(submitted);
-          if (mosaicSessionKey && triageId) {
-            await suppressMosaicAlertForTriage(config, triageId);
-          }
-          await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson(submitted)}`);
-
-          if (!wait || !triageId) {
-            await postSubagentEvent(events, "complete", `Diagnostic triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
-            return jsonToolResult({ submitted, waited: false });
-          }
-
           const pollIntervalMs = Math.round(numberParam(rawParams.pollIntervalSeconds, DEFAULT_POLL_INTERVAL_MS / 1000, 1, 120) * 1000);
           const pollTimeoutMs = Math.round(numberParam(rawParams.pollTimeoutSeconds, config.timeoutMs / 1000, 10, 3600) * 1000);
-          const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
-          const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
-            .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
-          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
-            status: status.status,
-            root_cause: status.root_cause,
-            severity: status.severity,
-            confidence: status.confidence,
-          })}`);
-          return jsonToolResult({ submitted, status, report });
+          const maxAttempts = wait ? config.collectionMaxAttempts : 1;
+          const attempts: Array<Record<string, unknown>> = [];
+
+          for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
+              method: "POST",
+              body: JSON.stringify(body),
+            });
+            const triageId = triageIdFrom(submitted);
+            if (mosaicSessionKey && triageId) {
+              await suppressMosaicAlertForTriage(config, triageId);
+            }
+            await postSubagentEvent(
+              events,
+              "delta",
+              `Diagnostic triage queued${maxAttempts > 1 ? ` (attempt ${attempt}/${maxAttempts})` : ""}: ${compactJson(submitted)}`,
+            );
+
+            if (!wait || !triageId) {
+              await postSubagentEvent(events, "complete", `Diagnostic triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
+              return jsonToolResult({ submitted, waited: false, collection_verified: false });
+            }
+
+            const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs, "delta");
+            const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
+              .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
+            const collectionCheck = diagnosticCollectionCheck(status, report);
+            attempts.push(collectionAttemptSummary(attempt, submitted, status, collectionCheck));
+
+            if (collectionCheck.ok) {
+              await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
+                status: status.status,
+                root_cause: status.root_cause,
+                severity: status.severity,
+                confidence: status.confidence,
+                collection: collectionCheck.reason,
+                attempts: attempt,
+              })}`);
+              return jsonToolResult({
+                submitted,
+                status,
+                report,
+                collection_verified: true,
+                collection_attempts: attempt,
+                attempts,
+              });
+            }
+
+            if (collectionCheck.retryable && attempt < maxAttempts) {
+              await postSubagentEvent(
+                events,
+                "delta",
+                `NVDebug collection did not verify on attempt ${attempt}/${maxAttempts}: ${collectionCheck.reason}. Retrying collection.`,
+              );
+              await sleep(config.collectionRetryDelayMs);
+              continue;
+            }
+
+            const collectionError = `NVDebug collection did not verify after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${collectionCheck.reason}`;
+            await postSubagentEvent(events, "error", collectionError);
+            return jsonToolResult({
+              submitted,
+              status,
+              report,
+              collection_verified: false,
+              collection_error: collectionError,
+              collection_attempts: attempt,
+              attempts,
+            });
+          }
+
+          throw new Error(`NVDebug collection did not run for ${displayDutId}`);
         } catch (error) {
           await postSubagentEvent(events, "error", error instanceof Error ? error.message : String(error));
           throw error;
