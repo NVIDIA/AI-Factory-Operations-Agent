@@ -71,10 +71,10 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            - name: PATH
-              value: /opt/mosaic-bin:$(PATH)
             - name: DEBUGHUB_NVDEBUG__TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.nvdebugTimeoutSeconds | quote }}
+            - name: DEBUGHUB_NVDEBUG__PATH
+              value: /opt/mosaic-bin/nvdebug
             {{- if .Values.diagnosticAgent.hostSshKeySecretName }}
             - name: NVDEBUG_HOST_SSH_KEY_PATH
               value: /etc/ssh-keys/id_ecdsa
