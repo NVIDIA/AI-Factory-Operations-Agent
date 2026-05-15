@@ -77,17 +77,36 @@ function mosaicUiBaseUrlFromEventsUrl(eventsUrl: string) {
   }
 }
 
+function firstApiKey(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed === "string") {
+      return parsed.trim();
+    }
+    const values = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" ? Object.values(parsed) : [];
+    const first = values.find((entry) => typeof entry === "string" && entry.trim());
+    return typeof first === "string" ? first.trim() : "";
+  } catch {
+    return trimmed.split(/[,\n]/).map((entry) => entry.trim()).find(Boolean) || trimmed;
+  }
+}
+
 function readConfig(pluginConfig: unknown): DiagnosticConfig {
   const configuredUrl =
     stringConfig(pluginConfig, "baseUrl") ||
     (typeof process !== "undefined"
       ? process.env?.MOSAIC_DIAGNOSTIC_AGENT_URL || process.env?.DIAGNOSTIC_AGENT_URL || ""
       : "");
-  const configuredApiKey =
+  const configuredApiKey = firstApiKey(
     stringConfig(pluginConfig, "apiKey") ||
-    (typeof process !== "undefined"
-      ? process.env?.DIAGNOSTIC_AGENT_API_KEY || ""
-      : "");
+      (typeof process !== "undefined"
+        ? process.env?.DIAGNOSTIC_AGENT_API_KEY || process.env?.AGENT_API_KEYS || ""
+        : ""),
+  );
 
   return {
     baseUrl: normalizeBaseUrl(configuredUrl || DEFAULT_BASE_URL),
