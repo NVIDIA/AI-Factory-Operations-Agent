@@ -434,7 +434,7 @@ export default definePluginEntry({
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "event_text", "mosaic_chat_session_key"],
+        required: ["dut", "event_text"],
         properties: {
           dut: {
             type: "object",
@@ -451,7 +451,7 @@ export default definePluginEntry({
           },
           mosaic_chat_session_key: {
             type: "string",
-            description: "Required when called from Mosaic. Copy the exact value from the [Mosaic Runtime] block so diagnostic-agent can stream nvdebug progress to the matching Terminal tab.",
+            description: "Optional Mosaic session key. Copy the exact value from the [Mosaic Runtime] block when present so diagnostic-agent can stream nvdebug progress to the matching Terminal tab.",
           },
           wait: {
             type: "boolean",
