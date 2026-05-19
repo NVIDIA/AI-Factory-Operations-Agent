@@ -33,3 +33,7 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `rate(bcm_network_receive_bytes_total[5m])`
 - `rate(bcm_infiniband_port_data_received_bytes_total[5m])`
 - `bcm_process_count`
+
+When answering GPU temperature questions, explicitly identify the hottest
+Hostname/GPU, compare it against peer GPUs, and call out whether one GPU is
+materially hotter than the rest.

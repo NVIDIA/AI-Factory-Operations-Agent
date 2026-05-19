@@ -68,6 +68,8 @@ rules:
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["podmonitors", "prometheuses", "servicemonitors"]
     verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/api", "/api/*", "/apis", "/apis/*", "/openapi", "/openapi/*", "/version"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
