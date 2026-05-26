@@ -30,7 +30,7 @@ spec:
         - name: install-kubectl
           image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.kubectlInstallerImage | quote }}
           imagePullPolicy: {{ .Values.mosaicTerminal.kubectlInstallerImage.pullPolicy }}
-          command: ["sh", "-lc", "set -eu; curl -fsSL -o /tools/kubectl https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl && chmod +x /tools/kubectl"]
+          command: ["sh", "-lc", "set -eu; cp /usr/local/bin/kubectl /tools/kubectl && chmod +x /tools/kubectl"]
           volumeMounts:
             - name: tools
               mountPath: /tools
