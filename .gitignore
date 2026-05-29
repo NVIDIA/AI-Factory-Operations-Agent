@@ -5,5 +5,6 @@ __pycache__/
 *.log
 *.next
 helm/**/values-secrets*.yaml
+helm/**/charts/*.tgz
 /demo_artifacts
 pandas/README.md
