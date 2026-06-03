@@ -9,6 +9,8 @@ metadata:
 spec:
   replicas: {{ .Values.mosaicUi.replicaCount }}
   revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mosaic-ui
