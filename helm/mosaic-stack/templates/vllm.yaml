@@ -8,6 +8,7 @@ metadata:
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
   serviceName: {{ .Values.vllm.name }}-headless
+  podManagementPolicy: Parallel
   replicas: {{ .Values.vllm.replicaCount }}
   selector:
     matchLabels:
