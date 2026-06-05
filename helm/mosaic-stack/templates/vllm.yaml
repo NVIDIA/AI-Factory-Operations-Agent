@@ -57,6 +57,10 @@ spec:
               value: /models
             - name: VLLM_WORKER_MULTIPROC_METHOD
               value: spawn
+            - name: VLLM_USE_FLASHINFER_MOE_FP4
+              value: "1"
+            - name: VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS
+              value: "1"
           ports:
             - name: http
               containerPort: {{ .Values.vllm.port }}
