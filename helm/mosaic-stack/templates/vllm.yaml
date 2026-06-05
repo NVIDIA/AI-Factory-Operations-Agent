@@ -23,6 +23,10 @@ spec:
       nodeSelector:
 {{ toYaml . | indent 8 }}
       {{- end }}
+      {{- if .Values.vllm.runtimeClassName }}
+      runtimeClassName: {{ .Values.vllm.runtimeClassName }}
+      {{- end }}
+      enableServiceLinks: false
       containers:
         - name: vllm
           image: {{ include "mosaic-stack.image" .Values.vllm.image | quote }}
