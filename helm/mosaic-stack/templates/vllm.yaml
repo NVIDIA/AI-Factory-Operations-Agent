@@ -1,0 +1,152 @@
+{{- if .Values.vllm.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.vllm.name }}
+  labels:
+    app: {{ .Values.vllm.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.vllm.name }}-headless
+  replicas: {{ .Values.vllm.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.vllm.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.vllm.name }}
+    spec:
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- with .Values.vllm.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      containers:
+        - name: vllm
+          image: {{ include "mosaic-stack.image" .Values.vllm.image | quote }}
+          imagePullPolicy: {{ .Values.vllm.image.pullPolicy }}
+          command: ["vllm"]
+          args:
+            - serve
+            - {{ .Values.vllm.model | quote }}
+            - --host=0.0.0.0
+            - --port={{ .Values.vllm.port }}
+            - --tensor-parallel-size={{ .Values.vllm.tensorParallelSize }}
+            - --served-model-name={{ .Values.vllm.servedModelName }}
+            {{- range .Values.vllm.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            {{- if .Values.vllm.hfTokenSecretName }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.vllm.hfTokenSecretName }}
+                  key: {{ .Values.vllm.hfTokenSecretKey }}
+                  optional: true
+            {{- end }}
+            - name: HF_HOME
+              value: /models
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /models
+            - name: VLLM_WORKER_MULTIPROC_METHOD
+              value: spawn
+          ports:
+            - name: http
+              containerPort: {{ .Values.vllm.port }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 40
+          resources:
+            requests:
+{{ toYaml .Values.vllm.resources.requests | indent 14 }}
+              nvidia.com/gpu: {{ .Values.vllm.gpuCount | quote }}
+            limits:
+{{ toYaml .Values.vllm.resources.limits | indent 14 }}
+              nvidia.com/gpu: {{ .Values.vllm.gpuCount | quote }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.vllm.shmSize }}
+  volumeClaimTemplates:
+    - metadata:
+        name: model-cache
+        labels:
+          {{- include "mosaic-stack.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.vllm.modelCache.size }}
+        {{- if .Values.vllm.modelCache.storageClassName }}
+        storageClassName: {{ .Values.vllm.modelCache.storageClassName | quote }}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.vllm.name }}
+  labels:
+    app: {{ .Values.vllm.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.vllm.name }}
+  ports:
+    - name: http
+      port: {{ .Values.vllm.port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.vllm.name }}-headless
+  labels:
+    app: {{ .Values.vllm.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ .Values.vllm.name }}
+  ports:
+    - name: http
+      port: {{ .Values.vllm.port }}
+      targetPort: http
+{{- end }}
+{{- if and .Values.vllm.enabled .Values.vllm.compatibilityService.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.vllm.compatibilityService.name }}
+  namespace: {{ .Values.vllm.compatibilityService.namespace }}
+  labels:
+    app: {{ .Values.vllm.compatibilityService.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  type: ExternalName
+  externalName: {{ default (printf "%s.%s.svc.cluster.local" .Values.vllm.name .Release.Namespace) .Values.vllm.compatibilityService.externalName }}
+  ports:
+    - name: http
+      port: {{ .Values.vllm.port }}
+      targetPort: {{ .Values.vllm.port }}
+{{- end }}
