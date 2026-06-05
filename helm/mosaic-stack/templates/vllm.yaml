@@ -55,8 +55,6 @@ spec:
               value: /models
             - name: HUGGINGFACE_HUB_CACHE
               value: /models
-            - name: VLLM_WORKER_MULTIPROC_METHOD
-              value: spawn
             - name: VLLM_USE_FLASHINFER_MOE_FP4
               value: "1"
             - name: VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS
