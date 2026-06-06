@@ -57,6 +57,8 @@ spec:
               value: /models
             - name: VLLM_WORKER_MULTIPROC_METHOD
               value: spawn
+            - name: NCCL_NVLS_ENABLE
+              value: "0"
           ports:
             - name: http
               containerPort: {{ .Values.vllm.port }}
