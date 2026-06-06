@@ -59,6 +59,8 @@ spec:
               value: spawn
             - name: NCCL_NVLS_ENABLE
               value: "0"
+            - name: VLLM_ALLREDUCE_USE_SYMM_MEM
+              value: "0"
           ports:
             - name: http
               containerPort: {{ .Values.vllm.port }}
