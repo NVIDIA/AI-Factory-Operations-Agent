@@ -82,11 +82,11 @@ spec:
               value: /etc/ssh-keys/id_ecdsa
             {{- end }}
             - name: DEBUGHUB_INFERENCE__ENDPOINT
-              value: {{ .Values.global.vllmBaseUrl | quote }}
+              value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
             - name: DEBUGHUB_INFERENCE__BACKEND
               value: {{ .Values.diagnosticAgent.config.inferenceBackend | quote }}
             - name: DEBUGHUB_INFERENCE__MODEL
-              value: {{ .Values.global.vllmModel | quote }}
+              value: {{ include "mosaic-stack.llmModel" . | quote }}
             - name: DEBUGHUB_INFERENCE__API_KEY
               value: {{ .Values.diagnosticAgent.config.inferenceApiKey | quote }}
             - name: DEBUGHUB_PLAYBOOK__PATH

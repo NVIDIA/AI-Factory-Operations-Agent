@@ -50,3 +50,23 @@ nodeSelector:
 {{- $base := printf "%s-%s" (include "mosaic-stack.fullname" .) .Release.Namespace -}}
 {{- printf "%s-%s" ($base | trunc 42 | trimSuffix "-") (sha256sum $base | trunc 8) -}}
 {{- end -}}
+
+{{- define "mosaic-stack.llmBaseUrl" -}}
+{{- if eq .Values.llm.mode "vllm" -}}
+{{- printf "http://%s:%v/v1" .Values.llm.vllm.name .Values.llm.vllm.port -}}
+{{- else -}}
+{{- .Values.llm.external.baseUrl -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.llmModel" -}}
+{{- if eq .Values.llm.mode "vllm" -}}
+{{- .Values.llm.vllm.servedModelName -}}
+{{- else -}}
+{{- .Values.llm.external.model -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.vllmTensorParallelSize" -}}
+{{- default .Values.llm.vllm.gpuCount .Values.llm.vllm.tensorParallelSize -}}
+{{- end -}}

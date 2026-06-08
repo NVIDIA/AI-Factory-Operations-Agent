@@ -1,0 +1,26 @@
+llm:
+  mode: vllm
+  vllm:
+    profile: super-1gpu
+    replicaCount: 1
+    model: nvidia/Nemotron-Super-49B-v1
+    servedModelName: nemotron-super-49b
+    gpuCount: 1
+    tensorParallelSize: 1
+    modelCache:
+      size: 500Gi
+    resources:
+      requests:
+        cpu: "8"
+        memory: 64Gi
+      limits:
+        cpu: "16"
+        memory: 128Gi
+    extraArgs:
+      - --max-num-seqs=16
+      - --max-model-len=32768
+      - --gpu-memory-utilization=0.90
+      - --trust-remote-code
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder

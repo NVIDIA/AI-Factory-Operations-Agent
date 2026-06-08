@@ -1,0 +1,22 @@
+{{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
+{{- fail "llm.mode must be one of: external, vllm" -}}
+{{- end -}}
+{{- if eq .Values.llm.mode "external" -}}
+{{- if not .Values.llm.external.baseUrl -}}
+{{- fail "llm.external.baseUrl is required when llm.mode=external" -}}
+{{- end -}}
+{{- if not .Values.llm.external.model -}}
+{{- fail "llm.external.model is required when llm.mode=external" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq .Values.llm.mode "vllm" -}}
+{{- if not (has .Values.llm.vllm.profile (list "super-1gpu" "ultra-16gpu")) -}}
+{{- fail "llm.vllm.profile must be one of: super-1gpu, ultra-16gpu" -}}
+{{- end -}}
+{{- if lt (int .Values.llm.vllm.gpuCount) 1 -}}
+{{- fail "llm.vllm.gpuCount must be at least 1" -}}
+{{- end -}}
+{{- if lt (int .Values.llm.vllm.replicaCount) 1 -}}
+{{- fail "llm.vllm.replicaCount must be at least 1" -}}
+{{- end -}}
+{{- end -}}

@@ -1,54 +1,60 @@
-{{- if .Values.vllm.enabled }}
+{{- $root := . -}}
+{{- $v := .Values.llm.vllm -}}
+{{- if eq .Values.llm.mode "vllm" }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ .Values.vllm.name }}
+  name: {{ $v.name }}
   labels:
-    app: {{ .Values.vllm.name }}
+    app: {{ $v.name }}
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ .Values.vllm.name }}-headless
+  serviceName: {{ $v.name }}-headless
   podManagementPolicy: Parallel
-  replicas: {{ .Values.vllm.replicaCount }}
+  replicas: {{ $v.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.vllm.name }}
+      app: {{ $v.name }}
   template:
     metadata:
       labels:
-        app: {{ .Values.vllm.name }}
+        app: {{ $v.name }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
-      {{- with .Values.vllm.nodeSelector }}
+      {{- with $v.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
       {{- end }}
-      {{- if .Values.vllm.runtimeClassName }}
-      runtimeClassName: {{ .Values.vllm.runtimeClassName }}
+      {{- with $v.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- if $v.runtimeClassName }}
+      runtimeClassName: {{ $v.runtimeClassName }}
       {{- end }}
       enableServiceLinks: false
       containers:
         - name: vllm
-          image: {{ include "mosaic-stack.image" .Values.vllm.image | quote }}
-          imagePullPolicy: {{ .Values.vllm.image.pullPolicy }}
+          image: {{ include "mosaic-stack.image" $v.image | quote }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
           command: ["vllm"]
           args:
             - serve
-            - {{ .Values.vllm.model | quote }}
+            - {{ $v.model | quote }}
             - --host=0.0.0.0
-            - --port={{ .Values.vllm.port }}
-            - --tensor-parallel-size={{ .Values.vllm.tensorParallelSize }}
-            - --served-model-name={{ .Values.vllm.servedModelName }}
-            {{- range .Values.vllm.extraArgs }}
+            - --port={{ $v.port }}
+            - --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }}
+            - --served-model-name={{ $v.servedModelName }}
+            {{- range $v.extraArgs }}
             - {{ . | quote }}
             {{- end }}
           env:
-            {{- if .Values.vllm.hfTokenSecretName }}
+            {{- if $v.existingSecret }}
             - name: HF_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.vllm.hfTokenSecretName }}
-                  key: {{ .Values.vllm.hfTokenSecretKey }}
+                  name: {{ $v.existingSecret }}
+                  key: {{ $v.modelTokenSecretKey }}
                   optional: true
             {{- end }}
             - name: HF_HOME
@@ -63,7 +69,7 @@ spec:
               value: "0"
           ports:
             - name: http
-              containerPort: {{ .Values.vllm.port }}
+              containerPort: {{ $v.port }}
           startupProbe:
             httpGet:
               path: /health
@@ -80,11 +86,11 @@ spec:
             failureThreshold: 40
           resources:
             requests:
-{{ toYaml .Values.vllm.resources.requests | indent 14 }}
-              nvidia.com/gpu: {{ .Values.vllm.gpuCount | quote }}
+{{ toYaml $v.resources.requests | indent 14 }}
+              nvidia.com/gpu: {{ $v.gpuCount | quote }}
             limits:
-{{ toYaml .Values.vllm.resources.limits | indent 14 }}
-              nvidia.com/gpu: {{ .Values.vllm.gpuCount | quote }}
+{{ toYaml $v.resources.limits | indent 14 }}
+              nvidia.com/gpu: {{ $v.gpuCount | quote }}
           volumeMounts:
             - name: model-cache
               mountPath: /models
@@ -94,7 +100,7 @@ spec:
         - name: dshm
           emptyDir:
             medium: Memory
-            sizeLimit: {{ .Values.vllm.shmSize }}
+            sizeLimit: {{ $v.shmSize }}
   volumeClaimTemplates:
     - metadata:
         name: model-cache
@@ -105,57 +111,57 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: {{ .Values.vllm.modelCache.size }}
-        {{- if .Values.vllm.modelCache.storageClassName }}
-        storageClassName: {{ .Values.vllm.modelCache.storageClassName | quote }}
+            storage: {{ $v.modelCache.size }}
+        {{- if $v.modelCache.storageClassName }}
+        storageClassName: {{ $v.modelCache.storageClassName | quote }}
         {{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.vllm.name }}
+  name: {{ $v.name }}
   labels:
-    app: {{ .Values.vllm.name }}
+    app: {{ $v.name }}
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
   selector:
-    app: {{ .Values.vllm.name }}
+    app: {{ $v.name }}
   ports:
     - name: http
-      port: {{ .Values.vllm.port }}
+      port: {{ $v.port }}
       targetPort: http
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.vllm.name }}-headless
+  name: {{ $v.name }}-headless
   labels:
-    app: {{ .Values.vllm.name }}
+    app: {{ $v.name }}
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
   clusterIP: None
   selector:
-    app: {{ .Values.vllm.name }}
+    app: {{ $v.name }}
   ports:
     - name: http
-      port: {{ .Values.vllm.port }}
+      port: {{ $v.port }}
       targetPort: http
 {{- end }}
-{{- if and .Values.vllm.enabled .Values.vllm.compatibilityService.enabled }}
+{{- if and (eq $root.Values.llm.mode "vllm") $v.compatibilityService.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.vllm.compatibilityService.name }}
-  namespace: {{ .Values.vllm.compatibilityService.namespace }}
+  name: {{ $v.compatibilityService.name }}
+  namespace: {{ $v.compatibilityService.namespace }}
   labels:
-    app: {{ .Values.vllm.compatibilityService.name }}
-    {{- include "mosaic-stack.labels" . | nindent 4 }}
+    app: {{ $v.compatibilityService.name }}
+    {{- include "mosaic-stack.labels" $root | nindent 4 }}
 spec:
   type: ExternalName
-  externalName: {{ default (printf "%s.%s.svc.cluster.local" .Values.vllm.name .Release.Namespace) .Values.vllm.compatibilityService.externalName }}
+  externalName: {{ default (printf "%s.%s.svc.cluster.local" $v.name $root.Release.Namespace) $v.compatibilityService.externalName }}
   ports:
     - name: http
-      port: {{ .Values.vllm.port }}
-      targetPort: {{ .Values.vllm.port }}
+      port: {{ $v.port }}
+      targetPort: {{ $v.port }}
 {{- end }}
