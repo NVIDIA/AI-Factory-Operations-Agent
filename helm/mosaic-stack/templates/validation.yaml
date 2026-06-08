@@ -19,4 +19,27 @@
 {{- if lt (int .Values.llm.vllm.replicaCount) 1 -}}
 {{- fail "llm.vllm.replicaCount must be at least 1" -}}
 {{- end -}}
+{{- if and .Values.llm.vllm.secrets.create (not .Values.llm.vllm.secrets.hfToken) -}}
+{{- fail "llm.vllm.secrets.hfToken is required when llm.vllm.secrets.create=true" -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.registryCredentials.create (not .Values.registryCredentials.password) -}}
+{{- fail "registryCredentials.password is required when registryCredentials.create=true" -}}
+{{- end -}}
+{{- if and .Values.openclaw.enabled .Values.openclaw.secrets.create (not .Values.openclaw.secrets.gatewayToken) -}}
+{{- fail "openclaw.secrets.gatewayToken is required when openclaw.secrets.create=true" -}}
+{{- end -}}
+{{- if and .Values.diagnosticAgent.enabled .Values.diagnosticAgent.secrets.create -}}
+{{- if not .Values.diagnosticAgent.secrets.bcmWebhookUrl -}}
+{{- fail "diagnosticAgent.secrets.bcmWebhookUrl is required when diagnosticAgent.secrets.create=true" -}}
+{{- end -}}
+{{- if not .Values.diagnosticAgent.secrets.bcmWebhookToken -}}
+{{- fail "diagnosticAgent.secrets.bcmWebhookToken is required when diagnosticAgent.secrets.create=true" -}}
+{{- end -}}
+{{- if and .Values.diagnosticAgent.hostSshKeySecretName (not .Values.diagnosticAgent.secrets.hostSshPrivateKey) -}}
+{{- fail "diagnosticAgent.secrets.hostSshPrivateKey is required when diagnosticAgent.hostSshKeySecretName is set" -}}
+{{- end -}}
+{{- if and .Values.diagnosticAgent.playbooksConfigMapName (not .Values.diagnosticAgent.secrets.playbooksTgzBase64) -}}
+{{- fail "diagnosticAgent.secrets.playbooksTgzBase64 is required when diagnosticAgent.playbooksConfigMapName is set" -}}
+{{- end -}}
 {{- end -}}
