@@ -2,17 +2,17 @@ llm:
   mode: vllm
   vllm:
     profile: ultra-16gpu
-    replicaCount: 4
+    replicaCount: 2
     model: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4
     servedModelName: nemotron-ultra-550b
-    gpuCount: 4
-    tensorParallelSize: 4
+    gpuCount: 8
+    tensorParallelSize: 8
     modelCache:
       size: 2Ti
     resources:
       requests:
-        cpu: "16"
-        memory: 128Gi
+        cpu: "64"
+        memory: 512Gi
       limits:
-        cpu: "32"
-        memory: 256Gi
+        cpu: "128"
+        memory: 1Ti
