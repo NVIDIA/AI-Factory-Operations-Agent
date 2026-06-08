@@ -5,6 +5,9 @@ __pycache__/
 *.log
 *.next
 helm/**/values-secrets*.yaml
+helm/secrets.env
+helm/secrets.*.env
+!helm/secrets.example.env
 helm/**/charts/*.tgz
 /demo_artifacts
 pandas/README.md
