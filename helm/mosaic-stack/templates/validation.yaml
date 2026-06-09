@@ -19,7 +19,7 @@
 {{- if lt (int .Values.llm.vllm.replicaCount) 1 -}}
 {{- fail "llm.vllm.replicaCount must be at least 1" -}}
 {{- end -}}
-{{- if and .Values.llm.vllm.distributed.enabled (ne (int .Values.llm.vllm.replicaCount) 1) -}}
+{{- if and (eq (toString .Values.llm.vllm.distributed.enabled) "true") (ne (int .Values.llm.vllm.replicaCount) 1) -}}
 {{- fail "llm.vllm.replicaCount must be 1 when distributed vLLM is enabled" -}}
 {{- end -}}
 {{- if and .Values.llm.vllm.secrets.create (not .Values.llm.vllm.secrets.hfToken) -}}

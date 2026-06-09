@@ -1,6 +1,6 @@
 {{- $root := . -}}
 {{- $v := .Values.llm.vllm -}}
-{{- $distributed := and (eq .Values.llm.mode "vllm") $v.distributed.enabled -}}
+{{- $distributed := and (eq .Values.llm.mode "vllm") (eq (toString $v.distributed.enabled) "true") -}}
 {{- if eq .Values.llm.mode "vllm" }}
 apiVersion: apps/v1
 kind: StatefulSet
