@@ -1,5 +1,6 @@
 {{- $root := . -}}
 {{- $v := .Values.llm.vllm -}}
+{{- $distributed := and (eq .Values.llm.mode "vllm") $v.distributed.enabled -}}
 {{- if eq .Values.llm.mode "vllm" }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -19,6 +20,7 @@ spec:
     metadata:
       labels:
         app: {{ $v.name }}
+        role: {{ ternary "head" "server" $distributed }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- with $v.nodeSelector }}
@@ -37,6 +39,34 @@ spec:
         - name: vllm
           image: {{ include "mosaic-stack.image" $v.image | quote }}
           imagePullPolicy: {{ $v.image.pullPolicy }}
+          {{- if $distributed }}
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              ray start --head --port={{ $v.distributed.rayPort }} --dashboard-host=0.0.0.0 --num-gpus={{ $v.gpuCount }}
+              export RAY_ADDRESS=127.0.0.1:{{ $v.distributed.rayPort }}
+              python3 - <<'PY'
+              import os, time
+              import ray
+              target = int(os.environ["VLLM_RAY_EXPECTED_GPUS"])
+              ray.init(address=os.environ["RAY_ADDRESS"], ignore_reinit_error=True)
+              for _ in range(360):
+                  gpus = int(ray.cluster_resources().get("GPU", 0))
+                  if gpus >= target:
+                      print(f"Ray GPU resources ready: {gpus}")
+                      break
+                  print(f"Waiting for Ray GPU resources: {gpus}/{target}", flush=True)
+                  time.sleep(5)
+              else:
+                  raise SystemExit(f"Ray cluster never reached {target} GPUs")
+              PY
+              args=(serve {{ $v.model | quote }} --host=0.0.0.0 --port={{ $v.port }} --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }} --distributed-executor-backend=ray --served-model-name={{ $v.servedModelName | quote }})
+              {{- range $v.extraArgs }}
+              args+=({{ . | quote }})
+              {{- end }}
+              exec vllm "${args[@]}"
+          {{- else }}
           command: ["vllm"]
           args:
             - serve
@@ -48,6 +78,7 @@ spec:
             {{- range $v.extraArgs }}
             - {{ . | quote }}
             {{- end }}
+          {{- end }}
           env:
             {{- if $v.existingSecret }}
             - name: HF_TOKEN
@@ -67,9 +98,19 @@ spec:
               value: "0"
             - name: VLLM_ALLREDUCE_USE_SYMM_MEM
               value: "0"
+            {{- if $distributed }}
+            - name: VLLM_RAY_EXPECTED_GPUS
+              value: {{ $v.distributed.expectedGpuCount | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ $v.port }}
+            {{- if $distributed }}
+            - name: ray
+              containerPort: {{ $v.distributed.rayPort }}
+            - name: dashboard
+              containerPort: {{ $v.distributed.dashboardPort }}
+            {{- end }}
           startupProbe:
             httpGet:
               path: /health
@@ -113,6 +154,102 @@ spec:
         {{- if $v.modelCache.storageClassName }}
         storageClassName: {{ $v.modelCache.storageClassName | quote }}
         {{- end }}
+{{- if $distributed }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $v.name }}-worker
+  labels:
+    app: {{ $v.name }}-worker
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ $v.name }}-worker-headless
+  podManagementPolicy: Parallel
+  replicas: {{ $v.distributed.workerReplicaCount }}
+  selector:
+    matchLabels:
+      app: {{ $v.name }}-worker
+      app.kubernetes.io/component: ray-worker
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: {{ $v.name }}-worker
+        app.kubernetes.io/component: ray-worker
+        role: worker
+    spec:
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- with $v.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with $v.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- if $v.runtimeClassName }}
+      runtimeClassName: {{ $v.runtimeClassName }}
+      {{- end }}
+      enableServiceLinks: false
+      containers:
+        - name: ray-worker
+          image: {{ include "mosaic-stack.image" $v.image | quote }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              until ray start --address={{ $v.name }}-ray-head:{{ $v.distributed.rayPort }} --num-gpus={{ $v.distributed.workerGpuCount }} --block; do
+                sleep 5
+              done
+          env:
+            {{- if $v.existingSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $v.existingSecret }}
+                  key: {{ $v.modelTokenSecretKey }}
+                  optional: true
+            {{- end }}
+            - name: HF_HOME
+              value: /models
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /models
+            - name: NCCL_NVLS_ENABLE
+              value: "0"
+            - name: VLLM_ALLREDUCE_USE_SYMM_MEM
+              value: "0"
+          resources:
+            requests:
+{{ toYaml $v.resources.requests | indent 14 }}
+              nvidia.com/gpu: {{ $v.distributed.workerGpuCount | quote }}
+            limits:
+{{ toYaml $v.resources.limits | indent 14 }}
+              nvidia.com/gpu: {{ $v.distributed.workerGpuCount | quote }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ $v.shmSize }}
+  volumeClaimTemplates:
+    - metadata:
+        name: model-cache
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ $v.modelCache.size }}
+        {{- if $v.modelCache.storageClassName }}
+        storageClassName: {{ $v.modelCache.storageClassName | quote }}
+        {{- end }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -124,6 +261,7 @@ metadata:
 spec:
   selector:
     app: {{ $v.name }}
+    role: {{ ternary "head" "server" $distributed }}
   ports:
     - name: http
       port: {{ $v.port }}
@@ -140,10 +278,49 @@ spec:
   clusterIP: None
   selector:
     app: {{ $v.name }}
+    role: {{ ternary "head" "server" $distributed }}
   ports:
     - name: http
       port: {{ $v.port }}
       targetPort: http
+{{- if $distributed }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $v.name }}-ray-head
+  labels:
+    app: {{ $v.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ $v.name }}
+    role: head
+  ports:
+    - name: ray
+      port: {{ $v.distributed.rayPort }}
+      targetPort: ray
+    - name: dashboard
+      port: {{ $v.distributed.dashboardPort }}
+      targetPort: dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $v.name }}-worker-headless
+  labels:
+    app: {{ $v.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ $v.name }}-worker
+    role: worker
+  ports:
+    - name: ray
+      port: {{ $v.distributed.rayPort }}
+      targetPort: {{ $v.distributed.rayPort }}
+{{- end }}
 {{- end }}
 {{- if and (eq $root.Values.llm.mode "vllm") $v.compatibilityService.enabled }}
 ---
