@@ -293,6 +293,7 @@ metadata:
     app: {{ $v.name }}
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
+  publishNotReadyAddresses: true
   selector:
     app: {{ $v.name }}
     role: head
