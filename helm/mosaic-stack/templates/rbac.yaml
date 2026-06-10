@@ -1,4 +1,4 @@
-{{- if .Values.mosaicUi.enabled }}
+{{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -41,7 +41,7 @@ roleRef:
   name: mosaic-ui
 ---
 {{- end }}
-{{- if .Values.openclaw.enabled }}
+{{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -87,7 +87,7 @@ roleRef:
   name: {{ include "mosaic-stack.clusterScopedBase" . }}-oc-reader
 ---
 {{- end }}
-{{- if .Values.mosaicTerminal.enabled }}
+{{- if and .Values.modules.terminal.enabled .Values.mosaicTerminal.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -1,4 +1,4 @@
-{{- if .Values.mosaicTerminal.enabled }}
+{{- if and .Values.modules.terminal.enabled .Values.mosaicTerminal.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

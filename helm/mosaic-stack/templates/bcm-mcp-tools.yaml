@@ -1,4 +1,4 @@
-{{- if .Values.bcmMcp.enabled }}
+{{- if and .Values.modules.bcm.enabled .Values.bcmMcp.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

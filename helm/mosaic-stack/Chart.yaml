@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mosaic-stack
+description: "Mosaic app stack: UI, agent runtime, cluster skills, and optional support services."
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

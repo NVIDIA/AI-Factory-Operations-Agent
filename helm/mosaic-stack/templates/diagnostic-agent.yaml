@@ -1,4 +1,4 @@
-{{- if .Values.diagnosticAgent.enabled }}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
