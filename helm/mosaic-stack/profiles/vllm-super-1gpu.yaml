@@ -3,8 +3,8 @@ llm:
   vllm:
     profile: super-1gpu
     replicaCount: 1
-    model: nvidia/Nemotron-Super-49B-v1
-    servedModelName: nemotron-super-49b
+    model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+    servedModelName: nemotron-super-120b
     gpuCount: 1
     tensorParallelSize: 1
     distributed:
