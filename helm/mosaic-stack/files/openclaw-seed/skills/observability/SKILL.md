@@ -1,6 +1,6 @@
 ---
 name: observability
-description: "Analyze historical Thor cluster state using Prometheus metrics. Use when the user asks about GPU utilization/temperature/power over time, BCM/node/network/InfiniBand trends, metric availability, outages, cluster health history, or what changed in the cluster over a time range."
+description: "Analyze historical cluster state using Prometheus metrics. Use when the user asks about GPU utilization/temperature/power over time, node/network/InfiniBand trends, metric availability, outages, cluster health history, or what changed in the cluster over a time range."
 metadata:
   {
     "openclaw":
@@ -20,7 +20,7 @@ Prefer these tools over shell `curl` when answering questions about historical c
 ## Useful starting points
 
 - `observability_health` checks whether Prometheus is reachable.
-- `observability_metric_names` lists available `DCGM_FI_*` and `bcm_*` metrics.
+- `observability_metric_names` lists available GPU, node, and network metrics.
 - `observability_query` runs an instant PromQL query.
 - `observability_range_query` runs a historical range query.
 - `observability_cluster_summary` returns common GPU, node, network, and InfiniBand summary queries.

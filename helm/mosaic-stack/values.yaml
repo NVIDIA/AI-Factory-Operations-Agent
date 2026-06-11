@@ -1,0 +1,164 @@
+global:
+  imagePullSecrets: []
+  nodeSelector: {}
+  observabilityNamespace: mosaic-observability
+  alertmanagerNamespace: prometheus
+
+modules:
+  ui:
+    enabled: true
+  execution:
+    enabled: true
+  kubernetes:
+    enabled: true
+  observability:
+    enabled: true
+  grafana:
+    enabled: true
+  slurm:
+    enabled: true
+    backend: vanilla
+
+llm:
+  mode: vllm
+  external:
+    baseUrl: ""
+    model: ""
+    existingSecret: ""
+    apiKeySecretKey: apiKey
+  vllm:
+    profile: ultra-16gpu
+    name: vllm-nemotron
+    replicaCount: 1
+    image:
+      repository: vllm/vllm-openai
+      tag: latest
+      pullPolicy: IfNotPresent
+    model: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4
+    servedModelName: nemotron-ultra-550b
+    tensorParallelSize: 16
+    gpuCount: 8
+    port: 8000
+    runtimeClassName: nvidia
+    existingSecret: hf-token
+    modelTokenSecretKey: HF_TOKEN
+    modelCache:
+      size: 2Ti
+      storageClassName: ""
+    shmSize: 64Gi
+    nodeSelector: {}
+    tolerations: []
+    distributed:
+      enabled: true
+      workerReplicaCount: 1
+      workerGpuCount: 8
+      rayPort: 6379
+      dashboardPort: 8265
+      expectedGpuCount: 16
+    extraArgs:
+      - --kv-cache-dtype=fp8
+      - --max-num-seqs=16
+      - --max-model-len=262144
+      - --gpu-memory-utilization=0.90
+      - --disable-custom-all-reduce
+      - --enforce-eager
+      - --max-num-batched-tokens=32768
+      - --enable-expert-parallel
+      - --mamba-backend=flashinfer
+      - --mamba-ssm-cache-dtype=float16
+      - --reasoning-parser=nemotron_v3
+      - --model-loader-extra-config
+      - '{"enable_multithread_load":true}'
+      - --trust-remote-code
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+    resources:
+      requests:
+        cpu: "64"
+        memory: 512Gi
+      limits:
+        cpu: "128"
+        memory: 1Ti
+    compatibilityService:
+      enabled: false
+      namespace: mosaic
+      name: vllm-nemotron
+      externalName: ""
+    secrets:
+      create: false
+      hfToken: ""
+
+registryCredentials:
+  create: false
+  name: nvcr-image-pull-secret
+  server: nvcr.io
+  username: "$oauthtoken"
+  password: ""
+  email: unused@example.com
+
+mosaicUi:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: mosaic-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  deploymentVersion: v0.0.1
+  auditPvc:
+    size: 1Gi
+    storageClassName: ""
+  service:
+    port: 3000
+openclaw:
+  enabled: true
+  image:
+    repository: nemoclaw
+    tag: latest
+    pullPolicy: IfNotPresent
+  kubectlInstallerImage:
+    repository: bitnami/kubectl
+    tag: latest
+    pullPolicy: IfNotPresent
+  pvc:
+    size: 10Gi
+    storageClassName: local-path
+  secrets:
+    create: true
+    name: openclaw-secrets
+    gatewayToken: mosaic-dev-token
+  nemoclaw:
+    command: /usr/local/bin/nvidia-openshell
+    gatewayEndpoint: ""
+    policy: /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+  service:
+    port: 18789
+
+openshell:
+  nameOverride: ""
+  fullnameOverride: ""
+  imagePullSecrets: []
+  sandboxImagePullSecret:
+    enabled: false
+    name: ""
+  image:
+    repository: ghcr.io/nvidia/openshell/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  supervisor:
+    image:
+      repository: ghcr.io/nvidia/openshell/supervisor
+      tag: latest
+      pullPolicy: IfNotPresent
+    sideloadMethod: init-container
+  networkPolicy:
+    enabled: false
+  pkiInitJob:
+    enabled: false
+  server:
+    dbUrl: sqlite:/tmp/openshell.db
+    disableTls: true
+    sshGatewayHost: ""
+    sshGatewayPort: 8080
+    sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
+    sandboxImagePullPolicy: IfNotPresent

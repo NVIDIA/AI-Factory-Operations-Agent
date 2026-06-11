@@ -1,6 +1,9 @@
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
+{{- if not (has .Values.modules.slurm.backend (list "vanilla")) -}}
+{{- fail "modules.slurm.backend must be vanilla" -}}
+{{- end -}}
 {{- if eq .Values.llm.mode "external" -}}
 {{- if not .Values.llm.external.baseUrl -}}
 {{- fail "llm.external.baseUrl is required when llm.mode=external" -}}
@@ -31,18 +34,4 @@
 {{- end -}}
 {{- if and .Values.openclaw.enabled .Values.openclaw.secrets.create (not .Values.openclaw.secrets.gatewayToken) -}}
 {{- fail "openclaw.secrets.gatewayToken is required when openclaw.secrets.create=true" -}}
-{{- end -}}
-{{- if and .Values.diagnosticAgent.enabled .Values.diagnosticAgent.secrets.create -}}
-{{- if not .Values.diagnosticAgent.secrets.bcmWebhookUrl -}}
-{{- fail "diagnosticAgent.secrets.bcmWebhookUrl is required when diagnosticAgent.secrets.create=true" -}}
-{{- end -}}
-{{- if not .Values.diagnosticAgent.secrets.bcmWebhookToken -}}
-{{- fail "diagnosticAgent.secrets.bcmWebhookToken is required when diagnosticAgent.secrets.create=true" -}}
-{{- end -}}
-{{- if and .Values.diagnosticAgent.hostSshKeySecretName (not .Values.diagnosticAgent.secrets.hostSshPrivateKey) -}}
-{{- fail "diagnosticAgent.secrets.hostSshPrivateKey is required when diagnosticAgent.hostSshKeySecretName is set" -}}
-{{- end -}}
-{{- if and .Values.diagnosticAgent.playbooksConfigMapName (not .Values.diagnosticAgent.secrets.playbooksTgzBase64) -}}
-{{- fail "diagnosticAgent.secrets.playbooksTgzBase64 is required when diagnosticAgent.playbooksConfigMapName is set" -}}
-{{- end -}}
 {{- end -}}

@@ -1,0 +1,111 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "token"
+    },
+    "controlUi": {
+      "enabled": true,
+      "allowedOrigins": [
+        "*"
+      ],
+      "dangerouslyDisableDeviceAuth": true
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "~/.openclaw/workspace",
+      "model": {
+        "primary": "vllm/{{ include "mosaic-stack.llmModel" . }}"
+      },
+      "sandbox": {
+        "mode": "all",
+        "backend": "nemoclaw",
+        "scope": "agent",
+        "workspaceAccess": "rw"
+      }
+    },
+    "list": [
+      {
+        "id": "default",
+        "name": "OpenClaw Assistant",
+        "workspace": "~/.openclaw/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "alsoAllow": [
+      "group:plugins"
+    ],
+    "sandbox": {
+      "tools": {
+        "alsoAllow": [
+          "group:plugins"
+        ]
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "vllm": {
+        "baseUrl": "${OPENCLAW_VLLM_BASE_URL}",
+        "apiKey": "${VLLM_API_KEY}",
+        "api": "openai-completions",
+        "request": {
+          "allowPrivateNetwork": true
+        },
+        "models": [
+          {
+            "id": {{ include "mosaic-stack.llmModel" . | quote }},
+            "name": "Nemotron Ultra 550B A55B (NVFP4)",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "cron": {
+    "enabled": false
+  },
+  "plugins": {
+    "entries": {
+      "vllm": {
+        "enabled": true
+      },
+      "nemoclaw": {
+        "enabled": true,
+        "config": {
+          "from": {{ .Values.openshell.server.sandboxImage | quote }},
+          "mode": "remote",
+          "command": {{ .Values.openclaw.nemoclaw.command | quote }},
+          "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }},
+          "policy": {{ .Values.openclaw.nemoclaw.policy | quote }},
+          "remoteWorkspaceDir": "/sandbox/workspace",
+          "remoteAgentWorkspaceDir": "/agent/workspace"
+        }
+      },
+      "dcgm": {
+        "enabled": {{ .Values.modules.observability.enabled }}
+      },
+      "observability": {
+        "enabled": {{ .Values.modules.observability.enabled }}
+      },
+      "grafana": {
+        "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+      }
+    }
+  }
+}

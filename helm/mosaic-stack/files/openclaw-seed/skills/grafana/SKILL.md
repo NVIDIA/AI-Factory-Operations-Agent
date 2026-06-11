@@ -1,6 +1,6 @@
 ---
 name: grafana
-description: "Create and open Grafana dashboards for Thor cluster metrics. Use when the user asks for a dashboard, visualization, chart, panel, or graph of GPU, BCM, node, network, InfiniBand, or Prometheus metrics."
+description: "Create and open Grafana dashboards for cluster metrics. Use when the user asks for a dashboard, visualization, chart, panel, or graph of GPU, node, network, InfiniBand, or Prometheus metrics."
 metadata:
   {
     "openclaw":
@@ -22,5 +22,3 @@ Useful PromQL examples:
 - `max by (Hostname, gpu) (DCGM_FI_DEV_GPU_TEMP)`
 - `avg by (Hostname) (DCGM_FI_DEV_GPU_UTIL)`
 - `avg by (Hostname, gpu) (DCGM_FI_DEV_POWER_USAGE)`
-- `rate(bcm_network_receive_bytes_total[5m])`
-- `rate(bcm_infiniband_port_data_received_bytes_total[5m])`

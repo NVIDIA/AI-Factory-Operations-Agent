@@ -1,0 +1,36 @@
+{{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-home-pvc
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.openclaw.pvc.size }}
+  {{- if .Values.openclaw.pvc.storageClassName }}
+  storageClassName: {{ .Values.openclaw.pvc.storageClassName | quote }}
+  {{- end }}
+---
+{{- end }}
+{{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosaic-audit-log
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mosaicUi.auditPvc.size }}
+  {{- if .Values.mosaicUi.auditPvc.storageClassName }}
+  storageClassName: {{ .Values.mosaicUi.auditPvc.storageClassName | quote }}
+  {{- end }}
+---
+{{- end }}

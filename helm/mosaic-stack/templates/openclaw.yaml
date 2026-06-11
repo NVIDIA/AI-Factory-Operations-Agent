@@ -1,0 +1,393 @@
+{{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw
+  labels:
+    app: openclaw
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: openclaw
+      annotations:
+        checksum/openclaw-seed: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: openclaw
+      automountServiceAccountToken: true
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: install-kubectl
+          image: {{ include "mosaic-stack.image" .Values.openclaw.kubectlInstallerImage | quote }}
+          imagePullPolicy: {{ .Values.openclaw.kubectlInstallerImage.pullPolicy }}
+          command: ["sh", "-lc", "set -eu; cp /usr/local/bin/kubectl /tools/kubectl && chmod +x /tools/kubectl"]
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
+        - name: init-perms
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw && chmod 0775 /home/node/.openclaw"]
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+        - name: init-shared-logs
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              target=/home/node/.openclaw/shared-logs/cm/shared/megatron/logs
+              mkdir -p "$target"
+              for log in /cm/shared/megatron/logs/*.log; do
+                [ -f "$log" ] || continue
+                cp "$log" "$target/$(basename "$log")"
+                chmod 0444 "$target/$(basename "$log")"
+              done
+              chown -R 1000:1000 /home/node/.openclaw/shared-logs
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: cm-shared
+              mountPath: /cm/shared
+              readOnly: true
+        - name: init-config
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /home/node/.openclaw/tmp/openclaw
+              chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
+              {{- if .Values.modules.slurm.enabled }}
+              mkdir -p /home/node/.openclaw/workspace/skills/slurm
+              {{- end }}
+              {{- if .Values.modules.observability.enabled }}
+              mkdir -p /home/node/.openclaw/workspace/skills/observability
+              {{- end }}
+              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+              mkdir -p /home/node/.openclaw/workspace/skills/grafana
+              {{- end }}
+              mkdir -p /home/node/.openclaw/workspace/.kube
+              {{- if .Values.modules.observability.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/dcgm
+              mkdir -p /home/node/.openclaw/extensions/observability
+              {{- end }}
+              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/grafana
+              {{- end }}
+              cat > /home/node/.openclaw/kubeconfig <<EOF
+              apiVersion: v1
+              kind: Config
+              clusters:
+                - name: in-cluster
+                  cluster:
+                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}
+                    certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              contexts:
+                - name: in-cluster
+                  context:
+                    cluster: in-cluster
+                    namespace: $(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+                    user: openclaw
+              current-context: in-cluster
+              users:
+                - name: openclaw
+                  user:
+                    tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+              EOF
+              chmod 600 /home/node/.openclaw/kubeconfig
+              ca_data="$(base64 < /var/run/secrets/kubernetes.io/serviceaccount/ca.crt | tr -d '\n')"
+              token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+              namespace="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
+              cat > /home/node/.openclaw/workspace/.kube/config <<EOF
+              apiVersion: v1
+              kind: Config
+              clusters:
+                - name: in-cluster
+                  cluster:
+                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
+                    insecure-skip-tls-verify: true
+              contexts:
+                - name: in-cluster
+                  context:
+                    cluster: in-cluster
+                    namespace: ${namespace}
+                    user: openclaw
+              current-context: in-cluster
+              users:
+                - name: openclaw
+                  user:
+                    token: ${token}
+              EOF
+              chmod 600 /home/node/.openclaw/workspace/.kube/config
+              cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+              sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+              cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+              cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
+              cp /seed/HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
+              cp /seed/IDENTITY.md /home/node/.openclaw/workspace/IDENTITY.md
+              cp /seed/SOUL.md /home/node/.openclaw/workspace/SOUL.md
+              cp /seed/TOOLS.md /home/node/.openclaw/workspace/TOOLS.md
+              cp /seed/USER.md /home/node/.openclaw/workspace/USER.md
+              {{- if .Values.modules.slurm.enabled }}
+              cp /seed/slurm.SKILL.md /home/node/.openclaw/workspace/skills/slurm/SKILL.md
+              {{- end }}
+              {{- if .Values.modules.observability.enabled }}
+              cp /seed/observability.SKILL.md /home/node/.openclaw/workspace/skills/observability/SKILL.md
+              cp /seed/dcgm.index.ts /home/node/.openclaw/extensions/dcgm/index.ts
+              cp /seed/dcgm.openclaw.plugin.json /home/node/.openclaw/extensions/dcgm/openclaw.plugin.json
+              cp /seed/dcgm.package.json /home/node/.openclaw/extensions/dcgm/package.json
+              cp /seed/observability.index.ts /home/node/.openclaw/extensions/observability/index.ts
+              cp /seed/observability.openclaw.plugin.json /home/node/.openclaw/extensions/observability/openclaw.plugin.json
+              cp /seed/observability.package.json /home/node/.openclaw/extensions/observability/package.json
+              {{- end }}
+              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+              cp /seed/grafana.SKILL.md /home/node/.openclaw/workspace/skills/grafana/SKILL.md
+              cp /seed/grafana.index.ts /home/node/.openclaw/extensions/grafana/index.ts
+              cp /seed/grafana.openclaw.plugin.json /home/node/.openclaw/extensions/grafana/openclaw.plugin.json
+              cp /seed/grafana.package.json /home/node/.openclaw/extensions/grafana/package.json
+              {{- end }}
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: openclaw-seed
+              mountPath: /seed
+        - name: init-openshell-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              rm -rf /home/node/.openclaw/extensions/openshell
+              mkdir -p /home/node/.openclaw/extensions/openshell/node_modules
+              cp /app/extensions/openshell/openclaw.plugin.json /home/node/.openclaw/extensions/openshell/openclaw.plugin.json
+              node - <<'EOF'
+              const fs = require("fs");
+              const path = "/home/node/.openclaw/extensions/openshell/openclaw.plugin.json";
+              const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
+              manifest.id = "nemoclaw";
+              manifest.name = "Nemoclaw Sandbox";
+              fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+              EOF
+              cat > /home/node/.openclaw/extensions/openshell/package.json <<'EOF'
+              {"name":"@mosaic/nemoclaw-openshell","type":"module","version":"0.0.0","openclaw":{"extensions":["./index.js"]}}
+              EOF
+              ln -sfn /app/node_modules/openshell /home/node/.openclaw/extensions/openshell/node_modules/openshell
+              ln -sfn /app/node_modules/zod /home/node/.openclaw/extensions/openshell/node_modules/zod
+              /app/node_modules/esbuild/bin/esbuild /app/extensions/openshell/index.ts \
+                --bundle \
+                --platform=node \
+                --format=esm \
+                --outfile=/home/node/.openclaw/extensions/openshell/index.js \
+                --external:openclaw \
+                --external:openclaw/* \
+                --external:openshell \
+                --external:zod
+              node - <<'EOF'
+              const fs = require("fs");
+              const path = "/home/node/.openclaw/extensions/openshell/index.js";
+              let source = fs.readFileSync(path, "utf8");
+              source = source.replace(/\n    if \(api\.registrationMode !== "full"\) \{\n      return;\n    \}/, "");
+              const imports = {
+                "openclaw/plugin-sdk/core": "/app/dist/plugin-sdk/core.js",
+                "openclaw/plugin-sdk/extension-shared": "/app/dist/plugin-sdk/extension-shared.js",
+                "openclaw/plugin-sdk/file-access-runtime": "/app/dist/plugin-sdk/file-access-runtime.js",
+                "openclaw/plugin-sdk/json-store": "/app/dist/plugin-sdk/json-store.js",
+                "openclaw/plugin-sdk/plugin-entry": "/app/dist/plugin-sdk/plugin-entry.js",
+                "openclaw/plugin-sdk/sandbox": "/app/dist/plugin-sdk/sandbox.js",
+                "openclaw/plugin-sdk/security-runtime": "/app/dist/plugin-sdk/security-runtime.js",
+                "openclaw/plugin-sdk/string-coerce-runtime": "/app/dist/plugin-sdk/string-coerce-runtime.js"
+              };
+              for (const [from, to] of Object.entries(imports)) {
+                source = source.split(`"${from}"`).join(`"${to}"`);
+              }
+              source = source.split('entries?.openshell?.config').join('entries?.nemoclaw?.config');
+              source = source.split('id: "openshell"').join('id: "nemoclaw"');
+              source = source.split('registerSandboxBackend("openshell"').join('registerSandboxBackend("nemoclaw"');
+              source = source.split("env: params.env").join("env: { ...params.env, KUBECONFIG: \"/sandbox/workspace/.kube/config\" }");
+              source = source.replace(
+                [
+                  "await stageDirectoryContents({",
+                  "        sourceDir: localPath,",
+                  "        targetDir: tmpDir",
+                  "      });"
+                ].join("\n"),
+                [
+                  "const remoteBase = path5.posix.basename(remotePath);",
+                  "      const remoteParent = path5.posix.dirname(remotePath);",
+                  "      const uploadDir = path5.join(tmpDir, remoteBase);",
+                  "      await stageDirectoryContents({",
+                  "        sourceDir: localPath,",
+                  "        targetDir: uploadDir",
+                  "      });"
+                ].join("\n")
+              );
+              source = source.replace(
+                ["tmpDir,", "          remotePath"].join("\n"),
+                ["uploadDir,", "          remoteParent"].join("\n")
+              );
+              fs.writeFileSync(path, source);
+              EOF
+              config_root=/home/node/.openclaw/.config/openshell
+              gateway_endpoint={{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}
+              metadata_path="$config_root/gateways/$gateway_endpoint/metadata.json"
+              mkdir -p "$(dirname "$metadata_path")"
+              printf "%s" "$gateway_endpoint" > "$config_root/active_gateway"
+              node - "$metadata_path" "$gateway_endpoint" <<'EOF'
+              const fs = require("fs");
+              const path = require("path");
+              const [metadataPath, endpoint] = process.argv.slice(2);
+              fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+              fs.writeFileSync(metadataPath, JSON.stringify({
+                name: endpoint,
+                gateway_endpoint: endpoint,
+                is_remote: false,
+                gateway_port: 0,
+                auth_mode: "plaintext"
+              }, null, 2));
+              EOF
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+      containers:
+        - name: gateway
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command: ["node", "/app/dist/index.js", "gateway", "run"]
+          env:
+            - name: HOME
+              value: /home/node
+            - name: OPENCLAW_CONFIG_DIR
+              value: /home/node/.openclaw
+            - name: XDG_CONFIG_HOME
+              value: /home/node/.openclaw/.config
+            - name: KUBECONFIG
+              value: /home/node/.openclaw/kubeconfig
+            - name: NODE_ENV
+              value: production
+            - name: PATH
+              value: /tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.secrets.name }}
+                  key: OPENCLAW_GATEWAY_TOKEN
+            - name: VLLM_API_KEY
+              {{- if and (eq .Values.llm.mode "external") .Values.llm.external.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llm.external.existingSecret }}
+                  key: {{ .Values.llm.external.apiKeySecretKey }}
+              {{- else }}
+              value: local-vllm
+              {{- end }}
+            - name: OPENCLAW_VLLM_BASE_URL
+              value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
+            - name: MOSAIC_PROMETHEUS_URL
+              value: {{ printf "http://prometheus.%s.svc.cluster.local:9090" .Values.global.observabilityNamespace | quote }}
+            - name: MOSAIC_GRAFANA_URL
+              value: {{ printf "http://grafana.%s.svc.cluster.local:3000" .Values.global.observabilityNamespace | quote }}
+            - name: MOSAIC_UI_URL
+              value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+          ports:
+            - containerPort: 18789
+              name: gateway
+          readinessProbe:
+            exec:
+              command: ["node", "-e", "require(\"http\").get(\"http://127.0.0.1:18789/readyz\", r => process.exit(r.statusCode < 400 ? 0 : 1)).on(\"error\", () => process.exit(1))"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["node", "-e", "require(\"http\").get(\"http://127.0.0.1:18789/healthz\", r => process.exit(r.statusCode < 400 ? 0 : 1)).on(\"error\", () => process.exit(1))"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: openclaw-home
+              mountPath: /tmp
+              subPath: tmp
+            - name: tools
+              mountPath: /tools
+            - name: cm-shared
+              mountPath: /cm/shared
+              readOnly: true
+      volumes:
+        - name: openclaw-home
+          persistentVolumeClaim:
+            claimName: openclaw-home-pvc
+        - name: openclaw-seed
+          configMap:
+            name: openclaw-seed
+        - name: tools
+          emptyDir: {}
+        - name: cm-shared
+          hostPath:
+            path: /cm/shared
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw
+  labels:
+    app: openclaw
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: openclaw
+  ports:
+    - name: gateway
+      port: {{ .Values.openclaw.service.port }}
+      targetPort: gateway
+  type: ClusterIP
+{{- end }}
