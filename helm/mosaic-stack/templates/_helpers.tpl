@@ -27,10 +27,18 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 
 {{- define "mosaic-stack.imagePullSecrets" -}}
 {{- $secrets := list -}}
+{{- $names := dict -}}
 {{- range .Values.global.imagePullSecrets }}
+{{- if and (kindIs "map" .) (hasKey . "name") }}
+{{- if not (hasKey $names .name) }}
+{{- $secrets = append $secrets . -}}
+{{- $_ := set $names .name true -}}
+{{- end }}
+{{- else }}
 {{- $secrets = append $secrets . -}}
 {{- end }}
-{{- if .Values.registryCredentials.create }}
+{{- end }}
+{{- if and .Values.registryCredentials.create (not (hasKey $names .Values.registryCredentials.name)) }}
 {{- $secrets = append $secrets (dict "name" .Values.registryCredentials.name) -}}
 {{- end }}
 {{- if $secrets }}
