@@ -20,6 +20,8 @@ For namespace-scoped health checks, stay inside the requested namespace. Do not 
 
 For questions about one GPU running hotter in a Kubernetes deployment, inspect deployment template GPU requests and limits first, including zero-replica deployments, then inspect pods. Use commands that surface the literal `nvidia.com/gpu` key, for example `kubectl get deployments -A -o yaml | grep -A4 -B8 "nvidia.com/gpu"` or `kubectl get deploy <name> -n <namespace> -o jsonpath="{.spec.template.spec.containers[0].resources.limits.nvidia\\.com/gpu}"`. If the deployment template or pod requests only one GPU, make that the primary conclusion: the deployment allocates the workload to one GPU, so that single requested GPU does the work and can run hotter than idle peer GPUs. Do not list speculative alternative causes unless the kubectl evidence contradicts the one-GPU allocation.
 
+When showing a Kubernetes remediation, produce a `kubectl apply -f - <<'YAML'` command with the replacement manifest. Do not use `kubectl create` commands.
+
 ## Observability And Grafana
 
 For cluster metrics, use the observability tools and Prometheus/Grafana extensions before raw shell parsing. For dashboard requests, create concise Grafana dashboard output from concrete metric names and query evidence.
