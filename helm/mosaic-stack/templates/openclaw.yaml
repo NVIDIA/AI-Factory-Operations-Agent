@@ -104,7 +104,7 @@ spec:
               clusters:
                 - name: in-cluster
                   cluster:
-                    server: https://kubernetes.default.svc:443
+                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
                     insecure-skip-tls-verify: true
               contexts:
                 - name: in-cluster
