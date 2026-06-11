@@ -78,3 +78,20 @@ nodeSelector:
 {{- define "mosaic-stack.vllmTensorParallelSize" -}}
 {{- default .Values.llm.vllm.gpuCount .Values.llm.vllm.tensorParallelSize -}}
 {{- end -}}
+
+{{- define "mosaic-stack.openshellFullname" -}}
+{{- if .Values.openshell.fullnameOverride -}}
+{{- .Values.openshell.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default "openshell" .Values.openshell.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.openshellGatewayEndpoint" -}}
+{{- default (printf "http://%s:%v" (include "mosaic-stack.openshellFullname" .) .Values.openshell.server.sshGatewayPort) .Values.openclaw.nemoclaw.gatewayEndpoint -}}
+{{- end -}}
