@@ -25,6 +25,8 @@ data:
   {{- if .Values.modules.slurm.enabled }}
   slurm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/slurm/SKILL.md" | indent 4 }}
+  slurm-job-116.txt: |-
+{{ .Files.Get "files/openclaw-seed/shared-logs/llama3-70b-pretrain-stage1_116_date_26-05-15_time_08-42-46.txt" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.observability.enabled }}
   observability.SKILL.md: |-

@@ -46,31 +46,6 @@ spec:
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
-        - name: init-shared-logs
-          image: busybox:1.37
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -c
-            - |
-              set -eu
-              target=/home/node/.openclaw/shared-logs/cm/shared/megatron/logs
-              mkdir -p "$target"
-              for log in /cm/shared/megatron/logs/*.log; do
-                [ -f "$log" ] || continue
-                cp "$log" "$target/$(basename "$log")"
-                chmod 0444 "$target/$(basename "$log")"
-              done
-              chown -R 1000:1000 /home/node/.openclaw/shared-logs
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-          volumeMounts:
-            - name: openclaw-home
-              mountPath: /home/node/.openclaw
-            - name: cm-shared
-              mountPath: /cm/shared
-              readOnly: true
         - name: init-config
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
@@ -83,6 +58,7 @@ spec:
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
+              mkdir -p /home/node/.openclaw/shared-logs/cm/shared/megatron/logs
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/observability
@@ -128,7 +104,7 @@ spec:
               clusters:
                 - name: in-cluster
                   cluster:
-                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
+                    server: https://kubernetes.default.svc:443
                     insecure-skip-tls-verify: true
               contexts:
                 - name: in-cluster
@@ -154,6 +130,8 @@ spec:
               cp /seed/USER.md /home/node/.openclaw/workspace/USER.md
               {{- if .Values.modules.slurm.enabled }}
               cp /seed/slurm.SKILL.md /home/node/.openclaw/workspace/skills/slurm/SKILL.md
+              cp /seed/slurm-job-116.txt /home/node/.openclaw/shared-logs/cm/shared/megatron/logs/llama3-70b-pretrain-stage1_116_date_26-05-15_time_08-42-46.log
+              chmod 0444 /home/node/.openclaw/shared-logs/cm/shared/megatron/logs/llama3-70b-pretrain-stage1_116_date_26-05-15_time_08-42-46.log
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               cp /seed/observability.SKILL.md /home/node/.openclaw/workspace/skills/observability/SKILL.md
@@ -358,9 +336,6 @@ spec:
               subPath: tmp
             - name: tools
               mountPath: /tools
-            - name: cm-shared
-              mountPath: /cm/shared
-              readOnly: true
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -370,10 +345,6 @@ spec:
             name: openclaw-seed
         - name: tools
           emptyDir: {}
-        - name: cm-shared
-          hostPath:
-            path: /cm/shared
-            type: Directory
 ---
 apiVersion: v1
 kind: Service
