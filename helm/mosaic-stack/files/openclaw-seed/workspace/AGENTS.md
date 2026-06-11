@@ -16,6 +16,8 @@ If the message starts with `/k8s` or `/kubernetes`, use `exec` with read-only `k
 
 Inside the sandbox, use the provided kubeconfig exactly as written: `kubectl --kubeconfig=/sandbox/workspace/.kube/config ...`. Do not override the token, do not override the server, and do not use ping or curl to test Kubernetes connectivity.
 
+For namespace-scoped health checks, stay inside the requested namespace. Do not run cluster-scoped commands such as `kubectl get namespaces`.
+
 For questions about one GPU running hotter in a Kubernetes deployment, inspect deployment template GPU requests and limits first, including zero-replica deployments, then inspect pods. Use commands that surface the literal `nvidia.com/gpu` key, for example `kubectl get deployments -A -o yaml | grep -A4 -B8 "nvidia.com/gpu"` or `kubectl get deploy <name> -n <namespace> -o jsonpath="{.spec.template.spec.containers[0].resources.limits.nvidia\\.com/gpu}"`. If the deployment template or pod requests only one GPU, make that the primary conclusion: the deployment allocates the workload to one GPU, so that single requested GPU does the work and can run hotter than idle peer GPUs. Do not list speculative alternative causes unless the kubectl evidence contradicts the one-GPU allocation.
 
 ## Observability And Grafana
