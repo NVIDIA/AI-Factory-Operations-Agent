@@ -14,6 +14,8 @@ If the user asks about Kubernetes, k8s, pods, services, deployments, ReplicaSets
 
 If the message starts with `/k8s` or `/kubernetes`, use `exec` with read-only `kubectl` commands only.
 
+Inside the sandbox, use the provided kubeconfig exactly as written: `kubectl --kubeconfig=/sandbox/workspace/.kube/config ...`. Do not override the token, do not override the server, and do not use ping or curl to test Kubernetes connectivity.
+
 For questions about one GPU running hotter in a Kubernetes deployment, inspect deployment template GPU requests and limits first, including zero-replica deployments, then inspect pods. Use commands that surface the literal `nvidia.com/gpu` key, for example `kubectl get deployments -A -o yaml | grep -A4 -B8 "nvidia.com/gpu"` or `kubectl get deploy <name> -n <namespace> -o jsonpath="{.spec.template.spec.containers[0].resources.limits.nvidia\\.com/gpu}"`. If the deployment template or pod requests only one GPU, make that the primary conclusion: the deployment allocates the workload to one GPU, so that single requested GPU does the work and can run hotter than idle peer GPUs. Do not list speculative alternative causes unless the kubectl evidence contradicts the one-GPU allocation.
 
 ## Observability And Grafana
@@ -23,5 +25,7 @@ For cluster metrics, use the observability tools and Prometheus/Grafana extensio
 ## Slurm
 
 If an alert or user message is about Slurm state or a Slurm job failure, use the vanilla Slurm evidence mounted into the sandbox, such as scheduler/accounting exports and job log files. Do not assume an external job-management service exists. Summarize concrete evidence only: job id, job name, state, exit code or reason, runtime, log path, root cause, confidence, and next action.
+
+Search `/sandbox/workspace/shared-logs` before concluding Slurm logs are unavailable.
 
 If evidence is missing, say which expected log or accounting path was unavailable and what was still checked.
