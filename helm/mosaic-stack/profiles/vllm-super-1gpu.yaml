@@ -20,7 +20,7 @@ llm:
         memory: 128Gi
     extraArgs:
       - --max-num-seqs=16
-      - --max-model-len=32768
+      - --max-model-len=262144
       - --gpu-memory-utilization=0.90
       - --trust-remote-code
       - --enable-auto-tool-choice
