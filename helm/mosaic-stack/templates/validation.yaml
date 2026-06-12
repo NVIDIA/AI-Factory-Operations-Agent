@@ -32,6 +32,3 @@
 {{- if and .Values.registryCredentials.create (not .Values.registryCredentials.password) -}}
 {{- fail "registryCredentials.password is required when registryCredentials.create=true" -}}
 {{- end -}}
-{{- if and .Values.openclaw.enabled .Values.openclaw.secrets.create (not .Values.openclaw.secrets.gatewayToken) -}}
-{{- fail "openclaw.secrets.gatewayToken is required when openclaw.secrets.create=true" -}}
-{{- end -}}

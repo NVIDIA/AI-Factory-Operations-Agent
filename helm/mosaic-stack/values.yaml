@@ -130,7 +130,7 @@ openclaw:
   secrets:
     create: true
     name: openclaw-secrets
-    gatewayToken: mosaic-dev-token
+    gatewayToken: ""
   nemoclaw:
     command: /usr/local/bin/nvidia-openshell
     gatewayEndpoint: ""

@@ -2,22 +2,12 @@
 
 Mosaic is installed with Helm. The public chart surface includes the Mosaic UI, OpenClaw/NemoClaw execution, read-only Kubernetes inspection, observability/Grafana helpers, and vanilla Slurm log RCA.
 
-## 1. Prepare Values
-
-```bash
-cp helm/values-secrets.example.yaml helm/values-secrets.yaml
-$EDITOR helm/values-secrets.yaml
-```
-
-`helm/values-secrets.yaml` is gitignored. Use it for local deployment secrets such as registry credentials, gated model tokens, and the OpenClaw gateway token.
-
-## 2. Install Or Upgrade
+## 1. Install Or Upgrade
 
 ```bash
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
   --create-namespace \
-  -f helm/values-secrets.yaml \
   --reset-values \
   --wait \
   --timeout 12m
@@ -25,16 +15,16 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 
 Set image repositories and tags in values for your registry before installing. The defaults are placeholders for source-based development.
 
-## 3. LLM Modes
+## 2. LLM Modes
 
 - `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
 - `llm.mode=external`: does not deploy vLLM. Set `llm.external.baseUrl`, `llm.external.model`, and optionally `llm.external.existingSecret` plus `llm.external.apiKeySecretKey`.
 
-## 4. Modules
+## 3. Modules
 
 `helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed. The observability chart uses `bcm.enabled` to deploy the BCM metrics exporter and Prometheus scrape.
 
-## 5. Open The UI
+## 4. Open The UI
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
@@ -42,13 +32,13 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
-## Secrets
+## Optional Private Values
 
-The public chart can create the required Kubernetes Secrets from values:
+The public chart does not require NVIDIA-owned install secrets. Private values are only needed when explicitly enabling private dependencies:
 
-- `registryCredentials.password`: creates the image pull secret when `registryCredentials.create=true`.
-- `llm.vllm.secrets.hfToken`: creates the model download token secret when `llm.vllm.secrets.create=true`.
-- `openclaw.secrets.gatewayToken`: creates the OpenClaw gateway token when `openclaw.secrets.create=true`.
+- `registryCredentials.password`: only needed when `registryCredentials.create=true` for a private image registry.
+- `llm.vllm.secrets.hfToken`: only needed when `llm.vllm.secrets.create=true` for a gated Hugging Face model download.
+- `openclaw.secrets.gatewayToken`: optional. When omitted, Helm generates one and preserves the existing token on upgrades.
 
 For production, prefer injecting values from your secret manager or precreating Kubernetes Secrets and referencing them by name.
 
