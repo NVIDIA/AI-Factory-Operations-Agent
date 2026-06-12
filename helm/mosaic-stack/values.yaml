@@ -125,6 +125,7 @@ openclaw:
   pvc:
     size: 10Gi
     storageClassName: local-path
+  slurmLogMounts: []
   secrets:
     create: true
     name: openclaw-secrets

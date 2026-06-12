@@ -58,7 +58,6 @@ spec:
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
-              mkdir -p /home/node/.openclaw/workspace/shared-logs/cm/shared/megatron/logs
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/observability
@@ -133,8 +132,6 @@ spec:
               cp /seed/USER.md /home/node/.openclaw/workspace/USER.md
               {{- if .Values.modules.slurm.enabled }}
               cp /seed/slurm.SKILL.md /home/node/.openclaw/workspace/skills/slurm/SKILL.md
-              cp /seed/slurm-job-116.txt /home/node/.openclaw/workspace/shared-logs/cm/shared/megatron/logs/llama3-70b-pretrain-stage1_116_date_26-05-15_time_08-42-46.log
-              chmod 0444 /home/node/.openclaw/workspace/shared-logs/cm/shared/megatron/logs/llama3-70b-pretrain-stage1_116_date_26-05-15_time_08-42-46.log
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               cp /seed/observability.SKILL.md /home/node/.openclaw/workspace/skills/observability/SKILL.md
@@ -162,6 +159,11 @@ spec:
               mountPath: /home/node/.openclaw
             - name: openclaw-seed
               mountPath: /seed
+            {{- range .Values.openclaw.slurmLogMounts }}
+            - name: slurm-logs-{{ .name }}
+              mountPath: {{ .mountPath | quote }}
+              readOnly: true
+            {{- end }}
         - name: init-openshell-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
@@ -342,6 +344,11 @@ spec:
               subPath: tmp
             - name: tools
               mountPath: /tools
+            {{- range .Values.openclaw.slurmLogMounts }}
+            - name: slurm-logs-{{ .name }}
+              mountPath: {{ .mountPath | quote }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -351,6 +358,18 @@ spec:
             name: openclaw-seed
         - name: tools
           emptyDir: {}
+        {{- range .Values.openclaw.slurmLogMounts }}
+        - name: slurm-logs-{{ .name }}
+          {{- if .claimName }}
+          persistentVolumeClaim:
+            claimName: {{ .claimName }}
+            readOnly: true
+          {{- else }}
+          hostPath:
+            path: {{ .hostPath | quote }}
+            type: {{ default "Directory" .type | quote }}
+          {{- end }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

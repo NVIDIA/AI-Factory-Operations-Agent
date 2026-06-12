@@ -19,7 +19,7 @@ Look for evidence in these mounted paths when present:
 - `/home/node/.openclaw/shared-logs/**`
 - `/sandbox/workspace/shared-logs/**`
 
-The chart may seed read-only Slurm/training logs into `/sandbox/workspace/shared-logs` when the original host path is not mounted directly in the sandbox. Search that copied tree before concluding logs are unavailable.
+Deployments may mount Slurm/training logs into the workspace or copy them into `/sandbox/workspace/shared-logs` before the sandbox starts. Search those configured evidence paths before concluding logs are unavailable.
 
 For a failed job, find the job id, job name, state, exit code, runtime, and log path. Read the matching log and report the first concrete application error, not only the Slurm state. If the log is missing, say which expected path was unavailable and what evidence was still present.
 

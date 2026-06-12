@@ -54,7 +54,7 @@ For production, prefer injecting values from your secret manager or precreating 
 
 ## Vanilla Slurm RCA
 
-The public Slurm workflow is log based. Mount Slurm accounting exports and job logs into the OpenClaw sandbox at one of the documented paths, such as `/slurm/accounting`, `/slurm/logs`, or `/cm/shared/slurm-logs`. The seeded Slurm skill inspects those files and summarizes concrete job evidence.
+The public Slurm workflow is log based. Configure `openclaw.slurmLogMounts` to mount Slurm accounting exports and job logs into the OpenClaw workspace, such as `/slurm/accounting`, `/slurm/logs`, or `/cm/shared/slurm-logs`. The Slurm skill inspects those files and summarizes concrete job evidence.
 
 ## OpenShell Dependency
 
