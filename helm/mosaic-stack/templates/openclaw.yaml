@@ -244,7 +244,7 @@ spec:
               );
               source = source.replace("\t\t\t\t\ttmpDir,\n\t\t\t\t\tremotePath", "\t\t\t\t\tuploadDir,\n\t\t\t\t\tremoteParent");
               source = source.split('find \\"$1\\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find \\"$1\\" -mindepth 1 -maxdepth 1 ! -name .openclaw -exec rm -rf -- {} +');
-              source = source.split('find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find "$target" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +');
+              source = source.split('find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find "$target" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true');
               fs.writeFileSync(path, source);
               EOF
               config_root=/home/node/.openclaw/.config/openshell
