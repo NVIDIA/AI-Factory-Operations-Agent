@@ -221,6 +221,24 @@ spec:
                 ["tmpDir,", "          remotePath"].join("\n"),
                 ["uploadDir,", "          remoteParent"].join("\n")
               );
+              source = source.replace(
+                [
+                  "\t\t\tawait stageDirectoryContents({",
+                  "\t\t\t\tsourceDir: localPath,",
+                  "\t\t\t\ttargetDir: tmpDir",
+                  "\t\t\t});"
+                ].join("\n"),
+                [
+                  "\t\t\tconst remoteBase = path.posix.basename(remotePath);",
+                  "\t\t\tconst remoteParent = path.posix.dirname(remotePath);",
+                  "\t\t\tconst uploadDir = path.join(tmpDir, remoteBase);",
+                  "\t\t\tawait stageDirectoryContents({",
+                  "\t\t\t\tsourceDir: localPath,",
+                  "\t\t\t\ttargetDir: uploadDir",
+                  "\t\t\t});"
+                ].join("\n")
+              );
+              source = source.replace("\t\t\t\t\ttmpDir,\n\t\t\t\t\tremotePath", "\t\t\t\t\tuploadDir,\n\t\t\t\t\tremoteParent");
               fs.writeFileSync(path, source);
               EOF
               config_root=/home/node/.openclaw/.config/openshell
