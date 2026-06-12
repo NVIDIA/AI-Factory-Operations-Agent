@@ -44,7 +44,7 @@ llm:
     gpuCount: 8
     port: 8000
     runtimeClassName: nvidia
-    existingSecret: hf-token
+    existingSecret: ""
     modelTokenSecretKey: HF_TOKEN
     modelCache:
       size: 2Ti
@@ -89,9 +89,6 @@ llm:
       namespace: mosaic
       name: vllm-nemotron
       externalName: ""
-    secrets:
-      create: false
-      hfToken: ""
 
 registryCredentials:
   create: false

@@ -25,9 +25,6 @@
 {{- if and (eq (toString .Values.llm.vllm.distributed.enabled) "true") (ne (int .Values.llm.vllm.replicaCount) 1) -}}
 {{- fail "llm.vllm.replicaCount must be 1 when distributed vLLM is enabled" -}}
 {{- end -}}
-{{- if and .Values.llm.vllm.secrets.create (not .Values.llm.vllm.secrets.hfToken) -}}
-{{- fail "llm.vllm.secrets.hfToken is required when llm.vllm.secrets.create=true" -}}
-{{- end -}}
 {{- end -}}
 {{- if and .Values.registryCredentials.create (not .Values.registryCredentials.password) -}}
 {{- fail "registryCredentials.password is required when registryCredentials.create=true" -}}

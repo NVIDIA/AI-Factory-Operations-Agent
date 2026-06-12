@@ -37,7 +37,7 @@ Open `http://localhost:3000`.
 The public chart does not require NVIDIA-owned install secrets. Private values are only needed when explicitly enabling private dependencies:
 
 - `registryCredentials.password`: only needed when `registryCredentials.create=true` for a private image registry.
-- `llm.vllm.secrets.hfToken`: only needed when `llm.vllm.secrets.create=true` for a gated Hugging Face model download.
+- `llm.vllm.existingSecret`: optional existing Kubernetes Secret containing `HF_TOKEN` for gated Hugging Face model downloads.
 - `openclaw.secrets.gatewayToken`: optional. When omitted, Helm generates one and preserves the existing token on upgrades.
 
 For production, prefer injecting values from your secret manager or precreating Kubernetes Secrets and referencing them by name.
