@@ -144,6 +144,9 @@ spec:
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
               {{- end }}
+              rm -rf /home/node/.openclaw/workspace/.openclaw/sandbox-skills
+              mkdir -p /home/node/.openclaw/workspace/.openclaw/sandbox-skills
+              cp -a /home/node/.openclaw/workspace/skills /home/node/.openclaw/workspace/.openclaw/sandbox-skills/skills
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
