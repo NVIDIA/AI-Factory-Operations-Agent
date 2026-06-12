@@ -22,7 +22,17 @@ Set image repositories and tags in values for your registry before installing. T
 
 ## 3. Modules
 
-`helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed. The observability chart uses `bcm.enabled` to deploy the BCM metrics exporter and Prometheus scrape.
+`helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
+
+Observability is connected through explicit endpoints:
+
+```yaml
+observability:
+  prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
+  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
+```
+
+Those URLs may point at the reference `mosaic-observability` chart or at an existing Prometheus/Grafana deployment.
 
 ## 4. Open The UI
 

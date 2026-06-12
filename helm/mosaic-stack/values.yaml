@@ -1,8 +1,11 @@
 global:
   imagePullSecrets: []
   nodeSelector: {}
-  observabilityNamespace: mosaic-observability
   alertmanagerNamespace: prometheus
+
+observability:
+  prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
+  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
 
 modules:
   ui:
