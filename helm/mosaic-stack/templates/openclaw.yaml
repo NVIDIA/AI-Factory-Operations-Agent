@@ -160,9 +160,11 @@ spec:
             - -c
             - |
               set -eu
+              package=/app/node_modules/@openclaw/openshell-sandbox
               rm -rf /home/node/.openclaw/extensions/openshell
               mkdir -p /home/node/.openclaw/extensions/openshell/node_modules
-              cp /app/extensions/openshell/openclaw.plugin.json /home/node/.openclaw/extensions/openshell/openclaw.plugin.json
+              cp "$package/openclaw.plugin.json" /home/node/.openclaw/extensions/openshell/openclaw.plugin.json
+              cp "$package/dist/index.js" /home/node/.openclaw/extensions/openshell/index.js
               node - <<'EOF'
               const fs = require("fs");
               const path = "/home/node/.openclaw/extensions/openshell/openclaw.plugin.json";
@@ -174,17 +176,7 @@ spec:
               cat > /home/node/.openclaw/extensions/openshell/package.json <<'EOF'
               {"name":"@mosaic/nemoclaw-openshell","type":"module","version":"0.0.0","openclaw":{"extensions":["./index.js"]}}
               EOF
-              ln -sfn /app/node_modules/openshell /home/node/.openclaw/extensions/openshell/node_modules/openshell
-              ln -sfn /app/node_modules/zod /home/node/.openclaw/extensions/openshell/node_modules/zod
-              /app/node_modules/esbuild/bin/esbuild /app/extensions/openshell/index.ts \
-                --bundle \
-                --platform=node \
-                --format=esm \
-                --outfile=/home/node/.openclaw/extensions/openshell/index.js \
-                --external:openclaw \
-                --external:openclaw/* \
-                --external:openshell \
-                --external:zod
+              ln -sfn "$package/node_modules/zod" /home/node/.openclaw/extensions/openshell/node_modules/zod
               node - <<'EOF'
               const fs = require("fs");
               const path = "/home/node/.openclaw/extensions/openshell/index.js";
@@ -195,6 +187,7 @@ spec:
                 "openclaw/plugin-sdk/extension-shared": "/app/dist/plugin-sdk/extension-shared.js",
                 "openclaw/plugin-sdk/file-access-runtime": "/app/dist/plugin-sdk/file-access-runtime.js",
                 "openclaw/plugin-sdk/json-store": "/app/dist/plugin-sdk/json-store.js",
+                "openclaw/plugin-sdk/number-runtime": "/app/dist/plugin-sdk/number-runtime.js",
                 "openclaw/plugin-sdk/plugin-entry": "/app/dist/plugin-sdk/plugin-entry.js",
                 "openclaw/plugin-sdk/sandbox": "/app/dist/plugin-sdk/sandbox.js",
                 "openclaw/plugin-sdk/security-runtime": "/app/dist/plugin-sdk/security-runtime.js",
