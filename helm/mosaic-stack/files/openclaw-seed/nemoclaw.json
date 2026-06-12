@@ -97,14 +97,11 @@
           "remoteAgentWorkspaceDir": "/agent/workspace"
         }
       },
-      "dcgm": {
-        "enabled": {{ .Values.modules.observability.enabled }}
-      },
       "observability": {
-        "enabled": {{ .Values.modules.observability.enabled }}
-      },
-      "grafana": {
-        "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+        "enabled": {{ .Values.modules.observability.enabled }},
+        "config": {
+          "grafanaEnabled": {{ .Values.modules.grafana.enabled }}
+        }
       }
     }
   }

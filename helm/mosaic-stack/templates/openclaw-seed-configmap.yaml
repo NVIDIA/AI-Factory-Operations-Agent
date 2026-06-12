@@ -9,7 +9,7 @@ data:
   openclaw.json: |-
 {{ tpl (.Files.Get "files/openclaw-seed/nemoclaw.json") . | indent 4 }}
   k8s-readonly-policy.yaml: |-
-{{ .Files.Get "files/openclaw-seed/workspace/k8s-readonly-policy.yaml" | indent 4 }}
+{{ .Files.Get "files/openclaw-seed/policies/k8s-readonly-policy.yaml" | indent 4 }}
   AGENTS.md: |-
 {{ tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") . | indent 4 }}
   HEARTBEAT.md: |-
@@ -30,34 +30,18 @@ data:
   observability.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/observability/SKILL.md" | indent 4 }}
   {{- end }}
-  {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
-  grafana.SKILL.md: |-
-{{ .Files.Get "files/openclaw-seed/skills/grafana/SKILL.md" | indent 4 }}
-  {{- end }}
   {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/bcm/SKILL.md" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.observability.enabled }}
-  dcgm.index.ts: |-
-{{ .Files.Get "files/openclaw-seed/extensions/dcgm/index.ts" | indent 4 }}
-  dcgm.openclaw.plugin.json: |-
-{{ .Files.Get "files/openclaw-seed/extensions/dcgm/openclaw.plugin.json" | indent 4 }}
-  dcgm.package.json: |-
-{{ .Files.Get "files/openclaw-seed/extensions/dcgm/package.json" | indent 4 }}
   observability.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/index.ts" | indent 4 }}
+  observability.grafana.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/observability/grafana.ts" | indent 4 }}
   observability.openclaw.plugin.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/openclaw.plugin.json" | indent 4 }}
   observability.package.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/package.json" | indent 4 }}
-  {{- end }}
-  {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
-  grafana.index.ts: |-
-{{ .Files.Get "files/openclaw-seed/extensions/grafana/index.ts" | indent 4 }}
-  grafana.openclaw.plugin.json: |-
-{{ .Files.Get "files/openclaw-seed/extensions/grafana/openclaw.plugin.json" | indent 4 }}
-  grafana.package.json: |-
-{{ .Files.Get "files/openclaw-seed/extensions/grafana/package.json" | indent 4 }}
   {{- end }}
 {{- end }}

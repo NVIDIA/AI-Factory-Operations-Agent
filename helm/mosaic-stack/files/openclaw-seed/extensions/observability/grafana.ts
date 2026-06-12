@@ -1,5 +1,3 @@
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 declare const Buffer: { from(value: string): { toString(encoding: string): string } };
 
@@ -24,46 +22,6 @@ const DEFAULT_PROMETHEUS_URL = "http://prometheus.mosaic-observability.svc.clust
 const DEFAULT_UI_URL = "http://mosaic-ui:3000";
 const DEFAULT_DATASOURCE_UID = "mosaic-observability-prometheus";
 const GRAFANA_PROXY_PREFIX = "/api/grafana/proxy";
-
-const PRESETS: Record<string, PanelSpec[]> = {
-  gpu_temperature: [
-    { title: "GPU Temperature by GPU", query: "max by (Hostname, gpu) (DCGM_FI_DEV_GPU_TEMP)", unit: "celsius" },
-    { title: "GPU Memory Temperature by GPU", query: "max by (Hostname, gpu) (DCGM_FI_DEV_MEMORY_TEMP)", unit: "celsius" },
-  ],
-  gpu_utilization: [
-    { title: "GPU Utilization by Host", query: "avg by (Hostname) (DCGM_FI_DEV_GPU_UTIL)", unit: "percent" },
-    { title: "GPU Utilization by GPU", query: "avg by (Hostname, gpu) (DCGM_FI_DEV_GPU_UTIL)", unit: "percent" },
-    { title: "Memory Copy Utilization", query: "avg by (Hostname, gpu) (DCGM_FI_DEV_MEM_COPY_UTIL)", unit: "percent" },
-  ],
-  gpu_power: [
-    { title: "GPU Power Usage", query: "avg by (Hostname, gpu) (DCGM_FI_DEV_POWER_USAGE)", unit: "watt" },
-    { title: "GPU Energy Consumption", query: "max by (Hostname, gpu) (DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION)", unit: "none" },
-  ],
-  gpu_pcie_nvlink: [
-    { title: "PCIe RX Bytes", query: "rate(DCGM_FI_PROF_PCIE_RX_BYTES[5m])", unit: "Bps" },
-    { title: "PCIe TX Bytes", query: "rate(DCGM_FI_PROF_PCIE_TX_BYTES[5m])", unit: "Bps" },
-    { title: "NVLink Bandwidth", query: "max by (Hostname, gpu) (DCGM_FI_DEV_NVLINK_BANDWIDTH_TOTAL)", unit: "none" },
-    { title: "PCIe Replay Counter", query: "max by (Hostname, gpu) (DCGM_FI_DEV_PCIE_REPLAY_COUNTER)", unit: "none" },
-  ],
-  network: [
-    { title: "Network Receive Bytes", query: "rate(bcm_network_receive_bytes_total[5m])", unit: "Bps" },
-    { title: "Network Transmit Bytes", query: "rate(bcm_network_transmit_bytes_total[5m])", unit: "Bps" },
-    { title: "Network Error Rate", query: "rate(bcm_network_receive_errors_total[5m]) + rate(bcm_network_transmit_errors_total[5m])", unit: "ops" },
-    { title: "Network Drop Rate", query: "rate(bcm_network_receive_dropped_total[5m]) + rate(bcm_network_transmit_dropped_total[5m])", unit: "ops" },
-  ],
-  infiniband: [
-    { title: "InfiniBand Receive Bytes", query: "rate(bcm_infiniband_port_data_received_bytes_total[5m])", unit: "Bps" },
-    { title: "InfiniBand Transmit Bytes", query: "rate(bcm_infiniband_port_data_transmitted_bytes_total[5m])", unit: "Bps" },
-    { title: "InfiniBand Receive Errors", query: "rate(bcm_infiniband_port_receive_errors_total[5m])", unit: "ops" },
-    { title: "InfiniBand Transmit Discards", query: "rate(bcm_infiniband_port_transmit_discards_total[5m])", unit: "ops" },
-  ],
-  bcm_health: [
-    { title: "BCM Exporter Up", query: "bcm_exporter_up", unit: "none", visualization: "stat" },
-    { title: "BCM CMD Installed", query: "bcm_cmd_installed", unit: "none", visualization: "stat" },
-    { title: "BCM Metric Scripts Present", query: "bcm_metric_script_present", unit: "none", visualization: "table" },
-    { title: "BCM Process Counts", query: "bcm_process_count", unit: "none", visualization: "table" },
-  ],
-};
 
 function resolveString(pluginConfig: unknown, key: string, fallback: string) {
   if (
@@ -118,6 +76,12 @@ function boolParam(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function boolConfig(pluginConfig: unknown, key: string, fallback: boolean) {
+  if (!pluginConfig || typeof pluginConfig !== "object") return fallback;
+  const value = (pluginConfig as Record<string, unknown>)[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function normalizePanel(raw: unknown, index: number): PanelSpec | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Record<string, unknown>;
@@ -134,12 +98,9 @@ function normalizePanel(raw: unknown, index: number): PanelSpec | null {
 }
 
 function panelsFromParams(rawParams: Record<string, unknown>) {
-  const explicitPanels = Array.isArray(rawParams.panels)
+  return Array.isArray(rawParams.panels)
     ? rawParams.panels.map(normalizePanel).filter((panel): panel is PanelSpec => Boolean(panel))
     : [];
-  const preset = stringParam(rawParams.preset);
-  const presetPanels = preset && PRESETS[preset] ? PRESETS[preset] : [];
-  return explicitPanels.length > 0 ? explicitPanels : presetPanels;
 }
 
 async function fetchJson(url: string, options?: RequestInit) {
@@ -334,7 +295,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
         refId: "A",
         expr: panel.query,
         range: true,
-        legendFormat: panel.legend || "{{Hostname}} {{gpu}} {{node}} {{device}} {{port}}",
+        legendFormat: panel.legend || "",
       },
     ],
     fieldConfig: {
@@ -368,11 +329,10 @@ function buildDashboard(title: string, panels: PanelSpec[], datasourceUid: strin
   };
 }
 
-export default definePluginEntry({
-  id: "grafana",
-  name: "Grafana Dashboard Builder",
-  description: "Create, validate, and open Grafana dashboards backed by Mosaic observability Prometheus.",
-  register(api) {
+type PluginApi = { pluginConfig: unknown; registerTool(tool: any): void };
+
+export function registerGrafanaTools(api: PluginApi) {
+    if (!boolConfig(api.pluginConfig, "grafanaEnabled", true)) return;
     const grafanaUrl = resolveString(api.pluginConfig, "grafanaUrl", DEFAULT_GRAFANA_URL);
     const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl", DEFAULT_PROMETHEUS_URL);
     const uiUrl = resolveString(api.pluginConfig, "uiUrl", DEFAULT_UI_URL);
@@ -386,83 +346,36 @@ export default definePluginEntry({
     };
 
     registerTool({
-      name: "grafana_dashboard_health",
-      label: "Grafana Dashboard Health",
-      description: "Check Grafana, Prometheus, and Mosaic UI dashboard notification endpoints.",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      async execute() {
-        const [grafanaHealth, prometheusHealth, uiHealth] = await Promise.allSettled([
-          fetchJson(`${grafanaUrl}/api/health`, { headers }),
-          fetchJson(`${prometheusUrl}/api/v1/query?query=up`),
-          fetchJson(`${uiUrl}/api/composer/status`),
-        ]);
-        return jsonToolResult({
-          grafanaUrl,
-          prometheusUrl,
-          uiUrl,
-          grafana: grafanaHealth.status === "fulfilled" ? grafanaHealth.value : { error: String(grafanaHealth.reason) },
-          prometheus: prometheusHealth.status === "fulfilled" ? { ok: true } : { error: String(prometheusHealth.reason) },
-          ui: uiHealth.status === "fulfilled" ? { ok: true } : { error: String(uiHealth.reason) },
-        });
-      },
-    });
-
-    registerTool({
-      name: "grafana_dashboard_presets",
-      label: "Grafana Dashboard Presets",
-      description: "List dashboard presets the agent can use as starting points.",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      async execute() {
-        return jsonToolResult({ presets: PRESETS });
-      },
-    });
-
-    registerTool({
-      name: "grafana_dashboard_validate",
-      label: "Validate Grafana Dashboard Queries",
-      description: "Validate dashboard panel PromQL against observability Prometheus before creating a dashboard.",
+      name: "dashboard_list",
+      label: "List Dashboards",
+      description: "List existing Grafana dashboards.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
-          preset: { type: "string", description: `Optional preset: ${Object.keys(PRESETS).join(", ")}.` },
-          panels: {
-            type: "array",
-            description: "Panel specs with title/query/unit/visualization.",
-            items: { type: "object" },
-          },
-          requireData: { type: "boolean", description: "If true, empty query results are validation errors. Default true." },
+          query: { type: "string", description: "Optional dashboard title search string." },
+          limit: { type: "number", description: "Maximum dashboards to return. Default 50." },
         },
       },
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        const panels = panelsFromParams(rawParams);
-        if (panels.length === 0) {
-          throw new Error("Provide panels or a known preset.");
-        }
-        const validation = await validatePanels(
-          prometheusUrl,
-          grafanaUrl,
-          uiUrl,
-          headers,
-          datasourceUid,
-          panels,
-          boolParam(rawParams.requireData, true),
-          Math.max(1, Math.min(10080, numberParam(rawParams.rangeMinutes, 60))),
-        );
-        return jsonToolResult({ prometheusUrl, panelCount: panels.length, ...validation });
+        const url = new URL(`${grafanaUrl}/api/search`);
+        url.searchParams.set("type", "dash-db");
+        url.searchParams.set("limit", String(Math.max(1, Math.min(500, numberParam(rawParams.limit, 50)))));
+        const query = stringParam(rawParams.query);
+        if (query) url.searchParams.set("query", query);
+        return jsonToolResult({ grafanaUrl, dashboards: await fetchJson(url.toString(), { headers }) });
       },
     });
 
     registerTool({
-      name: "grafana_dashboard_create",
-      label: "Create Grafana Dashboard",
+      name: "dashboard_create",
+      label: "Create Dashboard",
       description: "Create a Grafana dashboard after validating every panel query, then open it in the Mosaic UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Dashboard title." },
-          preset: { type: "string", description: `Optional preset: ${Object.keys(PRESETS).join(", ")}.` },
           panels: {
             type: "array",
             description: "Panel specs with title/query/unit/visualization.",
@@ -477,7 +390,7 @@ export default definePluginEntry({
         const title = stringParam(rawParams.title) || "Mosaic Generated Dashboard";
         const panels = panelsFromParams(rawParams);
         if (panels.length === 0) {
-          throw new Error("Provide panels or a known preset.");
+          throw new Error("Provide panels with explicit PromQL queries.");
         }
 
         const requireData = boolParam(rawParams.requireData, true);
@@ -486,7 +399,7 @@ export default definePluginEntry({
         if (!validation.ok) {
           return jsonToolResult({
             created: false,
-            reason: "Dashboard validation failed. Fix the panel queries and call grafana_dashboard_create again.",
+            reason: "Dashboard validation failed. Fix the panel queries and call dashboard_create again.",
             validation,
           });
         }
@@ -537,8 +450,8 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "grafana_dashboard_open",
-      label: "Open Grafana Dashboard",
+      name: "dashboard_open",
+      label: "Open Dashboard",
       description: "Open an existing Grafana dashboard UID in the Mosaic UI Grafana tab.",
       parameters: {
         type: "object",
@@ -571,5 +484,4 @@ export default definePluginEntry({
         return jsonToolResult({ opened: true, uid, iframeUrl, uiNotification });
       },
     });
-  },
-});
+}

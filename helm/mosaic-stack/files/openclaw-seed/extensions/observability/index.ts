@@ -1,4 +1,5 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { registerGrafanaTools } from "./grafana.ts";
 
 type PrometheusVectorSample = {
   metric: Record<string, string>;
@@ -166,8 +167,10 @@ async function queryRange(baseUrl: string, promql: string, rawParams: Record<str
 export default definePluginEntry({
   id: "observability",
   name: "Mosaic Observability",
-  description: "Read-only Prometheus tools for historical GPU, BCM, node, network, and InfiniBand cluster state.",
+  description: "Read-only Prometheus and Grafana tools for Mosaic cluster observability.",
   register(api) {
+    registerGrafanaTools(api);
+
     const baseUrl = resolveBaseUrl(api.pluginConfig);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
       if (isToolEnabled(api.pluginConfig, tool.name)) {
@@ -176,50 +179,24 @@ export default definePluginEntry({
     };
 
     registerTool({
-      name: "observability_health",
-      label: "Observability Health",
-      description: "Check whether the Mosaic observability Prometheus is reachable and list active scrape targets.",
-      parameters: { type: "object", additionalProperties: false, properties: {} },
-      async execute() {
-        const targets = await prometheusFetch(baseUrl, "/api/v1/targets");
-        const activeTargets = ((targets.data as unknown as { activeTargets?: unknown[] })?.activeTargets || []) as Array<Record<string, unknown>>;
-        return jsonToolResult({
-          source: baseUrl,
-          reachable: true,
-          activeTargetCount: activeTargets.length,
-          targets: activeTargets.map((target) => ({
-            job: (target.labels as Record<string, string> | undefined)?.job,
-            instance: (target.labels as Record<string, string> | undefined)?.instance,
-            health: target.health,
-            lastError: target.lastError,
-            scrapeUrl: target.scrapeUrl,
-          })),
-        });
-      },
-    });
-
-    registerTool({
       name: "observability_metric_names",
       label: "Observability Metric Names",
-      description: "List available Prometheus metric names, optionally filtered to DCGM_FI_* and bcm_* cluster metrics.",
+      description: "List available Prometheus metric names, optionally filtered by substring or regular expression.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
           filter: { type: "string", description: "Optional case-insensitive substring or regular expression source." },
-          includeAll: { type: "boolean", description: "If true, include all metric names instead of only DCGM_FI_* and bcm_*." },
           limit: { type: "number", description: "Maximum metric names to return." },
         },
       },
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
         const payload = await prometheusFetch(baseUrl, "/api/v1/label/__name__/values");
         const values = ((payload.data as unknown as string[]) || []) as string[];
-        const includeAll = rawParams.includeAll === true;
         const filter = stringParam(rawParams.filter);
         const limit = Math.trunc(boundedNumber(rawParams.limit, 200, 1, 5000));
         const regex = filter ? new RegExp(filter, "i") : null;
         const names = values
-          .filter((name) => includeAll || name.startsWith("DCGM_FI_") || name.startsWith("bcm_"))
           .filter((name) => !regex || regex.test(name))
           .sort();
         return jsonToolResult({
@@ -261,7 +238,7 @@ export default definePluginEntry({
     registerTool({
       name: "observability_range_query",
       label: "Prometheus Range Query",
-      description: "Run a historical PromQL range query for GPU, BCM, network, InfiniBand, or node metrics.",
+      description: "Run a historical PromQL range query.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -280,54 +257,6 @@ export default definePluginEntry({
         const promql = stringParam(rawParams.query);
         if (!promql) throw new Error("query is required");
         return jsonToolResult({ source: baseUrl, ...(await queryRange(baseUrl, promql, rawParams)) });
-      },
-    });
-
-    registerTool({
-      name: "observability_cluster_summary",
-      label: "Cluster Observability Summary",
-      description: "Return common current and historical summaries for GPU utilization/temperature, BCM exporter health, network errors, and InfiniBand traffic.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          rangeMinutes: { type: "number", description: "Historical lookback window in minutes. Default 60." },
-          stepSeconds: { type: "number", description: "Historical step in seconds. Default 60." },
-        },
-      },
-      async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        const historicalParams = {
-          ...rawParams,
-          maxSeries: 20,
-          maxPoints: 120,
-        };
-        const currentQueries = {
-          scrapeHealth: "up",
-          gpuUtilizationByHost: "avg by (Hostname) (DCGM_FI_DEV_GPU_UTIL)",
-          gpuTemperatureMaxByGpu: "max by (Hostname, gpu) (DCGM_FI_DEV_GPU_TEMP)",
-          bcmProcessCounts: "bcm_process_count",
-          bcmMetricScripts: "bcm_metric_script_present",
-        };
-        const historicalQueries = {
-          gpuUtilizationByHost: "avg by (Hostname) (DCGM_FI_DEV_GPU_UTIL)",
-          gpuTemperatureMaxByGpu: "max by (Hostname, gpu) (DCGM_FI_DEV_GPU_TEMP)",
-          networkErrorRates: "topk(10, rate(bcm_network_receive_errors_total[5m]) + rate(bcm_network_transmit_errors_total[5m]))",
-          infinibandTraffic: "topk(10, rate(bcm_infiniband_port_data_received_bytes_total[5m]))",
-          infinibandErrors: "topk(10, rate(bcm_infiniband_port_receive_errors_total[5m]) + rate(bcm_infiniband_port_transmit_discards_total[5m]))",
-        };
-        const current: Record<string, unknown> = {};
-        for (const [name, promql] of Object.entries(currentQueries)) {
-          current[name] = await query(baseUrl, promql, undefined, 80);
-        }
-        const history: Record<string, unknown> = {};
-        for (const [name, promql] of Object.entries(historicalQueries)) {
-          history[name] = await queryRange(baseUrl, promql, historicalParams);
-        }
-        return jsonToolResult({
-          source: baseUrl,
-          current,
-          history,
-        });
       },
     });
   },

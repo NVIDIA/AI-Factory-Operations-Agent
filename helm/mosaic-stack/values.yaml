@@ -133,7 +133,7 @@ openclaw:
   nemoclaw:
     command: /usr/local/bin/nvidia-openshell
     gatewayEndpoint: ""
-    policy: /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+    policy: /home/node/.openclaw/policies/k8s-readonly-policy.yaml
   service:
     port: 18789
 

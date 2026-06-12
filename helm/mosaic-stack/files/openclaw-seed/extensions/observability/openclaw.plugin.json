@@ -2,11 +2,12 @@
   "id": "observability",
   "contracts": {
     "tools": [
-      "observability_health",
       "observability_metric_names",
       "observability_query",
       "observability_range_query",
-      "observability_cluster_summary"
+      "dashboard_list",
+      "dashboard_create",
+      "dashboard_open"
     ]
   },
   "configSchema": {
@@ -16,6 +17,38 @@
       "baseUrl": {
         "type": "string",
         "description": "Mosaic observability Prometheus base URL."
+      },
+      "grafanaEnabled": {
+        "type": "boolean",
+        "description": "Whether Grafana dashboard tools should be registered."
+      },
+      "grafanaUrl": {
+        "type": "string",
+        "description": "Grafana service base URL."
+      },
+      "prometheusUrl": {
+        "type": "string",
+        "description": "Prometheus service base URL used for dashboard validation."
+      },
+      "uiUrl": {
+        "type": "string",
+        "description": "Mosaic UI service base URL used to switch the frontend Grafana tab."
+      },
+      "datasourceUid": {
+        "type": "string",
+        "description": "Grafana Prometheus datasource UID."
+      },
+      "token": {
+        "type": "string",
+        "description": "Optional Grafana API token."
+      },
+      "basicUser": {
+        "type": "string",
+        "description": "Optional Grafana basic auth user."
+      },
+      "basicPassword": {
+        "type": "string",
+        "description": "Optional Grafana basic auth password."
       },
       "enabledTools": {
         "type": "array",

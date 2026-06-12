@@ -56,25 +56,22 @@ spec:
               set -eu
               mkdir -p /home/node/.openclaw/tmp/openclaw
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
+              rm -rf /home/node/.openclaw/extensions/dcgm \
+                /home/node/.openclaw/extensions/grafana \
+                /home/node/.openclaw/workspace/skills/grafana \
+                /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/observability
               {{- end }}
-              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
-              mkdir -p /home/node/.openclaw/workspace/skills/grafana
-              {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
               {{- end }}
-              mkdir -p /home/node/.openclaw/workspace/.kube
+              mkdir -p /home/node/.openclaw/workspace/.kube /home/node/.openclaw/policies
               {{- if .Values.modules.observability.enabled }}
-              mkdir -p /home/node/.openclaw/extensions/dcgm
               mkdir -p /home/node/.openclaw/extensions/observability
-              {{- end }}
-              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
-              mkdir -p /home/node/.openclaw/extensions/grafana
               {{- end }}
               cat > /home/node/.openclaw/kubeconfig <<EOF
               apiVersion: v1
@@ -121,8 +118,8 @@ spec:
                     token: ${token}
               EOF
               chmod 600 /home/node/.openclaw/workspace/.kube/config
-              cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
-              sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+              cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/policies/k8s-readonly-policy.yaml
+              sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/policies/k8s-readonly-policy.yaml
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
               cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
               cp /seed/HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
@@ -135,18 +132,10 @@ spec:
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               cp /seed/observability.SKILL.md /home/node/.openclaw/workspace/skills/observability/SKILL.md
-              cp /seed/dcgm.index.ts /home/node/.openclaw/extensions/dcgm/index.ts
-              cp /seed/dcgm.openclaw.plugin.json /home/node/.openclaw/extensions/dcgm/openclaw.plugin.json
-              cp /seed/dcgm.package.json /home/node/.openclaw/extensions/dcgm/package.json
               cp /seed/observability.index.ts /home/node/.openclaw/extensions/observability/index.ts
+              cp /seed/observability.grafana.ts /home/node/.openclaw/extensions/observability/grafana.ts
               cp /seed/observability.openclaw.plugin.json /home/node/.openclaw/extensions/observability/openclaw.plugin.json
               cp /seed/observability.package.json /home/node/.openclaw/extensions/observability/package.json
-              {{- end }}
-              {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
-              cp /seed/grafana.SKILL.md /home/node/.openclaw/workspace/skills/grafana/SKILL.md
-              cp /seed/grafana.index.ts /home/node/.openclaw/extensions/grafana/index.ts
-              cp /seed/grafana.openclaw.plugin.json /home/node/.openclaw/extensions/grafana/openclaw.plugin.json
-              cp /seed/grafana.package.json /home/node/.openclaw/extensions/grafana/package.json
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
