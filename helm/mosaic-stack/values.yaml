@@ -20,6 +20,8 @@ modules:
   slurm:
     enabled: true
     backend: vanilla
+    evidenceCollector:
+      enabled: true
 
 llm:
   mode: vllm
@@ -125,31 +127,6 @@ openclaw:
   pvc:
     size: 10Gi
     storageClassName: local-path
-  slurmLogMounts:
-    - name: var-log-slurm
-      hostPath: /var/log/slurm
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/var-log-slurm
-      type: DirectoryOrCreate
-    - name: var-log-slurm-llnl
-      hostPath: /var/log/slurm-llnl
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/var-log-slurm-llnl
-      type: DirectoryOrCreate
-    - name: cm-shared-slurm-logs
-      hostPath: /cm/shared/slurm-logs
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/cm-shared-slurm-logs
-      type: DirectoryOrCreate
-    - name: cm-shared-megatron-logs
-      hostPath: /cm/shared/megatron/logs
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/cm-shared-megatron-logs
-      type: DirectoryOrCreate
-    - name: slurm-logs
-      hostPath: /slurm/logs
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/slurm-logs
-      type: DirectoryOrCreate
-    - name: slurm-accounting
-      hostPath: /slurm/accounting
-      mountPath: /home/node/.openclaw/workspace/slurm-evidence/slurm-accounting
-      type: DirectoryOrCreate
   secrets:
     create: true
     name: openclaw-secrets
@@ -189,3 +166,21 @@ openshell:
     sshGatewayPort: 8080
     sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
     sandboxImagePullPolicy: IfNotPresent
+
+slurmEvidenceCollector:
+  image:
+    repository: nemoclaw
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8080
+  maxFileBytes: 65536
+  maxMatches: 40
+  maxVisitedFiles: 50000
+  roots:
+    - /var/log
+    - /cm/shared
+    - /slurm
+    - /etc/slurm
+    - /cm/shared/apps/slurm/etc
+    - /run/log/journal
+    - /var/log/journal

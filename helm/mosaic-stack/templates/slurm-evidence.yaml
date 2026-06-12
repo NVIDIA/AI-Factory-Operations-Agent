@@ -1,0 +1,97 @@
+{{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
+{{- $collector := .Values.slurmEvidenceCollector | default dict -}}
+{{- $image := $collector.image | default dict -}}
+{{- $port := default 8080 $collector.port -}}
+{{- $roots := default (list "/var/log" "/cm/shared" "/slurm" "/etc/slurm" "/cm/shared/apps/slurm/etc" "/run/log/journal" "/var/log/journal") $collector.roots -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slurm-evidence-collector
+  labels:
+    app: slurm-evidence-collector
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+data:
+  server.mjs: |-
+{{ .Files.Get "files/slurm-evidence/server.mjs" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: slurm-evidence-collector
+  labels:
+    app: slurm-evidence-collector
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: slurm-evidence-collector
+  template:
+    metadata:
+      labels:
+        app: slurm-evidence-collector
+      annotations:
+        checksum/slurm-evidence: {{ .Files.Get "files/slurm-evidence/server.mjs" | sha256sum }}
+    spec:
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      containers:
+        - name: collector
+          image: {{ printf "%s:%s" (default "nemoclaw" $image.repository) (default "latest" $image.tag) | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $image.pullPolicy }}
+          command: ["node", "/app/server.mjs"]
+          env:
+            - name: PORT
+              value: {{ $port | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: MAX_FILE_BYTES
+              value: {{ default 65536 $collector.maxFileBytes | quote }}
+            - name: MAX_MATCHES
+              value: {{ default 40 $collector.maxMatches | quote }}
+            - name: MAX_VISITED_FILES
+              value: {{ default 50000 $collector.maxVisitedFiles | quote }}
+            - name: EVIDENCE_ROOTS
+              value: {{ join ":" $roots | quote }}
+          ports:
+            - name: http
+              containerPort: {{ $port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: script
+              mountPath: /app
+              readOnly: true
+            - name: host-root
+              mountPath: /host
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: slurm-evidence-collector
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slurm-evidence-collector
+  labels:
+    app: slurm-evidence-collector
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: slurm-evidence-collector
+  ports:
+    - name: http
+      port: {{ $port }}
+      targetPort: http
+{{- end }}

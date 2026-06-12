@@ -102,6 +102,12 @@
         "config": {
           "grafanaEnabled": {{ .Values.modules.grafana.enabled }}
         }
+      },
+      "slurm": {
+        "enabled": {{ eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }},
+        "config": {
+          "evidenceUrl": "http://slurm-evidence-collector:{{ default 8080 .Values.slurmEvidenceCollector.port }}"
+        }
       }
     }
   }

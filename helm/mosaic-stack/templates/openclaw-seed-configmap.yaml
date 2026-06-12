@@ -25,6 +25,12 @@ data:
   {{- if .Values.modules.slurm.enabled }}
   slurm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/slurm/SKILL.md" | indent 4 }}
+  slurm.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/slurm/index.ts" | indent 4 }}
+  slurm.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/slurm/openclaw.plugin.json" | indent 4 }}
+  slurm.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/slurm/package.json" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.observability.enabled }}
   observability.SKILL.md: |-

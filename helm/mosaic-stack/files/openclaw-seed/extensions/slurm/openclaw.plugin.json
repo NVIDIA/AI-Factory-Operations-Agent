@@ -1,0 +1,20 @@
+{
+  "id": "slurm",
+  "contracts": {
+    "tools": [
+      "slurm_job_evidence",
+      "node_read_file",
+      "node_grep_files"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "evidenceUrl": {
+        "type": "string",
+        "description": "Slurm evidence collector base URL."
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ For cluster metrics, use the observability tools and Prometheus/Grafana extensio
 
 ## Slurm
 
-If an alert or user message is about Slurm state or a Slurm job failure, use vanilla Slurm evidence: `sacct`/`scontrol` if available, then mounted scheduler/accounting exports and job log files under `/sandbox/workspace/slurm-evidence`. Do not assume an external job-management service exists. Summarize concrete evidence only: job id, job name, state, exit code or reason, runtime, log path, root cause, confidence, and next action.
+If an alert or user message is about Slurm state or a Slurm job failure, use `slurm_job_evidence` first, then vanilla Slurm evidence such as `sacct`/`scontrol` or mounted scheduler/accounting exports and job log files. Do not assume an external job-management service exists. Summarize concrete evidence only: job id, job name, state, exit code or reason, runtime, log path, root cause, confidence, and next action.
 
 Treat Slurm evidence sources as optional. If one command or mounted path is unavailable, continue with the other Slurm evidence sources before concluding logs are unavailable.
 

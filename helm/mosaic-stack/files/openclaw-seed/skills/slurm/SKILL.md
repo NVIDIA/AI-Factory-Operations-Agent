@@ -9,21 +9,14 @@ Use this skill when a user asks about a Slurm job failure or queue state.
 
 This workflow is evidence based. Do not assume any external job-management service exists.
 
-First try read-only Slurm commands if they are available in the sandbox:
+First use `slurm_job_evidence` when available. It returns bounded evidence from allowlisted node filesystem roots and job output files.
+
+If the tool is unavailable or incomplete, try read-only Slurm commands if they are available in the sandbox:
 
 - `sacct -j <job-id> --format=JobID,JobName,State,ExitCode,Elapsed,Start,End,NodeList%40,Comment%80 -P`
 - `scontrol show job <job-id>`
 
-If a command is missing, not configured, or cannot reach the Slurm controller, continue with mounted evidence. Search these default mounted paths when present:
-
-- `/sandbox/workspace/slurm-evidence/var-log-slurm`
-- `/sandbox/workspace/slurm-evidence/var-log-slurm-llnl`
-- `/sandbox/workspace/slurm-evidence/cm-shared-slurm-logs`
-- `/sandbox/workspace/slurm-evidence/cm-shared-megatron-logs`
-- `/sandbox/workspace/slurm-evidence/slurm-logs`
-- `/sandbox/workspace/slurm-evidence/slurm-accounting`
-
-Also check equivalent direct mount paths if present: `/var/log/slurm`, `/var/log/slurm-llnl`, `/cm/shared/slurm-logs`, `/cm/shared/megatron/logs`, `/slurm/logs`, and `/slurm/accounting`.
+If a command is missing, not configured, or cannot reach the Slurm controller, continue with any other evidence source that is available. The collector searches allowlisted host roots such as `/var/log`, `/cm/shared`, `/slurm`, `/etc/slurm`, `/run/log/journal`, and `/var/log/journal`.
 
 Treat each evidence source as optional. If one path or command is unavailable, keep investigating with the remaining sources before concluding there is not enough evidence.
 

@@ -54,16 +54,21 @@ For production, prefer injecting values from your secret manager or precreating 
 
 ## Vanilla Slurm RCA
 
-The public Slurm workflow is evidence based. By default, the chart tries common read-only Slurm evidence paths and exposes whatever exists under `/sandbox/workspace/slurm-evidence` for the sandbox:
+The public Slurm workflow is evidence based. By default, the chart deploys a read-only Slurm evidence collector. The collector mounts the host filesystem read-only inside the collector pod, exposes bounded HTTP tools to OpenClaw, and keeps broad host filesystem access out of the LLM sandbox.
+
+Default collector roots:
 
 - `/var/log/slurm`
-- `/var/log/slurm-llnl`
-- `/cm/shared/slurm-logs`
-- `/cm/shared/megatron/logs`
+- `/var/log`
+- `/cm/shared`
 - `/slurm/logs`
 - `/slurm/accounting`
+- `/etc/slurm`
+- `/cm/shared/apps/slurm/etc`
+- `/run/log/journal`
+- `/var/log/journal`
 
-The Slurm skill first tries read-only `sacct`/`scontrol` if available, then searches mounted evidence paths. Missing paths are expected on many clusters; the skill continues with whatever evidence is present. Add entries to `openclaw.slurmLogMounts` only when a site stores Slurm logs somewhere outside the default candidates.
+The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `sacct`/`scontrol` and any mounted evidence available in the sandbox. Missing paths are expected on many clusters; the skill continues with whatever evidence is present. Adjust `slurmEvidenceCollector.roots` only when a site stores Slurm evidence outside the default candidates.
 
 ## OpenShell Dependency
 

@@ -64,6 +64,14 @@ nodeSelector:
 {{- if hasKey $bcm "enabled" -}}{{ $bcm.enabled }}{{- else -}}true{{- end -}}
 {{- end -}}
 
+{{- define "mosaic-stack.slurmEvidenceEnabled" -}}
+{{- $slurm := .Values.modules.slurm | default dict -}}
+{{- $collector := $slurm.evidenceCollector | default dict -}}
+{{- $collectorEnabled := true -}}
+{{- if hasKey $collector "enabled" -}}{{- $collectorEnabled = $collector.enabled -}}{{- end -}}
+{{- if and ($slurm.enabled | default false) $collectorEnabled -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
 {{- define "mosaic-stack.llmBaseUrl" -}}
 {{- if eq .Values.llm.mode "vllm" -}}
 {{- printf "http://%s:%v/v1" .Values.llm.vllm.name .Values.llm.vllm.port -}}
