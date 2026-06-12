@@ -1,4 +1,5 @@
 {{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
+{{- $observability := default dict .Values.observability }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,9 +54,9 @@ spec:
             - name: MOSAIC_DASHBOARD_DIR
               value: /var/lib/mosaic-audit/dashboard
             - name: MOSAIC_PROMETHEUS_URL
-              value: {{ .Values.observability.prometheusUrl | quote }}
+              value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ .Values.observability.grafanaUrl | quote }}
+              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl | quote }}
             - name: MOSAIC_ALERTMANAGER_URL
               value: {{ printf "http://kube-prometheus-stack-alertmanager.%s.svc.cluster.local:9093" .Values.global.alertmanagerNamespace | quote }}
           readinessProbe:

@@ -1,4 +1,5 @@
 {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
+{{- $observability := default dict .Values.observability }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -304,9 +305,9 @@ spec:
             - name: OPENCLAW_VLLM_BASE_URL
               value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
             - name: MOSAIC_PROMETHEUS_URL
-              value: {{ .Values.observability.prometheusUrl | quote }}
+              value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ .Values.observability.grafanaUrl | quote }}
+              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl | quote }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
