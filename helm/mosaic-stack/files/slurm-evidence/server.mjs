@@ -69,13 +69,14 @@ async function findJobFiles(jobId) {
   return matches;
 }
 
-async function grepFiles(pattern, root = '/') {
+async function grepFiles(pattern, root = '/', pathFilter = () => true) {
   const regex = new RegExp(pattern, 'i');
   const matches = [];
   const counter = { visited: 0 };
   const bases = root === '/' ? roots.map(hostPath) : [hostPath(root)];
   for (const base of bases) {
     for await (const file of walk(base, counter)) {
+      if (!pathFilter(publicPath(file))) continue;
       let text;
       try {
         text = (await readTail(file, Math.min(maxFileBytes, 16384))).text;
@@ -88,6 +89,10 @@ async function grepFiles(pattern, root = '/') {
     }
   }
   return matches;
+}
+
+function isSlurmPath(filePath) {
+  return /(^|\/)slurm([^/]*|\/)/i.test(filePath);
 }
 
 function jobIdPattern(jobId) {
@@ -116,7 +121,7 @@ async function slurmJobEvidence(jobId) {
     searched_roots: roots,
     matched_files: files,
     snippets,
-    slurm_logs: await grepFiles(jobIdPattern(jobId), '/var/log'),
+    slurm_logs: await grepFiles(jobIdPattern(jobId), '/var/log', isSlurmPath),
     slurm_config: await grepFiles('SlurmctldLogFile|SlurmdLogFile|AccountingStorage|StateSaveLocation', '/etc/slurm'),
   };
 }
