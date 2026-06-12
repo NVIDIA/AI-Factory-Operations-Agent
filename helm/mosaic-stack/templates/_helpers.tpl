@@ -59,6 +59,11 @@ nodeSelector:
 {{- printf "%s-%s" ($base | trunc 42 | trimSuffix "-") (sha256sum $base | trunc 8) -}}
 {{- end -}}
 
+{{- define "mosaic-stack.bcmEnabled" -}}
+{{- $bcm := .Values.modules.bcm | default dict -}}
+{{- if hasKey $bcm "enabled" -}}{{ $bcm.enabled }}{{- else -}}true{{- end -}}
+{{- end -}}
+
 {{- define "mosaic-stack.llmBaseUrl" -}}
 {{- if eq .Values.llm.mode "vllm" -}}
 {{- printf "http://%s:%v/v1" .Values.llm.vllm.name .Values.llm.vllm.port -}}

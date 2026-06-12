@@ -36,7 +36,7 @@ data:
   grafana.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/grafana/SKILL.md" | indent 4 }}
   {{- end }}
-  {{- if .Values.modules.bcm.enabled }}
+  {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/bcm/SKILL.md" | indent 4 }}
   {{- end }}

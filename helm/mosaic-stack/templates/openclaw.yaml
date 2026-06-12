@@ -66,7 +66,7 @@ spec:
               {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/grafana
               {{- end }}
-              {{- if .Values.modules.bcm.enabled }}
+              {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
               {{- end }}
               mkdir -p /home/node/.openclaw/workspace/.kube
@@ -151,7 +151,7 @@ spec:
               cp /seed/grafana.openclaw.plugin.json /home/node/.openclaw/extensions/grafana/openclaw.plugin.json
               cp /seed/grafana.package.json /home/node/.openclaw/extensions/grafana/package.json
               {{- end }}
-              {{- if .Values.modules.bcm.enabled }}
+              {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
               {{- end }}
           securityContext:
