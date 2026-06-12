@@ -24,7 +24,7 @@
         "mode": "all",
         "backend": "nemoclaw",
         "scope": "agent",
-        "workspaceAccess": "rw"
+        "workspaceAccess": "ro"
       }
     },
     "list": [
