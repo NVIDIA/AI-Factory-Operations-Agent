@@ -54,7 +54,16 @@ For production, prefer injecting values from your secret manager or precreating 
 
 ## Vanilla Slurm RCA
 
-The public Slurm workflow is log based. Configure `openclaw.slurmLogMounts` to mount Slurm accounting exports and job logs into the OpenClaw workspace, such as `/slurm/accounting`, `/slurm/logs`, or `/cm/shared/slurm-logs`. The Slurm skill inspects those files and summarizes concrete job evidence.
+The public Slurm workflow is evidence based. By default, the chart tries common read-only Slurm evidence paths and exposes whatever exists under `/sandbox/workspace/slurm-evidence` for the sandbox:
+
+- `/var/log/slurm`
+- `/var/log/slurm-llnl`
+- `/cm/shared/slurm-logs`
+- `/cm/shared/megatron/logs`
+- `/slurm/logs`
+- `/slurm/accounting`
+
+The Slurm skill first tries read-only `sacct`/`scontrol` if available, then searches mounted evidence paths. Missing paths are expected on many clusters; the skill continues with whatever evidence is present. Add entries to `openclaw.slurmLogMounts` only when a site stores Slurm logs somewhere outside the default candidates.
 
 ## OpenShell Dependency
 
