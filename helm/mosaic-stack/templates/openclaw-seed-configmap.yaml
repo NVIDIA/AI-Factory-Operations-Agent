@@ -36,6 +36,10 @@ data:
   grafana.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/grafana/SKILL.md" | indent 4 }}
   {{- end }}
+  {{- if .Values.modules.bcm.enabled }}
+  bcm.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/bcm/SKILL.md" | indent 4 }}
+  {{- end }}
   {{- if .Values.modules.observability.enabled }}
   dcgm.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/dcgm/index.ts" | indent 4 }}

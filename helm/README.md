@@ -30,7 +30,11 @@ Set image repositories and tags in values for your registry before installing. T
 - `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
 - `llm.mode=external`: does not deploy vLLM. Set `llm.external.baseUrl`, `llm.external.model`, and optionally `llm.external.existingSecret` plus `llm.external.apiKeySecretKey`.
 
-## 4. Open The UI
+## 4. Modules
+
+`helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed. The observability chart uses `bcm.enabled` to deploy the BCM metrics exporter and Prometheus scrape.
+
+## 5. Open The UI
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000

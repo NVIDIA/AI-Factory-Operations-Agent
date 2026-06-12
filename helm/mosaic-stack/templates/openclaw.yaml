@@ -66,6 +66,9 @@ spec:
               {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/grafana
               {{- end }}
+              {{- if .Values.modules.bcm.enabled }}
+              mkdir -p /home/node/.openclaw/workspace/skills/bcm
+              {{- end }}
               mkdir -p /home/node/.openclaw/workspace/.kube
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/extensions/dcgm
@@ -147,6 +150,9 @@ spec:
               cp /seed/grafana.index.ts /home/node/.openclaw/extensions/grafana/index.ts
               cp /seed/grafana.openclaw.plugin.json /home/node/.openclaw/extensions/grafana/openclaw.plugin.json
               cp /seed/grafana.package.json /home/node/.openclaw/extensions/grafana/package.json
+              {{- end }}
+              {{- if .Values.modules.bcm.enabled }}
+              cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
               {{- end }}
           securityContext:
             runAsUser: 1000
