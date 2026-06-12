@@ -90,6 +90,10 @@ async function grepFiles(pattern, root = '/') {
   return matches;
 }
 
+function jobIdPattern(jobId) {
+  return `(^|[^0-9])${jobId}([^0-9]|$)`;
+}
+
 async function slurmJobEvidence(jobId) {
   const files = await findJobFiles(jobId);
   const snippets = [];
@@ -112,7 +116,7 @@ async function slurmJobEvidence(jobId) {
     searched_roots: roots,
     matched_files: files,
     snippets,
-    slurm_logs: await grepFiles(jobId, '/var/log'),
+    slurm_logs: await grepFiles(jobIdPattern(jobId), '/var/log'),
     slurm_config: await grepFiles('SlurmctldLogFile|SlurmdLogFile|AccountingStorage|StateSaveLocation', '/etc/slurm'),
   };
 }
