@@ -72,15 +72,19 @@ nodeSelector:
 {{- if and ($slurm.enabled | default false) $collectorEnabled -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
-{{- define "mosaic-stack.llmBaseUrl" -}}
+{{- define "mosaic-stack.llmUpstreamBaseUrl" -}}
 {{- if eq .Values.llm.mode "vllm" -}}
-{{- if .Values.llm.vllm.requestCompatibility.enabled -}}
-{{- printf "http://%s:%v/v1" .Values.llm.vllm.requestCompatibility.name .Values.llm.vllm.requestCompatibility.port -}}
-{{- else -}}
 {{- printf "http://%s:%v/v1" .Values.llm.vllm.name .Values.llm.vllm.port -}}
-{{- end -}}
 {{- else -}}
 {{- .Values.llm.external.baseUrl -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.llmBaseUrl" -}}
+{{- if .Values.llm.requestCompatibility.enabled -}}
+{{- printf "http://%s:%v/v1" .Values.llm.requestCompatibility.name .Values.llm.requestCompatibility.port -}}
+{{- else -}}
+{{- include "mosaic-stack.llmUpstreamBaseUrl" . -}}
 {{- end -}}
 {{- end -}}
 

@@ -28,6 +28,11 @@ modules:
 
 llm:
   mode: vllm
+  requestCompatibility:
+    enabled: true
+    name: llm-openai-compat
+    port: 8000
+    disableThinking: true
   external:
     baseUrl: ""
     model: ""
@@ -92,11 +97,6 @@ llm:
       namespace: mosaic
       name: vllm-nemotron
       externalName: ""
-    requestCompatibility:
-      enabled: true
-      name: vllm-openai-compat
-      port: 8000
-      disableThinking: true
 
 registryCredentials:
   create: false
