@@ -20,6 +20,8 @@
       "model": {
         "primary": "vllm/{{ include "mosaic-stack.llmModel" . }}"
       },
+      "thinkingDefault": "off",
+      "reasoningDefault": "off",
       "sandbox": {
         "mode": "all",
         "backend": "nemoclaw",
@@ -31,7 +33,9 @@
       {
         "id": "default",
         "name": "OpenClaw Assistant",
-        "workspace": "~/.openclaw/workspace"
+        "workspace": "~/.openclaw/workspace",
+        "thinkingDefault": "off",
+        "reasoningDefault": "off"
       }
     ]
   },
