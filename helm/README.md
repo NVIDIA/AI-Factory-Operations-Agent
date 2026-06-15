@@ -42,15 +42,6 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
-## Optional Private Values
-
-The public chart does not require NVIDIA-owned install secrets. Private values are only needed when explicitly enabling private dependencies:
-
-- `registryCredentials.password`: only needed when `registryCredentials.create=true` for a private image registry.
-- `openclaw.secrets.gatewayToken`: optional. When omitted, Helm generates one and preserves the existing token on upgrades.
-
-For production, prefer injecting values from your secret manager or precreating Kubernetes Secrets and referencing them by name.
-
 ## Vanilla Slurm RCA
 
 The public Slurm workflow is evidence based. By default, the chart deploys a read-only Slurm evidence collector. The collector mounts the host filesystem read-only inside the collector pod, exposes bounded HTTP tools to OpenClaw, and keeps broad host filesystem access out of the LLM sandbox.
