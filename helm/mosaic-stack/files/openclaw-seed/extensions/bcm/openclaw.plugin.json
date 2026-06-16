@@ -2,6 +2,9 @@
   "id": "bcm",
   "name": "BCM MCP",
   "description": "MCP streamable HTTP/SSE bridge from OpenClaw to bcm-mcp-tools diagnostics.",
+  "activation": {
+    "onCapabilities": ["tool"]
+  },
   "contracts": {
     "tools": [
       "bcm_health",
