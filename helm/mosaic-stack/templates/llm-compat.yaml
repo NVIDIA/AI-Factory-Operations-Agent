@@ -10,6 +10,7 @@ metadata:
 data:
   server.js: |
     const http = require('http');
+    const https = require('https');
     const upstream = new URL(process.env.UPSTREAM_BASE_URL);
     const port = Number(process.env.PORT || {{ $c.port }});
     const disableThinking = process.env.DISABLE_THINKING === 'true';
@@ -39,7 +40,8 @@ data:
       const body = patchBody(req, await readBody(req));
       const target = new URL(req.url, upstream);
       const headers = { ...req.headers, host: target.host, 'content-length': String(body.length) };
-      const out = http.request(target, { method: req.method, headers }, upstreamRes => {
+      const client = target.protocol === 'https:' ? https : http;
+      const out = client.request(target, { method: req.method, headers }, upstreamRes => {
         res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
         upstreamRes.pipe(res);
       });

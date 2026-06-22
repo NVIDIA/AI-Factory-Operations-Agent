@@ -20,6 +20,34 @@ Set image repositories and tags in values for your registry before installing. T
 - `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
 - `llm.mode=external`: does not deploy vLLM. Set `llm.external.baseUrl`, `llm.external.model`, and optionally `llm.external.existingSecret` plus `llm.external.apiKeySecretKey`.
 
+For an external LLM, create the API key as a Kubernetes Secret outside Helm values, then point the chart at it:
+
+```bash
+kubectl -n mosaic create secret generic mosaic-external-llm \
+  --from-literal=apiKey='<external-llm-api-key>'
+```
+
+```yaml
+llm:
+  mode: external
+  external:
+    baseUrl: https://inference-api.nvidia.com/v1
+    model: aws/anthropic/bedrock-claude-sonnet-4-6
+    existingSecret: mosaic-external-llm
+    apiKeySecretKey: apiKey
+```
+
+Do not put external provider keys directly in committed values files. Keep the Secret creation step in an operator-owned bootstrap path, CI secret store, External Secrets Operator, or another cluster-local secret workflow.
+
+For chart-managed vLLM, install with a profile file and provide any required model-download Secret separately:
+
+```bash
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --create-namespace \
+  -f helm/mosaic-stack/profiles/vllm-super-1gpu.yaml
+```
+
 ## 3. Modules
 
 `helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
