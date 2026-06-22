@@ -42,6 +42,24 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
+## 5. Headless Mode
+
+The Mosaic UI service also exposes a headless API:
+
+```bash
+curl -sS http://localhost:3000/api/headless/chat \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"summarize whether the cluster is healthy","sessionKey":"headless"}'
+```
+
+Inside the `mosaic-ui` container, the same path is available as a CLI:
+
+```bash
+mosaic "summarize whether the cluster is healthy"
+```
+
+For agent clients, run `mosaic-mcp` with `MOSAIC_URL` pointing at the Mosaic service. It exposes `mosaic_chat`, `mosaic_history`, and `mosaic_commands` over stdio MCP.
+
 ## Vanilla Slurm RCA
 
 The public Slurm workflow is evidence based. By default, the chart deploys a read-only Slurm evidence collector. The collector mounts the host filesystem read-only inside the collector pod, exposes bounded HTTP tools to OpenClaw, and keeps broad host filesystem access out of the LLM sandbox.
