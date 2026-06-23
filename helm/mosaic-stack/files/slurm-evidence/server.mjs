@@ -109,7 +109,7 @@ async function slurmJobEvidence(jobId) {
       snippets.push({
         path: item.path,
         truncated,
-        interesting_lines: lines.filter(line => /error|exception|traceback|failed|exit|not found|missing|timeout/i.test(line)).slice(0, 40),
+        interesting_lines: lines.filter(line => /error|exception|traceback|failed|exit|not found|missing|timeout|nccl|cuda|fabric|bootstrap|warn/i.test(line)).slice(0, 40),
         tail: lines.slice(-80),
       });
     } catch (error) {
