@@ -49,6 +49,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: MOSAIC_OPENCLAW_DEPLOYMENT
               value: openclaw
+            - name: MOSAIC_OPENCLAW_PROTOCOL
+              value: {{ .Values.openclaw.gatewayProtocol | default 3 | quote }}
             - name: MOSAIC_AUDIT_DIR
               value: /var/lib/mosaic-audit
             - name: MOSAIC_DASHBOARD_DIR
