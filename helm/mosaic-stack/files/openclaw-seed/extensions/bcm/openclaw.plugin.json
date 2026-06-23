@@ -7,16 +7,15 @@
   },
   "contracts": {
     "tools": [
-      "bcm_health",
       "bcm_get_info",
+      "bcm_node_health_summary",
       "bcm_search_tools",
       "bcm_execute_tool",
       "bcm_execute_cmsh",
       "bcm_list_notes",
       "bcm_search_notes",
       "bcm_add_note",
-      "bcm_remove_note",
-      "bcm_search_docs"
+      "bcm_remove_note"
     ]
   },
   "configSchema": {
