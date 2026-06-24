@@ -81,9 +81,17 @@ Observability is connected through explicit endpoints:
 observability:
   prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
   grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
+  grafanaUpstreamPrefix: /api/grafana/proxy
 ```
 
 Those URLs may point at the reference `mosaic-observability` chart or at an existing Prometheus/Grafana deployment.
+
+The embedded Grafana tab is served through Mosaic at `/api/grafana/proxy`. The bundled observability Grafana is configured to serve from that subpath, so the default `observability.grafanaUpstreamPrefix=/api/grafana/proxy` is correct. For an existing Grafana that serves from `/`, set:
+
+```yaml
+observability:
+  grafanaUpstreamPrefix: /
+```
 
 ## 4. Open The UI
 
