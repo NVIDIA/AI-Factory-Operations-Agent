@@ -86,7 +86,7 @@ Inside the `mosaic-ui` container, the same path is available as a CLI:
 mosaic "summarize whether the cluster is healthy"
 ```
 
-For agent clients, run `mosaic-mcp` with `MOSAIC_URL` pointing at the Mosaic service. It exposes `mosaic_chat`, `mosaic_history`, and `mosaic_commands` over stdio MCP.
+For agent clients, run `mosaic-mcp` with `MOSAIC_URL` pointing at the Mosaic service. It exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for Codex setup and port-forward options.
 
 ## Vanilla Slurm RCA
 
@@ -108,4 +108,28 @@ The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `
 
 ## OpenShell Dependency
 
-Packaged chart releases include a pinned OpenShell Helm dependency. Source installs should either vendor that dependency through the release process or install a compatible OpenShell chart before deploying Mosaic.
+Packaged chart releases include a pinned OpenShell Helm dependency and the pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver.
+
+During `helm/scripts/build_push_images.sh` and `helm/scripts/publish_to_nvcr.sh`, the release process vendors the pinned `agent-sandbox` manifest into the top-level `mosaic-stack` package:
+
+- `CustomResourceDefinition` resources are placed under chart `crds/` so Helm installs them before templates.
+- The controller namespace, RBAC, service, and StatefulSet are rendered as normal templates when `agentSandbox.install=true`.
+
+If a cluster already provides a compatible `agent-sandbox` installation, set:
+
+```yaml
+agentSandbox:
+  install: false
+```
+
+For example:
+
+```bash
+helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
+  --version <chart-version> \
+  -n mosaic \
+  --create-namespace \
+  --set agentSandbox.install=false
+```
+
+Source installs from `./helm/mosaic-stack` should use the tracked release scripts or install a compatible OpenShell chart plus `agent-sandbox` prerequisite before deploying Mosaic.
