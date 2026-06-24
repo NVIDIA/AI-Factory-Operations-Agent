@@ -15,6 +15,29 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 
 Set image repositories and tags in values for your registry before installing. The defaults are placeholders for source-based development.
 
+For NMC or Zarf-managed clusters that rewrite image references, keep `--create-namespace` and let the chart label the namespace before regular workload templates run:
+
+```bash
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --create-namespace \
+  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
+  --reset-values \
+  --wait \
+  --timeout 12m
+```
+
+If the OpenShell sandbox image is private, create the pull Secret in the Mosaic namespace and let the chart attach it to sandbox pods:
+
+```yaml
+openshell:
+  sandboxImagePullSecret:
+    enabled: true
+    name: nvcr-image-pull-secret
+```
+
+The chart patches the namespace `default` ServiceAccount through a Helm hook so OpenShell-created sandbox pods can pull the configured image.
+
 ## 2. LLM Modes
 
 - `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
@@ -132,4 +155,4 @@ helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
   --set agentSandbox.install=false
 ```
 
-Source installs from `./helm/mosaic-stack` should use the tracked release scripts or install a compatible OpenShell chart plus `agent-sandbox` prerequisite before deploying Mosaic.
+Source installs from `./helm/mosaic-stack` include the tracked `agent-sandbox` CRD and controller templates. Packaged chart releases include the same prerequisite.
