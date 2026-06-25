@@ -134,7 +134,7 @@ openclaw:
   enabled: true
   gatewayProtocol: 4
   image:
-    repository: nemoclaw
+    repository: nvcr.io/0948643769302270/nemoclaw
     tag: latest
     pullPolicy: IfNotPresent
   kubectlInstallerImage:
