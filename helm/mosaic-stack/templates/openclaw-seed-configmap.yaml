@@ -22,6 +22,18 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/TOOLS.md" | indent 4 }}
   USER.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
+  {{- if .Values.modules.diagnostics.enabled }}
+  diagnostic-agent.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/diagnostic-agent/SKILL.md" | indent 4 }}
+  {{- end }}
+  {{- if .Values.modules.research.enabled }}
+  iraop.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/iraop/SKILL.md" | indent 4 }}
+  {{- end }}
+  {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+  grafana.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/grafana/SKILL.md" | indent 4 }}
+  {{- end }}
   {{- if .Values.modules.slurm.enabled }}
   slurm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/slurm/SKILL.md" | indent 4 }}
@@ -42,6 +54,22 @@ data:
   bcm-docs-download.py: |-
 {{ .Files.Get "files/bcm-docs/download_bcm_docs.py" | indent 4 }}
   {{- end }}
+  {{- if .Values.modules.diagnostics.enabled }}
+  diagnostic-agent.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/diagnostic-agent/index.ts" | indent 4 }}
+  diagnostic-agent.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/diagnostic-agent/openclaw.plugin.json" | indent 4 }}
+  diagnostic-agent.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/diagnostic-agent/package.json" | indent 4 }}
+  {{- end }}
+  {{- if .Values.modules.research.enabled }}
+  iraop.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/iraop/index.ts" | indent 4 }}
+  iraop.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/iraop/openclaw.plugin.json" | indent 4 }}
+  iraop.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/iraop/package.json" | indent 4 }}
+  {{- end }}
   {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/bcm/index.ts" | indent 4 }}
@@ -59,5 +87,13 @@ data:
 {{ .Files.Get "files/openclaw-seed/extensions/observability/openclaw.plugin.json" | indent 4 }}
   observability.package.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/package.json" | indent 4 }}
+  {{- end }}
+  {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+  grafana.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/grafana/index.ts" | indent 4 }}
+  grafana.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/grafana/openclaw.plugin.json" | indent 4 }}
+  grafana.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/grafana/package.json" | indent 4 }}
   {{- end }}
 {{- end }}

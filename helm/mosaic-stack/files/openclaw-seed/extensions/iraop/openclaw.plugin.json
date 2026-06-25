@@ -1,0 +1,51 @@
+{
+  "id": "iraop",
+  "name": "iraop",
+  "description": "MCP-SSE bridge from OpenClaw to the iraop (Sequoia) documentation retrieval agent.",
+  "contracts": {
+    "tools": [
+      "iraop_query",
+      "iraop_list_collections",
+      "iraop_list_documents",
+      "iraop_get_document"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "iraop MCP SSE endpoint URL. Defaults to http://iraop.mosaic.svc.cluster.local:8000/mcp/sse."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "minimum": 1000,
+        "description": "Per-tool-call timeout in milliseconds. Default 240000 (4 min) so deep queries have headroom."
+      },
+      "subagentEventsUrl": {
+        "type": "string",
+        "description": "Optional Mosaic UI endpoint that receives live iraop subagent events."
+      }
+    }
+  },
+  "uiHints": {
+    "baseUrl": {
+      "label": "iraop MCP SSE URL",
+      "help": "Full URL to iraop's /mcp/sse endpoint. In-cluster: http://iraop.mosaic.svc.cluster.local:8000/mcp/sse"
+    },
+    "timeoutMs": {
+      "label": "Tool-call timeout (ms)",
+      "help": "iraop's deep-research agent can take 30-120s per query; 240000 gives headroom for deep mode.",
+      "advanced": true
+    },
+    "subagentEventsUrl": {
+      "label": "Subagent events URL",
+      "help": "Mosaic UI endpoint for rendering IRA as a read-only subagent panel.",
+      "advanced": true
+    }
+  }
+}

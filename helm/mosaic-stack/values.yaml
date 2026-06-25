@@ -32,6 +32,12 @@ modules:
     backend: vanilla
     evidenceCollector:
       enabled: true
+  diagnostics:
+    enabled: false
+  research:
+    enabled: false
+  terminal:
+    enabled: false
 
 llm:
   mode: vllm
@@ -56,6 +62,9 @@ llm:
     runtimeClassName: nvidia
     existingSecret: ""
     modelTokenSecretKey: HF_TOKEN
+    secrets:
+      create: false
+      hfToken: ""
     modelCache:
       size: 2Ti
       storageClassName: ""
@@ -233,6 +242,61 @@ bcmMcp:
     limits:
       cpu: 500m
       memory: 512Mi
+
+mosaicTerminal:
+  enabled: true
+  image:
+    repository: node
+    tag: 20-bookworm
+    pullPolicy: IfNotPresent
+  kubectlInstallerImage:
+    repository: bitnami/kubectl
+    tag: latest
+    pullPolicy: IfNotPresent
+  busyboxImage:
+    repository: busybox
+    tag: "1.37"
+    pullPolicy: IfNotPresent
+
+diagnosticAgent:
+  enabled: true
+  image:
+    repository: diagnostic-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 8080
+  hostSshKeySecretName: bcm-host-ssh-key
+  playbooksConfigMapName: debughub-playbooks-tar
+  bcmWebhookSecretName: bcm-webhook-creds
+  config:
+    nvdebugTimeoutSeconds: "1800"
+    bcmWebhookTimeoutSeconds: "60"
+    inferenceBackend: nvidia_api
+    inferenceApiKey: dummy
+    reasoningRequireFindingsMatch: "false"
+    mosaicAlertMinConfidence: low
+    nvdebugSpreadsheetPath: /opt/nvdebug-release/config/Telemetry_Catalog_v4.1.xlsx
+  resources:
+    requests:
+      cpu: 500m
+      memory: 4Gi
+    limits:
+      cpu: "8"
+      memory: 32Gi
+  existingSecrets:
+    - diagnostic-agent-secrets
+    - bcm-webhook-creds
+    - diagnostic-agent-api-keys
+  secrets:
+    create: false
+    apiKeys: ""
+    bcmWebhookUrl: ""
+    bcmWebhookToken: ""
+    env: {}
+    hostSshPrivateKey: ""
+    playbooksTgzBase64: ""
 
 bcmDocs:
   enabled: true

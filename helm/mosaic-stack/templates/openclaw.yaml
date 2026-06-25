@@ -54,7 +54,9 @@ spec:
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               rm -rf /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/grafana \
+                /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
+                /home/node/.openclaw/workspace/skills/slurm \
                 /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
@@ -67,7 +69,7 @@ spec:
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
               mkdir -p /home/node/.openclaw/extensions/bcm
               {{- end }}
-              mkdir -p /home/node/.openclaw/workspace/.kube /home/node/.openclaw/policies
+              mkdir -p /home/node/.openclaw/workspace/.kube /home/node/.openclaw/workspace/kube /home/node/.openclaw/policies
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/extensions/observability
               {{- end }}
@@ -118,6 +120,8 @@ spec:
               chmod 600 /home/node/.openclaw/workspace/kubeconfig
               cp /home/node/.openclaw/workspace/kubeconfig /home/node/.openclaw/workspace/.kube/config
               chmod 600 /home/node/.openclaw/workspace/.kube/config
+              cp /home/node/.openclaw/workspace/.kube/config /home/node/.openclaw/workspace/kube/config
+              chmod 600 /home/node/.openclaw/workspace/kube/config
               cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/policies/k8s-readonly-policy.yaml
               sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/policies/k8s-readonly-policy.yaml
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
@@ -366,23 +370,6 @@ spec:
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}
-            {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
-            - name: MOSAIC_BCM_MCP_URL
-              value: {{ .Values.bcmMcp.mcpUrl | quote }}
-            - name: MOSAIC_BCM_MCP_MODE
-              value: {{ .Values.bcmMcp.mode | quote }}
-            - name: MOSAIC_BCM_HEAD_HOST
-              value: {{ .Values.bcmMcp.headHost | quote }}
-            - name: MOSAIC_BCM_CMSH_ENABLED
-              value: {{ ternary "false" "true" .Values.bcmMcp.config.noCmshUser | quote }}
-            {{- if .Values.bcmMcp.authTokenSecretName }}
-            - name: MOSAIC_BCM_MCP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.bcmMcp.authTokenSecretName }}
-                  key: {{ .Values.bcmMcp.authTokenSecretKey }}
-            {{- end }}
-            {{- end }}
           ports:
             - containerPort: 18789
               name: gateway

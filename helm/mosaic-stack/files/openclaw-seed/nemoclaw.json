@@ -88,6 +88,16 @@
     "allowBundled": []
   },
   "plugins": {
+    "allow": [
+      "bcm",
+      "diagnostic-agent",
+      "grafana",
+      "iraop",
+      "nemoclaw",
+      "observability",
+      "slurm",
+      "llm"
+    ],
     "entries": {
       "llm": {
         "enabled": true
@@ -103,6 +113,18 @@
           "remoteWorkspaceDir": "/sandbox",
           "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
         }
+      },
+      "diagnostic-agent": {
+        "enabled": {{ and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.enabled }}
+      },
+      "iraop": {
+        "enabled": {{ .Values.modules.research.enabled }}
+      },
+      "bcm": {
+        "enabled": {{ eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+      },
+      "grafana": {
+        "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
       },
       "observability": {
         "enabled": {{ .Values.modules.observability.enabled }},
