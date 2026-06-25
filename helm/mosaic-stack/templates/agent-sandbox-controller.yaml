@@ -1,4 +1,5 @@
-{{- if .Values.agentSandbox.install }}
+{{- $agentSandbox := .Values.agentSandbox | default dict -}}
+{{- if ($agentSandbox.install | default true) }}
 ---
 ---
 kind: Namespace
