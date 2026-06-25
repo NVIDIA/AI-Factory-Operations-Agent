@@ -41,7 +41,7 @@ spec:
       {{- end }}
       containers:
         - name: collector
-          image: {{ printf "%s:%s" (default "nemoclaw" $image.repository) (default "latest" $image.tag) | quote }}
+          image: {{ printf "%s:%s" (default "node" $image.repository) (default "20-bookworm-slim" $image.tag) | quote }}
           imagePullPolicy: {{ default "IfNotPresent" $image.pullPolicy }}
           command: ["node", "/app/server.mjs"]
           env:
