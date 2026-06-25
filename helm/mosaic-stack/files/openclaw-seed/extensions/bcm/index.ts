@@ -4,11 +4,17 @@ const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
 const DEFAULT_BCM_HEAD_HOST = "BCM-SERV-01";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_EVENT_CHARS = 4000;
+const BCM_CACHE_TTL_MS = 60_000;
+
+const bcmCache = new Map<string, { expiresAt: number; value: unknown }>();
+const bcmInFlight = new Map<string, Promise<unknown>>();
 
 type BcmConfig = {
   mcpUrl: string;
   authToken?: string;
   headHost: string;
+  mcpMode: string;
+  cmshEnabled: boolean;
   timeoutMs: number;
   subagentEventsUrl: string;
 };
@@ -36,6 +42,25 @@ function numberConfig(pluginConfig: unknown, key: string, fallback: number) {
   }
   const value = (pluginConfig as Record<string, unknown>)[key];
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function boolConfig(pluginConfig: unknown, key: string, fallback: boolean) {
+  if (!pluginConfig || typeof pluginConfig !== "object") {
+    return fallback;
+  }
+  const value = (pluginConfig as Record<string, unknown>)[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function envBool(name: string, fallback: boolean) {
+  if (typeof process === "undefined" || !process.env) {
+    return fallback;
+  }
+  const value = process.env[name]?.trim().toLowerCase();
+  if (!value) {
+    return fallback;
+  }
+  return ["1", "true", "yes", "on"].includes(value);
 }
 
 function stringArrayConfig(pluginConfig: unknown, key: string) {
@@ -100,6 +125,11 @@ function readConfig(pluginConfig: unknown): BcmConfig {
       stringConfig(pluginConfig, "headHost") ||
       (typeof process !== "undefined" ? process.env?.MOSAIC_BCM_HEAD_HOST || process.env?.BCM_HEAD_HOST || "" : "") ||
       DEFAULT_BCM_HEAD_HOST,
+    mcpMode:
+      stringConfig(pluginConfig, "mcpMode") ||
+      (typeof process !== "undefined" ? process.env?.MOSAIC_BCM_MCP_MODE || process.env?.BCM_MCP_MODE || "" : "") ||
+      "direct",
+    cmshEnabled: boolConfig(pluginConfig, "cmshEnabled", envBool("MOSAIC_BCM_CMSH_ENABLED", true)),
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
@@ -150,6 +180,46 @@ function jsonToolResult(payload: unknown) {
   };
 }
 
+function parseDeviceStatusRows(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .map((line) => line.match(/^(HeadNode|PhysicalNode)\s+(\S+)\s+\S+\s+(.*?)\s+(\d+\.\d+\.\d+\.\d+)\s+(\S+)\s+(.+)$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => ({
+      type: match[1],
+      hostname: match[2],
+      category: match[3].trim(),
+      ip: match[4],
+      network: match[5],
+      status: match[6].replace(/\s+/g, " ").trim(),
+    }));
+}
+
+async function nodeHealthSummary(config: BcmConfig, options: SubagentOptions) {
+  postSubagentEvent(options, "start", "Running read-only BCM CMSH command: device; status");
+  const startedAt = Date.now();
+  try {
+    const result = await cachedBcmRpc(
+      config,
+      "tools/call",
+      { name: "execute_cmsh", arguments: bcmToolArgs(config, { commands: "device; status" }) },
+    );
+    const raw = textFromResult(result);
+    const rows = parseDeviceStatusRows(raw);
+    postSubagentEvent(options, "complete", `Parsed ${rows.length} BCM node status rows in ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s.`);
+    return jsonToolResult({
+      command: "device; status",
+      rows,
+      guidance: "Use these rows directly to answer health-check summary requests. Do not run more BCM tools for this summary unless the user asks for deeper RCA on a specific node.",
+      raw: truncate(raw, 8000),
+    });
+  } catch (error) {
+    postSubagentEvent(options, "error", `BCM node health summary failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
+
 function compactToolSummaries(tools: unknown[]) {
   return tools
     .map((tool) => {
@@ -158,7 +228,7 @@ function compactToolSummaries(tools: unknown[]) {
       }
       const candidate = tool as Record<string, unknown>;
       const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
-      if (!name) {
+      if (!name || isBlockedMcpToolName(name)) {
         return null;
       }
       const description =
@@ -171,6 +241,18 @@ function compactToolSummaries(tools: unknown[]) {
       return description ? { name, description: truncate(description, 180) } : { name };
     })
     .filter(Boolean);
+}
+
+function isBlockedMcpToolName(name: string) {
+  return name.trim().toLowerCase().startsWith("slurm.");
+}
+
+function isSlurmSearchQuery(query: string) {
+  return /\b(slurm|sacct|scontrol|sbatch|squeue|job\s+\d+|job failure|failed job|rca|root cause)\b/i.test(query);
+}
+
+function bcmToolArgs(config: BcmConfig, args: Record<string, unknown>) {
+  return config.mcpMode === "ssh-adapter" ? { hostname: config.headHost, ...args } : args;
 }
 
 function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase, content: string) {
@@ -252,6 +334,27 @@ function errorMessageFromRpc(error: unknown) {
   return String(error);
 }
 
+function normalizeRpcValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.replace(/[;\s]+/g, " ").trim();
+  }
+  if (Array.isArray(value)) {
+    return value.map(normalizeRpcValue);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, normalizeRpcValue(item)]),
+    );
+  }
+  return value;
+}
+
+function cachedRpcKey(method: string, params: Record<string, unknown>) {
+  return JSON.stringify({ method, params: normalizeRpcValue(params) });
+}
+
 async function bcmRpc(
   config: BcmConfig,
   method: string,
@@ -297,6 +400,31 @@ async function bcmRpc(
   }
 }
 
+async function cachedBcmRpc(
+  config: BcmConfig,
+  method: string,
+  params: Record<string, unknown>,
+  timeoutMs?: number,
+): Promise<unknown> {
+  const key = cachedRpcKey(method, params);
+  const cached = bcmCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  const active = bcmInFlight.get(key);
+  if (active) {
+    return active;
+  }
+  const request = bcmRpc(config, method, params, timeoutMs)
+    .then((value) => {
+      bcmCache.set(key, { value, expiresAt: Date.now() + BCM_CACHE_TTL_MS });
+      return value;
+    })
+    .finally(() => bcmInFlight.delete(key));
+  bcmInFlight.set(key, request);
+  return request;
+}
+
 function compactArgs(args: Record<string, unknown>) {
   const text = JSON.stringify(args, null, 2);
   return truncate(text, 1000);
@@ -329,7 +457,7 @@ async function callBcmTool(
   const startedAt = Date.now();
   try {
     postSubagentEvent(options, "delta", "BCM MCP request is in flight.");
-    const result = await bcmRpc(config, "tools/call", { name: mcpToolName, arguments: args });
+    const result = await cachedBcmRpc(config, "tools/call", { name: mcpToolName, arguments: args });
     postSubagentEvent(options, "complete", summarizeResult(mcpToolName, result, Date.now() - startedAt));
     return toOpenClawResult(result);
   } catch (error) {
@@ -374,9 +502,6 @@ function defaultExecutionContext(config: BcmConfig, toolId: string, rawContext?:
   if (!stringParam(context.ssh_host)) {
     context.ssh_host = config.headHost;
   }
-  if (toolId.startsWith("slurm.")) {
-    mergeLoadedModule(context, "slurm");
-  }
   if (toolId.startsWith("kubernetes.")) {
     mergeLoadedModule(context, "kubernetes");
   }
@@ -418,27 +543,11 @@ export default definePluginEntry({
         const options = subagentOptions(config, toolCallId, "bcm_health", "BCM MCP health");
         postSubagentEvent(options, "start", `Checking BCM MCP endpoint: ${config.mcpUrl}`);
         try {
-          const toolsResult = await bcmRpc(config, "tools/list", {}, 30_000);
-          let getInfo: unknown = null;
-          let getInfoError = "";
-          try {
-            getInfo = await bcmRpc(
-              config,
-              "tools/call",
-              {
-                name: "execute_tool",
-                arguments: { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } },
-              },
-              45_000,
-            );
-          } catch (error) {
-            getInfoError = error instanceof Error ? error.message : String(error);
-          }
+          const toolsResult = await cachedBcmRpc(config, "tools/list", {}, 30_000);
           const tools = Array.isArray((toolsResult as { tools?: unknown }).tools)
             ? ((toolsResult as { tools: unknown[] }).tools)
             : [];
           const toolSummaries = compactToolSummaries(tools);
-          const getInfoText = textFromResult(getInfo);
           postSubagentEvent(
             options,
             "complete",
@@ -449,8 +558,6 @@ export default definePluginEntry({
             reachable: true,
             toolCount: tools.length,
             tools: toolSummaries,
-            getInfo: getInfoText ? truncate(getInfoText, 1500) : getInfo,
-            ...(getInfoError ? { getInfoError } : {}),
           });
         } catch (error) {
           postSubagentEvent(options, "error", `BCM MCP health failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -468,9 +575,19 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_tool",
-          { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } },
+          bcmToolArgs(config, { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } }),
           subagentOptions(config, toolCallId, "bcm_get_info", "BCM cluster info"),
         );
+      },
+    });
+
+    if (config.cmshEnabled) registerTool({
+      name: "bcm_node_health_summary",
+      label: "BCM Node Health Summary",
+      description: "Return parsed current BCM node health-check status using the read-only CMSH command device; status. Use this as the only tool for node health tables.",
+      parameters: { type: "object", additionalProperties: false, properties: {} },
+      async execute(toolCallId: string) {
+        return nodeHealthSummary(config, subagentOptions(config, toolCallId, "bcm_node_health_summary", "BCM node health"));
       },
     });
 
@@ -488,11 +605,19 @@ export default definePluginEntry({
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        const query = stringParam(rawParams.query);
+        if (isSlurmSearchQuery(query)) {
+          return jsonToolResult({
+            tools: [],
+            note: "BCM Slurm MCP tools are disabled for job RCA. Use the configured Slurm evidence tools instead.",
+          });
+        }
         return callBcmTool(
           config,
           "search_tool",
           {
-            query: stringParam(rawParams.query),
+            ...bcmToolArgs(config, {}),
+            query,
             limit: numberParam(rawParams.limit, 25, 1, 250),
             regex: rawParams.regex === true,
           },
@@ -522,6 +647,9 @@ export default definePluginEntry({
         if (!toolId) {
           throw new Error("tool_id is required");
         }
+        if (isBlockedMcpToolName(toolId)) {
+          throw new Error("BCM Slurm MCP tools are disabled for job RCA. Use the configured Slurm evidence tools instead.");
+        }
         const args: Record<string, unknown> = { tool_id: toolId };
         const toolKwargs = objectParam(rawParams.tool_kwargs);
         const context = defaultExecutionContext(config, toolId, objectParam(rawParams.context));
@@ -532,22 +660,22 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_tool",
-          args,
+          bcmToolArgs(config, args),
           subagentOptions(config, toolCallId, "bcm_execute_tool", `BCM ${toolId}`),
         );
       },
     });
 
-    registerTool({
+    if (config.cmshEnabled) registerTool({
       name: "bcm_execute_cmsh",
       label: "BCM Execute CMSH",
-      description: "Execute read-only CMSH commands through bcm-mcp-tools. Use newline-separated CMSH modes and commands.",
+      description: "Execute read-only CMSH commands through bcm-mcp-tools. Use cmsh -c style semicolon-separated commands, for example kubernetes; list.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["commands"],
         properties: {
-          commands: { type: "string", description: "CMSH commands, one per line, for example device\\nlist." },
+          commands: { type: "string", description: "CMSH commands in cmsh -c style, for example device; list." },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -558,7 +686,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_cmsh",
-          { commands },
+          bcmToolArgs(config, { commands }),
           subagentOptions(config, toolCallId, "bcm_execute_cmsh", "BCM CMSH"),
         );
       },
@@ -570,7 +698,7 @@ export default definePluginEntry({
       description: "List BCM cluster notes maintained by bcm-mcp-tools.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
-        return callBcmTool(config, "list_notes", {}, subagentOptions(config, toolCallId, "bcm_list_notes", "BCM notes"));
+        return callBcmTool(config, "list_notes", bcmToolArgs(config, {}), subagentOptions(config, toolCallId, "bcm_list_notes", "BCM notes"));
       },
     });
 
@@ -595,7 +723,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "search_notes",
-          { query, limit: numberParam(rawParams.limit, 5, 1, 50) },
+          bcmToolArgs(config, { query, limit: numberParam(rawParams.limit, 5, 1, 50) }),
           subagentOptions(config, toolCallId, "bcm_search_notes", "BCM notes search"),
         );
       },
@@ -623,7 +751,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "add_note",
-          { subject, content },
+          bcmToolArgs(config, { subject, content }),
           subagentOptions(config, toolCallId, "bcm_add_note", "BCM note write"),
         );
       },
@@ -649,7 +777,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "remove_note",
-          { filename },
+          bcmToolArgs(config, { filename }),
           subagentOptions(config, toolCallId, "bcm_remove_note", "BCM note delete"),
         );
       },
@@ -676,7 +804,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "search_bcm_docs",
-          { query, limit: numberParam(rawParams.limit, 3, 1, 20) },
+          bcmToolArgs(config, { query, limit: numberParam(rawParams.limit, 3, 1, 20) }),
           subagentOptions(config, toolCallId, "bcm_search_docs", "BCM docs search"),
         );
       },
