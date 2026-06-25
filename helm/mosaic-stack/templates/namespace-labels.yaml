@@ -1,4 +1,6 @@
-{{- if .Values.namespace.labels }}
+{{- $namespace := .Values.namespace | default dict -}}
+{{- $labels := $namespace.labels | default dict -}}
+{{- if $labels }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -71,7 +73,7 @@ spec:
             - label
             - namespace
             - {{ .Release.Namespace | quote }}
-            {{- range $key, $value := .Values.namespace.labels }}
+            {{- range $key, $value := $labels }}
             - {{ printf "%s=%s" $key $value | quote }}
             {{- end }}
             - --overwrite
