@@ -7,7 +7,7 @@ For automatic failed-job pickup, run the Slurm watcher on a login/head node wher
 ```bash
 export PATH=/cm/local/apps/slurm/current/bin:/cm/local/apps/slurm/current/sbin:$PATH
 export SLURM_CONF=/cm/shared/apps/slurm/etc/slurm/slurm.conf
-node scripts/slurm_failure_watcher.mjs --mosaic-url http://mosaic.example:3000
+node ../mosaic-utils/scripts/slurm_failure_watcher.mjs --mosaic-url http://mosaic.example:3000
 ```
 
 When Slurm is enabled, the chart deploys a read-only Slurm evidence collector. The collector mounts host filesystems read-only inside the collector pod and exposes bounded tools to OpenClaw, keeping broad filesystem access out of the LLM sandbox. The Slurm skill first calls `slurm_job_evidence`, then tries read-only Slurm commands such as `sacct` and `scontrol` when they are available, then searches any mounted accounting exports, scheduler logs, and job stdout/stderr logs.
@@ -35,7 +35,7 @@ On clusters where Mosaic should be used from Slurm instead of a Kubernetes UI se
 ```bash
 export MOSAIC_URL=http://mosaic.example:3000
 export MOSAIC_PYXIS_IMAGE=<registry>/mosaic-ui:<tag>
-scripts/run_mosaic_slurm_pyxis.sh "job 123 failed. Use the Slurm logs and summarize the root cause."
+../mosaic-utils/scripts/run_mosaic_slurm_pyxis.sh "job 123 failed. Use the Slurm logs and summarize the root cause."
 ```
 
 Pyxis adds the `--container-image`, `--container-mount-home`, `--container-workdir`, and `--container-env` flags to `sbatch`/`srun`. The script keeps the Slurm job ordinary: stdout still lands wherever the site's Slurm default writes it, and the failed-job watcher/RCA path does not require users to add an output flag.
