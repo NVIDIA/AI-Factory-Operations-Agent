@@ -33,7 +33,12 @@ spec:
         checksum/slurm-evidence: {{ .Files.Get "files/slurm-evidence/server.mjs" | sha256sum }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- with $collector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- else }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- end }}
       containers:
         - name: collector
           image: {{ printf "%s:%s" (default "nemoclaw" $image.repository) (default "latest" $image.tag) | quote }}
