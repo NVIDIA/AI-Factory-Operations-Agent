@@ -121,7 +121,7 @@ mosaicUi:
   enabled: true
   replicaCount: 1
   image:
-    repository: mosaic-ui
+    repository: nvcr.io/0948643769302270/mosaic-ui
     tag: latest
     pullPolicy: IfNotPresent
   deploymentVersion: v0.0.1
