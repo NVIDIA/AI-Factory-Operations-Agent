@@ -1,5 +1,7 @@
 {{- $agentSandbox := .Values.agentSandbox | default dict -}}
-{{- if ($agentSandbox.install | default true) }}
+{{- $install := true -}}
+{{- if hasKey $agentSandbox "install" -}}{{- $install = $agentSandbox.install -}}{{- end -}}
+{{- if $install }}
 ---
 ---
 kind: Namespace
