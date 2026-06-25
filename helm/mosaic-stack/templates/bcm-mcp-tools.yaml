@@ -13,6 +13,8 @@ spec:
       app: {{ .Values.bcmMcp.service.name }}
   template:
     metadata:
+      annotations:
+        checksum/bcm-ssh-adapter-http: {{ .Files.Get "files/bcm-mcp-ssh-adapter-http.py" | sha256sum }}
       labels:
         app: {{ .Values.bcmMcp.service.name }}
     spec:
@@ -21,8 +23,8 @@ spec:
       {{- if .Values.bcmMcp.hostSshKeySecretName }}
       initContainers:
         - name: init-bcm-ssh
-          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.busyboxImage | quote }}
-          imagePullPolicy: {{ .Values.mosaicTerminal.busyboxImage.pullPolicy }}
+          image: {{ include "mosaic-stack.image" .Values.bcmMcp.busyboxImage | quote }}
+          imagePullPolicy: {{ .Values.bcmMcp.busyboxImage.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -48,6 +50,10 @@ spec:
         - name: bcm-mcp
           image: {{ include "mosaic-stack.image" .Values.bcmMcp.image | quote }}
           imagePullPolicy: {{ .Values.bcmMcp.image.pullPolicy }}
+          {{- if eq .Values.bcmMcp.mode "ssh-adapter" }}
+          command: ["python"]
+          args: ["/opt/mosaic/bcm-mcp-ssh-adapter-http.py"]
+          {{- else }}
           command: ["bcm-support-mcp"]
           args:
             - --no-ssl
@@ -67,11 +73,36 @@ spec:
             - {{ .Values.bcmMcp.config.maxOutputChars | quote }}
             - --preloaded-modules
             - {{ .Values.bcmMcp.config.preloadedModules | quote }}
+          {{- end }}
           env:
             - name: MCP_CONFIG_DIR
               value: /tmp/bcm-mcp-tools
             - name: MCP_NOTES_DIR
               value: /tmp/bcm-mcp-notes
+            {{- if eq .Values.bcmMcp.mode "ssh-adapter" }}
+            - name: MOSAIC_BCM_ADAPTER_HOST
+              value: "0.0.0.0"
+            - name: MOSAIC_BCM_ADAPTER_PORT
+              value: {{ .Values.bcmMcp.service.port | quote }}
+            - name: MCP_SSH_INSTALL_SERVER
+              value: {{ .Values.bcmMcp.config.installServer | quote }}
+            - name: MCP_SSH_REMOTE_COMMAND
+              value: {{ .Values.bcmMcp.config.remoteCommand | quote }}
+            - name: MCP_SSH_OPTIONS
+              value: "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/known_hosts"
+            - name: MOSAIC_BCM_CMSH_ENABLED
+              value: {{ ternary "false" "true" .Values.bcmMcp.config.noCmshUser | quote }}
+            - name: MOSAIC_BCM_CMSH_USERNAME
+              value: {{ .Values.bcmMcp.config.cmshUsername | default "aichatbotuser" | quote }}
+            - name: MOSAIC_BCM_CMSH_PROFILE
+              value: {{ .Values.bcmMcp.config.cmshProfile | default "readonly" | quote }}
+            - name: MOSAIC_BCM_CMSH_SETUP_TIMEOUT
+              value: {{ .Values.bcmMcp.config.cmshSetupTimeout | default "240" | quote }}
+            - name: MOSAIC_BCM_CMSH_EXEC_TIMEOUT
+              value: {{ .Values.bcmMcp.config.cmshExecTimeout | default "120" | quote }}
+            - name: MOSAIC_BCM_CMSH_PATH
+              value: {{ .Values.bcmMcp.config.cmshPath | default "/cm/local/apps/cmd/bin/cmsh" | quote }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.bcmMcp.service.port }}
               name: http
@@ -79,6 +110,11 @@ spec:
           volumeMounts:
             - name: bcm-ssh-dir
               mountPath: /root/.ssh
+            {{- if eq .Values.bcmMcp.mode "ssh-adapter" }}
+            - name: bcm-ssh-adapter-http
+              mountPath: /opt/mosaic/bcm-mcp-ssh-adapter-http.py
+              subPath: bcm-mcp-ssh-adapter-http.py
+            {{- end }}
           {{- end }}
           readinessProbe:
             tcpSocket:
@@ -100,8 +136,27 @@ spec:
             defaultMode: 0400
         - name: bcm-ssh-dir
           emptyDir: {}
+        {{- if eq .Values.bcmMcp.mode "ssh-adapter" }}
+        - name: bcm-ssh-adapter-http
+          configMap:
+            name: {{ .Values.bcmMcp.service.name }}-ssh-adapter-http
+            defaultMode: 0555
+        {{- end }}
       {{- end }}
 ---
+{{- if eq .Values.bcmMcp.mode "ssh-adapter" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.bcmMcp.service.name }}-ssh-adapter-http
+  labels:
+    app: {{ .Values.bcmMcp.service.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+data:
+  bcm-mcp-ssh-adapter-http.py: |-
+{{ .Files.Get "files/bcm-mcp-ssh-adapter-http.py" | indent 4 }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:

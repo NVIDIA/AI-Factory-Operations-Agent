@@ -1,8 +1,5 @@
 {
   "id": "observability",
-  "activation": {
-    "onCapabilities": ["tool"]
-  },
   "contracts": {
     "tools": [
       "observability_metric_names",

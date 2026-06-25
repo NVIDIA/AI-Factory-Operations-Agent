@@ -3,9 +3,16 @@ global:
   nodeSelector: {}
   alertmanagerNamespace: prometheus
 
+namespace:
+  labels: {}
+
 observability:
   prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
   grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
+  grafanaUpstreamPrefix: /api/grafana/proxy
+
+agentSandbox:
+  install: true
 
 modules:
   ui:
@@ -28,11 +35,6 @@ modules:
 
 llm:
   mode: vllm
-  requestCompatibility:
-    enabled: true
-    name: llm-openai-compat
-    port: 8000
-    disableThinking: true
   external:
     baseUrl: ""
     model: ""
@@ -121,13 +123,14 @@ mosaicUi:
     port: 3000
 openclaw:
   enabled: true
+  gatewayProtocol: 4
   image:
     repository: nemoclaw
     tag: latest
     pullPolicy: IfNotPresent
   kubectlInstallerImage:
-    repository: bitnami/kubectl
-    tag: latest
+    repository: registry.k8s.io/kubectl
+    tag: v1.30.0
     pullPolicy: IfNotPresent
   pvc:
     size: 10Gi
@@ -174,13 +177,14 @@ openshell:
 
 slurmEvidenceCollector:
   image:
-    repository: nemoclaw
-    tag: latest
+    repository: node
+    tag: 20-bookworm-slim
     pullPolicy: IfNotPresent
   port: 8080
   maxFileBytes: 65536
   maxMatches: 40
   maxVisitedFiles: 50000
+  nodeSelector: {}
   roots:
     - /var/log
     - /cm/shared
@@ -189,3 +193,60 @@ slurmEvidenceCollector:
     - /cm/shared/apps/slurm/etc
     - /run/log/journal
     - /var/log/journal
+
+bcmMcp:
+  enabled: false
+  mode: direct
+  mcpUrl: http://bcm-mcp-tools:3001/mcp
+  headHost: BCM-SERV-01
+  authTokenSecretName: ""
+  authTokenSecretKey: BCM_MCP_TOKEN
+  hostSshKeySecretName: ""
+  service:
+    name: bcm-mcp-tools
+    port: 3001
+  image:
+    repository: bcm-mcp-tools
+    tag: latest
+    pullPolicy: IfNotPresent
+  busyboxImage:
+    repository: busybox
+    tag: "1.36"
+    pullPolicy: IfNotPresent
+  config:
+    execTimeout: "120"
+    maxOutputLines: "200"
+    maxOutputChars: "20000"
+    preloadedModules: "auto"
+    noCmshUser: false
+    cmshUsername: aichatbotuser
+    cmshProfile: readonly
+    cmshSetupTimeout: "240"
+    cmshExecTimeout: "120"
+    cmshPath: /cm/local/apps/cmd/bin/cmsh
+    installServer: auto
+    remoteCommand: bcm-support-mcp --stdio --no-cmsh-user
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+bcmDocs:
+  enabled: true
+  baseUrl: https://docs.nvidia.com/base-command-manager/manuals
+  version: "11"
+  timeoutSeconds: "60"
+  image:
+    repository: python
+    tag: 3.12-alpine
+    pullPolicy: IfNotPresent
+
+externalServices:
+  bcmMcp:
+    enabled: false
+    name: bcm-mcp-tools
+    externalName: bcm-mcp-tools.mosaic.svc.cluster.local
+    port: 3001

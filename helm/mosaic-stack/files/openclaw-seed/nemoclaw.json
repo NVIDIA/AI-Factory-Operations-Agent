@@ -18,7 +18,7 @@
     "defaults": {
       "workspace": "~/.openclaw/workspace",
       "model": {
-        "primary": "vllm/{{ include "mosaic-stack.llmModel" . }}"
+        "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
       },
       "thinkingDefault": "off",
       "reasoningDefault": "off",
@@ -53,7 +53,7 @@
   },
   "models": {
     "providers": {
-      "vllm": {
+      "llm": {
         "baseUrl": "${OPENCLAW_VLLM_BASE_URL}",
         "apiKey": "${VLLM_API_KEY}",
         "api": "openai-completions",
@@ -84,9 +84,12 @@
   "cron": {
     "enabled": false
   },
+  "skills": {
+    "allowBundled": []
+  },
   "plugins": {
     "entries": {
-      "vllm": {
+      "llm": {
         "enabled": true
       },
       "nemoclaw": {
@@ -97,8 +100,8 @@
           "command": {{ .Values.openclaw.nemoclaw.command | quote }},
           "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }},
           "policy": {{ .Values.openclaw.nemoclaw.policy | quote }},
-          "remoteWorkspaceDir": "/sandbox/workspace",
-          "remoteAgentWorkspaceDir": "/agent/workspace"
+          "remoteWorkspaceDir": "/sandbox",
+          "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
         }
       },
       "observability": {

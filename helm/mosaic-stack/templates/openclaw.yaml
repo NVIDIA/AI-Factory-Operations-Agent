@@ -1,5 +1,7 @@
 {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
 {{- $observability := default dict .Values.observability }}
+{{- $bcmDocs := mergeOverwrite (dict "enabled" true "baseUrl" "https://docs.nvidia.com/base-command-manager/manuals" "version" "11" "timeoutSeconds" "60") (.Values.bcmDocs | default dict) }}
+{{- $bcmDocsImage := mergeOverwrite (dict "repository" "python" "tag" "3.12-alpine" "pullPolicy" "IfNotPresent") ($bcmDocs.image | default dict) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,13 +32,6 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: install-kubectl
-          image: {{ include "mosaic-stack.image" .Values.openclaw.kubectlInstallerImage | quote }}
-          imagePullPolicy: {{ .Values.openclaw.kubectlInstallerImage.pullPolicy }}
-          command: ["sh", "-lc", "set -eu; cp /opt/bitnami/kubectl/bin/kubectl /tools/kubectl && chmod +x /tools/kubectl"]
-          volumeMounts:
-            - name: tools
-              mountPath: /tools
         - name: init-perms
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
@@ -70,6 +65,7 @@ spec:
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
+              mkdir -p /home/node/.openclaw/extensions/bcm
               {{- end }}
               mkdir -p /home/node/.openclaw/workspace/.kube /home/node/.openclaw/policies
               {{- if .Values.modules.observability.enabled }}
@@ -99,14 +95,14 @@ spec:
               ca_data="$(base64 < /var/run/secrets/kubernetes.io/serviceaccount/ca.crt | tr -d '\n')"
               token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
               namespace="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              cat > /home/node/.openclaw/workspace/.kube/config <<EOF
+              cat > /home/node/.openclaw/workspace/kubeconfig <<EOF
               apiVersion: v1
               kind: Config
               clusters:
                 - name: in-cluster
                   cluster:
                     server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
-                    insecure-skip-tls-verify: true
+                    certificate-authority-data: ${ca_data}
               contexts:
                 - name: in-cluster
                   context:
@@ -119,10 +115,13 @@ spec:
                   user:
                     token: ${token}
               EOF
+              chmod 600 /home/node/.openclaw/workspace/kubeconfig
+              cp /home/node/.openclaw/workspace/kubeconfig /home/node/.openclaw/workspace/.kube/config
               chmod 600 /home/node/.openclaw/workspace/.kube/config
               cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/policies/k8s-readonly-policy.yaml
               sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/policies/k8s-readonly-policy.yaml
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
+              rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
               cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
               cp /seed/HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
               cp /seed/IDENTITY.md /home/node/.openclaw/workspace/IDENTITY.md
@@ -144,6 +143,9 @@ spec:
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
+              cp /seed/bcm.index.ts /home/node/.openclaw/extensions/bcm/index.ts
+              cp /seed/bcm.openclaw.plugin.json /home/node/.openclaw/extensions/bcm/openclaw.plugin.json
+              cp /seed/bcm.package.json /home/node/.openclaw/extensions/bcm/package.json
               {{- end }}
               rm -rf /home/node/.openclaw/workspace/.openclaw/sandbox-skills
           securityContext:
@@ -154,6 +156,40 @@ spec:
               mountPath: /home/node/.openclaw
             - name: openclaw-seed
               mountPath: /seed
+        {{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") ($bcmDocs.enabled | default true) }}
+        - name: init-bcm-docs
+          image: {{ include "mosaic-stack.image" $bcmDocsImage | quote }}
+          imagePullPolicy: {{ $bcmDocsImage.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              apk add --no-cache poppler-utils >/dev/null
+              python /seed/bcm-docs-download.py
+              rm -rf /home/node/.openclaw/workspace/skills/bcm/docs
+              mkdir -p /home/node/.openclaw/workspace/skills/bcm/docs
+              cp /home/node/.openclaw/workspace/bcm-docs/*.md /home/node/.openclaw/workspace/skills/bcm/docs/
+              chown -R 1000:1000 /home/node/.openclaw/workspace/bcm-docs
+              chown -R 1000:1000 /home/node/.openclaw/workspace/skills/bcm/docs
+          env:
+            - name: MOSAIC_BCM_DOCS_BASE_URL
+              value: {{ $bcmDocs.baseUrl | quote }}
+            - name: MOSAIC_BCM_DOCS_VERSION
+              value: {{ $bcmDocs.version | quote }}
+            - name: MOSAIC_BCM_DOCS_TIMEOUT_SECONDS
+              value: {{ $bcmDocs.timeoutSeconds | quote }}
+            - name: MOSAIC_BCM_DOCS_OUTPUT_DIR
+              value: /home/node/.openclaw/workspace/bcm-docs
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: openclaw-seed
+              mountPath: /seed
+        {{- end }}
         - name: init-openshell-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
@@ -201,48 +237,67 @@ spec:
               source = source.split('entries?.openshell?.config').join('entries?.nemoclaw?.config');
               source = source.split('id: "openshell"').join('id: "nemoclaw"');
               source = source.split('registerSandboxBackend("openshell"').join('registerSandboxBackend("nemoclaw"');
-              source = source.split("env: params.env").join("env: { ...params.env, KUBECONFIG: \"/sandbox/workspace/.kube/config\" }");
-              source = source.replace(
-                [
-                  "await stageDirectoryContents({",
-                  "        sourceDir: localPath,",
-                  "        targetDir: tmpDir",
-                  "      });"
-                ].join("\n"),
-                [
-                  "const remoteBase = path5.posix.basename(remotePath);",
-                  "      const remoteParent = path5.posix.dirname(remotePath);",
-                  "      const uploadDir = path5.join(tmpDir, remoteBase);",
-                  "      await stageDirectoryContents({",
-                  "        sourceDir: localPath,",
-                  "        targetDir: uploadDir",
-                  "      });"
-                ].join("\n")
-              );
-              source = source.replace(
-                ["tmpDir,", "          remotePath"].join("\n"),
-                ["uploadDir,", "          remoteParent"].join("\n")
-              );
-              source = source.replace(
-                [
-                  "\t\t\tawait stageDirectoryContents({",
-                  "\t\t\t\tsourceDir: localPath,",
-                  "\t\t\t\ttargetDir: tmpDir",
-                  "\t\t\t});"
-                ].join("\n"),
-                [
-                  "\t\t\tconst remoteBase = path.posix.basename(remotePath);",
-                  "\t\t\tconst remoteParent = path.posix.dirname(remotePath);",
-                  "\t\t\tconst uploadDir = path.join(tmpDir, remoteBase);",
-                  "\t\t\tawait stageDirectoryContents({",
-                  "\t\t\t\tsourceDir: localPath,",
-                  "\t\t\t\ttargetDir: uploadDir",
-                  "\t\t\t});"
-                ].join("\n")
-              );
-              source = source.replace("\t\t\t\t\ttmpDir,\n\t\t\t\t\tremotePath", "\t\t\t\t\tuploadDir,\n\t\t\t\t\tremoteParent");
+              source = source.replace('this.ensurePromise = null;\n\t\tthis.remoteSeedPending = false;', 'this.ensurePromise = null;\n\t\tthis.remoteSeedPending = true;');
+              source = source.split("env: params.env").join("env: params.env");
               source = source.split('find \\"$1\\" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find \\"$1\\" -mindepth 1 -maxdepth 1 ! -name .openclaw -exec rm -rf -- {} +');
-              source = source.split('find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find "$target" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true');
+              source = source.split('rm -rf -- \"$1\" && mkdir -p -- \"$1\"').join('mkdir -p -- \"$1\" && find \"$1\" -mindepth 1 -maxdepth 1 ! -name .openclaw -exec rm -rf -- {} + 2>/dev/null || true');
+              source = source.split('rm -rf -- "$1" && mkdir -p -- "$1"').join('mkdir -p -- "$1" && find "$1" -mindepth 1 -maxdepth 1 ! -name .openclaw -exec rm -rf -- {} + 2>/dev/null || true');
+              source = source.split('find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +').join('find "$1" -mindepth 1 -maxdepth 1 ! -name .openclaw -exec rm -rf -- {} + 2>/dev/null || true');
+              source = source.replace('import fs from "node:fs/promises";', 'import fs from "node:fs/promises";\nimport { spawn } from "node:child_process";');
+              source = source.split('})).code === 0) return;').join('})).code === 0) {\n\t\t\tconst session = await createOpenShellSshSession({ context: this.params.execContext }).catch(() => null);\n\t\t\tif (session) {\n\t\t\t\ttry {\n\t\t\t\t\tconst probe = await runPluginCommandWithTimeout({ argv: ["ssh", "-F", session.configPath, "-T", "-o", "RequestTTY=no", session.host, "true"], cwd: this.params.createParams.workspaceDir, timeoutMs: 5e3, env: process.env });\n\t\t\t\t\tif (probe.code === 0) return;\n\t\t\t\t} finally {\n\t\t\t\t\tawait disposeSshSandboxSession(session);\n\t\t\t\t}\n\t\t\t}\n\t\t}');
+              source = source.replace(
+                "return await createSshSandboxSessionFromConfigText({ configText: applyGatewayEndpointToSshConfig({",
+                "return await createSshSandboxSessionFromConfigText({ host: `openshell-${params.context.sandboxName}`, configText: applyGatewayEndpointToSshConfig({"
+              );
+              source = source.split('if (/(^|\\s)--server(\\s|=)|(^|\\s)--gateway-endpoint(\\s|=)/.test(command)) return line;').join('if (/(^|\\s)--server(\\s|=)|(^|\\s)--gateway-endpoint(\\s|=)|(^|\\s)--gateway-name(\\s|=)/.test(command)) return line;');
+              source = source.replace(
+                [
+                  "\t\tconst createResult = await runOpenShellCli({",
+                  "\t\t\tcontext: this.params.execContext,",
+                  "\t\t\targs: createArgs,",
+                  "\t\t\tcwd: this.params.createParams.workspaceDir,",
+                  "\t\t\ttimeoutMs: Math.max(this.params.execContext.config.timeoutMs, 3e5)",
+                  "\t\t});",
+                  "\t\tif (createResult.code !== 0) throw new Error(createResult.stderr.trim() || \"openshell sandbox create failed\");",
+                  "\t\tthis.remoteSeedPending = true;"
+                ].join("\n"),
+                [
+                  "\t\tconst createProcess = spawn(resolveOpenShellCommand(this.params.execContext.config.command), [...buildOpenShellBaseArgv(this.params.execContext.config).slice(1), ...createArgs], {",
+                  "\t\t\tcwd: this.params.createParams.workspaceDir,",
+                  "\t\t\tenv: process.env,",
+                  "\t\t\tdetached: true,",
+                  "\t\t\tstdio: \"ignore\"",
+                  "\t\t});",
+                  "\t\tcreateProcess.unref();",
+                  "\t\tfor (let attempt = 0; attempt < 120; attempt += 1) {",
+                  "\t\t\tawait new Promise((resolve) => setTimeout(resolve, 1e3));",
+                  "\t\t\tif ((await runOpenShellCli({",
+                  "\t\t\t\tcontext: this.params.execContext,",
+                  "\t\t\t\targs: [\"sandbox\", \"get\", this.params.execContext.sandboxName],",
+                  "\t\t\t\tcwd: this.params.createParams.workspaceDir",
+                  "\t\t\t})).code === 0) {",
+                  "\t\t\t\tconst session = await createOpenShellSshSession({ context: this.params.execContext }).catch(() => null);",
+                  "\t\t\t\tif (session) {",
+                  "\t\t\t\t\ttry {",
+                  "\t\t\t\t\t\tconst probe = await runPluginCommandWithTimeout({",
+                  "\t\t\t\t\t\t\targv: [\"ssh\", \"-F\", session.configPath, \"-T\", \"-o\", \"RequestTTY=no\", session.host, \"true\"],",
+                  "\t\t\t\t\t\t\tcwd: this.params.createParams.workspaceDir,",
+                  "\t\t\t\t\t\t\ttimeoutMs: 5e3,",
+                  "\t\t\t\t\t\t\tenv: process.env",
+                  "\t\t\t\t\t\t});",
+                  "\t\t\t\t\t\tif (probe.code === 0) {",
+                  "\t\t\t\t\t\t\tthis.remoteSeedPending = true;",
+                  "\t\t\t\t\t\t\treturn;",
+                  "\t\t\t\t\t\t}",
+                  "\t\t\t\t\t} finally {",
+                  "\t\t\t\t\t\tawait disposeSshSandboxSession(session);",
+                  "\t\t\t\t\t}",
+                  "\t\t\t\t}",
+                  "\t\t\t}",
+                  "\t\t}",
+                  "\t\tthrow new Error(\"openshell sandbox create timed out\");"
+                ].join("\n")
+              );
               fs.writeFileSync(path, source);
               EOF
               config_root=/home/node/.openclaw/.config/openshell
@@ -286,7 +341,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: PATH
-              value: /tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+              value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             - name: OPENCLAW_GATEWAY_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -311,6 +366,23 @@ spec:
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}
+            {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+            - name: MOSAIC_BCM_MCP_URL
+              value: {{ .Values.bcmMcp.mcpUrl | quote }}
+            - name: MOSAIC_BCM_MCP_MODE
+              value: {{ .Values.bcmMcp.mode | quote }}
+            - name: MOSAIC_BCM_HEAD_HOST
+              value: {{ .Values.bcmMcp.headHost | quote }}
+            - name: MOSAIC_BCM_CMSH_ENABLED
+              value: {{ ternary "false" "true" .Values.bcmMcp.config.noCmshUser | quote }}
+            {{- if .Values.bcmMcp.authTokenSecretName }}
+            - name: MOSAIC_BCM_MCP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bcmMcp.authTokenSecretName }}
+                  key: {{ .Values.bcmMcp.authTokenSecretKey }}
+            {{- end }}
+            {{- end }}
           ports:
             - containerPort: 18789
               name: gateway
@@ -347,8 +419,6 @@ spec:
             - name: openclaw-home
               mountPath: /tmp
               subPath: tmp
-            - name: tools
-              mountPath: /tools
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -356,8 +426,6 @@ spec:
         - name: openclaw-seed
           configMap:
             name: openclaw-seed
-        - name: tools
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

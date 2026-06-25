@@ -39,6 +39,16 @@ data:
   {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/bcm/SKILL.md" | indent 4 }}
+  bcm-docs-download.py: |-
+{{ .Files.Get "files/bcm-docs/download_bcm_docs.py" | indent 4 }}
+  {{- end }}
+  {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+  bcm.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/bcm/index.ts" | indent 4 }}
+  bcm.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/bcm/openclaw.plugin.json" | indent 4 }}
+  bcm.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/bcm/package.json" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.observability.enabled }}
   observability.index.ts: |-
