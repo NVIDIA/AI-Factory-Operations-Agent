@@ -81,7 +81,11 @@ nodeSelector:
 {{- end -}}
 
 {{- define "mosaic-stack.llmBaseUrl" -}}
+{{- if .Values.llm.requestCompatibility.enabled -}}
+{{- printf "http://%s:%v/v1" .Values.llm.requestCompatibility.name .Values.llm.requestCompatibility.port -}}
+{{- else -}}
 {{- include "mosaic-stack.llmUpstreamBaseUrl" . -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "mosaic-stack.llmModel" -}}
