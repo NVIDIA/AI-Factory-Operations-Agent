@@ -45,11 +45,12 @@ data:
 
     function scrubVisibleThinking(text) {
       const drop = /^\s*(we\s+(need|should|can|have|see|also|will|must|found|checked|know)|we'll|i\s+(need|will|can)|let'?s|now\b|thus\b|the user asks|look at)\b/i;
+      const embedded = /\b(we\s+(need|should|can|could|have|see|also|will|must|found|checked|know)|we'll|let'?s)\b/i;
       return text
         .split(/\n{2,}/)
         .map(paragraph => paragraph
           .split(/(?<=[.!?])\s+/)
-          .filter(sentence => !drop.test(sentence))
+          .filter(sentence => !drop.test(sentence) && !embedded.test(sentence))
           .join(' ')
           .trim())
         .filter(Boolean)
@@ -107,7 +108,7 @@ data:
       const client = target.protocol === 'https:' ? https : http;
       const out = client.request(target, { method: req.method, headers }, upstreamRes => {
         res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
-        if (llmMode === 'vllm' && disableThinking && req.url.endsWith('/chat/completions') && /^text\/event-stream/i.test(String(upstreamRes.headers['content-type'] || ''))) {
+        if (disableThinking && req.url.endsWith('/chat/completions') && /^text\/event-stream/i.test(String(upstreamRes.headers['content-type'] || ''))) {
           void pipeOpenAiStream(upstreamRes, res);
         } else {
           upstreamRes.pipe(res);
