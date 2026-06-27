@@ -39,8 +39,6 @@ spec:
               value: "3000"
             - name: HOSTNAME
               value: "0.0.0.0"
-            - name: MOSAIC_KUBECTL_BIN
-              value: /usr/local/bin/kubectl
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
             - name: POD_NAMESPACE
@@ -51,6 +49,17 @@ spec:
               value: openclaw
             - name: MOSAIC_OPENCLAW_PROTOCOL
               value: {{ .Values.openclaw.gatewayProtocol | quote }}
+            {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
+            - name: MOSAIC_OPENCLAW_GATEWAY_URL
+              value: {{ printf "ws://openclaw:%v" .Values.openclaw.service.port | quote }}
+            - name: MOSAIC_OPENCLAW_GATEWAY_HTTP_URL
+              value: {{ printf "http://openclaw:%v" .Values.openclaw.service.port | quote }}
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.secrets.name }}
+                  key: OPENCLAW_GATEWAY_TOKEN
+            {{- end }}
             - name: MOSAIC_AUDIT_DIR
               value: /var/lib/mosaic-audit
             - name: MOSAIC_DASHBOARD_DIR
