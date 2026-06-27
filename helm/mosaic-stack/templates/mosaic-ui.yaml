@@ -22,7 +22,7 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
     spec:
-      serviceAccountName: mosaic-ui
+      automountServiceAccountToken: false
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
       containers:
