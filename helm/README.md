@@ -15,6 +15,8 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 
 Set image repositories and tags in values for your registry before installing. The defaults are placeholders for source-based development.
 
+The chart generates and retains the internal OpenClaw gateway token. Installers do not need to provide that credential.
+
 For NMC or Zarf-managed clusters that rewrite image references, keep `--create-namespace` and let the chart label the namespace before regular workload templates run:
 
 ```bash
