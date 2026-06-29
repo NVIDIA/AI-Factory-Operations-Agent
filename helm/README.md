@@ -5,15 +5,19 @@ Mosaic is installed with Helm. The public chart surface includes the Mosaic UI, 
 ## 1. Install Or Upgrade
 
 ```bash
+helm registry login nvcr.io
+helm dependency build ./helm/mosaic-stack
+
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
   --create-namespace \
+  -f helm/mosaic-stack/profiles/private-ngc.yaml \
   --reset-values \
   --wait \
   --timeout 12m
 ```
 
-Set image repositories and tags in values for your registry before installing. The defaults are placeholders for source-based development.
+The chart is pull-only. Runtime images and the OpenShell chart dependency are produced by `mosaic-upstream` and referenced here with immutable tags. Until those artifacts are public, the installer needs read access to their NGC organization. Create `nvcr-image-pull-secret` in the target namespace and install with `-f helm/mosaic-stack/profiles/private-ngc.yaml`.
 
 The chart generates and retains the internal OpenClaw gateway token. Installers do not need to provide that credential.
 
@@ -23,16 +27,23 @@ For NMC or Zarf-managed clusters that rewrite image references, keep `--create-n
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
   --create-namespace \
+  -f helm/mosaic-stack/profiles/private-ngc.yaml \
   --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
   --reset-values \
   --wait \
   --timeout 12m
 ```
 
-If the OpenShell sandbox image is private, create the pull Secret in the Mosaic namespace and let the chart attach it to sandbox pods:
+The private NGC profile attaches the pull Secret to Mosaic workloads, the OpenShell control plane, and dynamically created sandbox pods:
 
 ```yaml
+global:
+  imagePullSecrets:
+    - name: nvcr-image-pull-secret
+
 openshell:
+  imagePullSecrets:
+    - name: nvcr-image-pull-secret
   sandboxImagePullSecret:
     enabled: true
     name: nvcr-image-pull-secret
@@ -141,9 +152,7 @@ The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `
 
 ## OpenShell Dependency
 
-Packaged chart releases include a pinned OpenShell Helm dependency and the pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver.
-
-During `helm/scripts/build_push_images.sh` and `helm/scripts/publish_to_nvcr.sh`, the release process vendors the pinned `agent-sandbox` manifest into the top-level `mosaic-stack` package:
+The chart declares a pinned OpenShell OCI dependency produced by `mosaic-upstream`. Run `helm dependency build ./helm/mosaic-stack` before installing from source. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is tracked directly in this chart:
 
 - `CustomResourceDefinition` resources are placed under chart `crds/` so Helm installs them before templates.
 - The controller namespace, RBAC, service, and StatefulSet are rendered as normal templates when `agentSandbox.install=true`.
@@ -155,14 +164,4 @@ agentSandbox:
   install: false
 ```
 
-For example:
-
-```bash
-helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
-  --version <chart-version> \
-  -n mosaic \
-  --create-namespace \
-  --set agentSandbox.install=false
-```
-
-Source installs from `./helm/mosaic-stack` include the tracked `agent-sandbox` CRD and controller templates. Packaged chart releases include the same prerequisite.
+Source installs from `./helm/mosaic-stack` include the tracked `agent-sandbox` CRD and controller templates.

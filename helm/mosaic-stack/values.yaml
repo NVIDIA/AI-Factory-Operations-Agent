@@ -139,8 +139,8 @@ openclaw:
   enabled: true
   gatewayProtocol: 4
   image:
-    repository: nemoclaw
-    tag: latest
+    repository: nvcr.io/0948643769302270/nemoclaw
+    tag: 0b0cb309
     pullPolicy: IfNotPresent
   kubectlInstallerImage:
     repository: registry.k8s.io/kubectl
@@ -168,13 +168,13 @@ openshell:
     enabled: false
     name: ""
   image:
-    repository: ghcr.io/nvidia/openshell/gateway
-    tag: latest
+    repository: nvcr.io/0948643769302270/openshell-gateway
+    tag: 0b0cb309
     pullPolicy: IfNotPresent
   supervisor:
     image:
-      repository: ghcr.io/nvidia/openshell/supervisor
-      tag: latest
+      repository: nvcr.io/0948643769302270/openshell-supervisor
+      tag: 0b0cb309
       pullPolicy: IfNotPresent
     sideloadMethod: init-container
   networkPolicy:
@@ -186,8 +186,8 @@ openshell:
     disableTls: true
     sshGatewayHost: ""
     sshGatewayPort: 8080
-    sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/base:latest
-    sandboxImagePullPolicy: Always
+    sandboxImage: nvcr.io/0948643769302270/openshell:0b0cb309
+    sandboxImagePullPolicy: IfNotPresent
 
 slurmEvidenceCollector:
   image:
@@ -220,8 +220,8 @@ bcmMcp:
     name: bcm-mcp-tools
     port: 3001
   image:
-    repository: bcm-mcp-tools
-    tag: latest
+    repository: nvcr.io/0948643769302270/bcm-mcp-tools
+    tag: 0b0cb309
     pullPolicy: IfNotPresent
   busyboxImage:
     repository: busybox

@@ -4,3 +4,9 @@ description: "Mosaic app stack: UI, agent runtime, cluster skills, and optional 
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+dependencies:
+  - name: helm-chart
+    alias: openshell
+    version: 0.1.0
+    repository: oci://nvcr.io/0948643769302270
+    condition: openclaw.enabled
