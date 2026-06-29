@@ -64,7 +64,21 @@ llm:
 
 Do not put external provider keys directly in committed values files. Keep the Secret creation step in an operator-owned bootstrap path, CI secret store, External Secrets Operator, or another cluster-local secret workflow.
 
-For chart-managed vLLM, install with a profile file and provide any required model-download Secret separately:
+For a gated chart-managed vLLM model, create the model-download Secret and reference it from the profile values:
+
+```bash
+kubectl -n mosaic create secret generic mosaic-model-access \
+  --from-literal=HF_TOKEN='<hugging-face-token>'
+```
+
+```yaml
+llm:
+  vllm:
+    existingSecret: mosaic-model-access
+    modelTokenSecretKey: HF_TOKEN
+```
+
+Then install with the selected profile:
 
 ```bash
 helm upgrade --install mosaic ./helm/mosaic-stack \
