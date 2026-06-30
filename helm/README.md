@@ -56,7 +56,8 @@ For an external LLM, create the API key as a Kubernetes Secret outside Helm valu
 ```bash
 kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create secret generic mosaic-external-llm \
-  --from-literal=apiKey='<external-llm-api-key>'
+  --from-literal=apiKey='<external-llm-api-key>' \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ```yaml
