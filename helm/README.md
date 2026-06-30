@@ -54,6 +54,7 @@ The chart patches the namespace `default` ServiceAccount through a Helm hook so 
 For an external LLM, create the API key as a Kubernetes Secret outside Helm values, then point the chart at it:
 
 ```bash
+kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create secret generic mosaic-external-llm \
   --from-literal=apiKey='<external-llm-api-key>'
 ```
@@ -93,6 +94,36 @@ observability:
 ```
 
 Those URLs may point at the reference `mosaic-observability` chart or at an existing Prometheus/Grafana deployment.
+
+For an NMC admin cluster using `kube-prometheus-stack`, copy Grafana's generated credentials into the Mosaic namespace, then install with the NMC service paths and datasource UID:
+
+```bash
+kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n prometheus get secret kube-prometheus-stack-grafana -o json \
+  | jq '.metadata={"name":"mosaic-grafana-auth","namespace":"mosaic"} | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.uid,.metadata.ownerReferences)' \
+  | kubectl apply -f -
+
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --create-namespace \
+  --set global.registryCredentials.create=true \
+  --set-string global.registryCredentials.password="$NGC_API_KEY" \
+  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
+  --set llm.mode=external \
+  --set llm.external.baseUrl=https://inference-api.nvidia.com/v1 \
+  --set llm.external.model=aws/anthropic/bedrock-claude-sonnet-4-6 \
+  --set llm.external.existingSecret=mosaic-external-llm \
+  --set observability.prometheusUrl=http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090 \
+  --set observability.grafanaUrl=http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local \
+  --set observability.grafanaUpstreamPrefix=/grafana \
+  --set observability.grafanaDatasourceUid=prometheus \
+  --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
+  --set observability.grafanaAuth.usernameKey=admin-user \
+  --set observability.grafanaAuth.passwordKey=admin-password \
+  --reset-values \
+  --wait \
+  --timeout 12m
+```
 
 The embedded Grafana tab is served through Mosaic at `/api/grafana/proxy`. The bundled observability Grafana is configured to serve from that subpath, so the default `observability.grafanaUpstreamPrefix=/api/grafana/proxy` is correct. For an existing Grafana that serves from `/`, set:
 

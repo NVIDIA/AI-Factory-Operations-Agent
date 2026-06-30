@@ -17,6 +17,11 @@ observability:
   prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
   grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
   grafanaUpstreamPrefix: /api/grafana/proxy
+  grafanaDatasourceUid: mosaic-observability-prometheus
+  grafanaAuth:
+    existingSecret: ""
+    usernameKey: username
+    passwordKey: password
 
 agentSandbox:
   install: true

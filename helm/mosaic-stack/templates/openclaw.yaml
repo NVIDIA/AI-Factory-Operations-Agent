@@ -365,7 +365,19 @@ spec:
             - name: MOSAIC_PROMETHEUS_URL
               value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl | quote }}
+              value: {{ printf "%s%s" (trimSuffix "/" (default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl)) (ternary "" (default "/api/grafana/proxy" $observability.grafanaUpstreamPrefix) (eq (default "/api/grafana/proxy" $observability.grafanaUpstreamPrefix) "/")) | quote }}
+            {{- with $observability.grafanaAuth.existingSecret }}
+            - name: MOSAIC_GRAFANA_BASIC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $observability.grafanaAuth.usernameKey }}
+            - name: MOSAIC_GRAFANA_BASIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $observability.grafanaAuth.passwordKey }}
+            {{- end }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
             - name: MOSAIC_SLURM_EVIDENCE_URL

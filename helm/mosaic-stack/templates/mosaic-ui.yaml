@@ -71,6 +71,18 @@ spec:
               value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl | quote }}
             - name: MOSAIC_GRAFANA_UPSTREAM_PREFIX
               value: {{ default "/api/grafana/proxy" $observability.grafanaUpstreamPrefix | quote }}
+            {{- with $observability.grafanaAuth.existingSecret }}
+            - name: MOSAIC_GRAFANA_BASIC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $observability.grafanaAuth.usernameKey }}
+            - name: MOSAIC_GRAFANA_BASIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $observability.grafanaAuth.passwordKey }}
+            {{- end }}
             - name: MOSAIC_ALERTMANAGER_URL
               value: {{ printf "http://kube-prometheus-stack-alertmanager.%s.svc.cluster.local:9093" .Values.global.alertmanagerNamespace | quote }}
           readinessProbe:
