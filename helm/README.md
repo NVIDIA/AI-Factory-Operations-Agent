@@ -34,19 +34,12 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
   --timeout 12m
 ```
 
-The private NGC profile attaches the pull Secret to Mosaic workloads, the OpenShell control plane, and dynamically created sandbox pods:
+The private NGC profile has one registry setting. The chart propagates it to Mosaic workloads, the OpenShell dependency, and dynamically created sandbox pods:
 
 ```yaml
 global:
   imagePullSecrets:
     - name: nvcr-image-pull-secret
-
-openshell:
-  imagePullSecrets:
-    - name: nvcr-image-pull-secret
-  sandboxImagePullSecret:
-    enabled: true
-    name: nvcr-image-pull-secret
 ```
 
 The chart patches the namespace `default` ServiceAccount through a Helm hook so OpenShell-created sandbox pods can pull the configured image.

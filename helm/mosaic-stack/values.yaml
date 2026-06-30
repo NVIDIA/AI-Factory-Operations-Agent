@@ -163,10 +163,6 @@ openclaw:
 openshell:
   nameOverride: ""
   fullnameOverride: ""
-  imagePullSecrets: []
-  sandboxImagePullSecret:
-    enabled: false
-    name: ""
   image:
     repository: nvcr.io/0948643769302270/openshell-gateway
     tag: 0b0cb309
