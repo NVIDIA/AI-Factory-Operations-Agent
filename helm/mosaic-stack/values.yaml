@@ -131,7 +131,7 @@ mosaicUi:
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
     size: 1Gi
