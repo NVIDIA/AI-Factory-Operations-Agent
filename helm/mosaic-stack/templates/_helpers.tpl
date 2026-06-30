@@ -25,7 +25,7 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | 
 {{- printf "%s:%s" .repository .tag -}}
 {{- end -}}
 
-{{- define "mosaic-stack.imagePullSecrets" -}}
+{{- define "mosaic-stack.pullSecrets" -}}
 {{- $secrets := list -}}
 {{- $names := dict -}}
 {{- range .Values.global.imagePullSecrets }}
@@ -38,9 +38,14 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | 
 {{- $secrets = append $secrets . -}}
 {{- end }}
 {{- end }}
-{{- if and .Values.registryCredentials.create (not (hasKey $names .Values.registryCredentials.name)) }}
-{{- $secrets = append $secrets (dict "name" .Values.registryCredentials.name) -}}
+{{- if and .Values.global.registryCredentials.create (not (hasKey $names .Values.global.registryCredentials.name)) }}
+{{- $secrets = append $secrets (dict "name" .Values.global.registryCredentials.name) -}}
 {{- end }}
+{{- $secrets | toJson -}}
+{{- end -}}
+
+{{- define "mosaic-stack.imagePullSecrets" -}}
+{{- $secrets := include "mosaic-stack.pullSecrets" . | fromJsonArray -}}
 {{- if $secrets }}
 imagePullSecrets:
 {{ toYaml $secrets | indent 2 }}

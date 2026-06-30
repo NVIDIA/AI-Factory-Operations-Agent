@@ -5,19 +5,20 @@ Mosaic is installed with Helm. The public chart surface includes the Mosaic UI, 
 ## 1. Install Or Upgrade
 
 ```bash
-helm registry login nvcr.io
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io -u '$oauthtoken' --password-stdin
 helm dependency build ./helm/mosaic-stack
 
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
   --create-namespace \
-  -f helm/mosaic-stack/profiles/private-ngc.yaml \
+  --set global.registryCredentials.create=true \
+  --set-string global.registryCredentials.password="$NGC_API_KEY" \
   --reset-values \
   --wait \
   --timeout 12m
 ```
 
-The chart is pull-only. Runtime images and the OpenShell chart dependency are produced by `mosaic-upstream` and referenced here with immutable tags. Until those artifacts are public, the installer needs read access to their NGC organization. Create `nvcr-image-pull-secret` in the target namespace and install with `-f helm/mosaic-stack/profiles/private-ngc.yaml`.
+Set `NGC_API_KEY` before running these commands. The registry login authenticates the local Helm client for the private OpenShell chart dependency. The upgrade creates `nvcr-image-pull-secret` in the release namespace and attaches it to Mosaic, OpenShell, and dynamically created sandbox pods.
 
 The chart generates and retains the internal OpenClaw gateway token. Installers do not need to provide that credential.
 
@@ -27,19 +28,20 @@ For NMC or Zarf-managed clusters that rewrite image references, keep `--create-n
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
   --create-namespace \
-  -f helm/mosaic-stack/profiles/private-ngc.yaml \
+  --set global.registryCredentials.create=true \
+  --set-string global.registryCredentials.password="$NGC_API_KEY" \
   --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
   --reset-values \
   --wait \
   --timeout 12m
 ```
 
-The private NGC profile has one registry setting. The chart propagates it to Mosaic workloads, the OpenShell dependency, and dynamically created sandbox pods:
+For an existing pull Secret instead of a Helm-managed credential, set:
 
 ```yaml
 global:
   imagePullSecrets:
-    - name: nvcr-image-pull-secret
+    - name: existing-pull-secret
 ```
 
 The chart patches the namespace `default` ServiceAccount through a Helm hook so OpenShell-created sandbox pods can pull the configured image.

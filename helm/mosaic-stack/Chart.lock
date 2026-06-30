@@ -1,6 +1,6 @@
 dependencies:
 - name: helm-chart
   repository: oci://nvcr.io/0948643769302270
-  version: 0.1.1
-digest: sha256:0fac1f9082438b479d54f7a72b680c4508ee0ed526487d320dfd6cffe1a80bbe
-generated: "2026-06-30T09:24:46.997959-07:00"
+  version: 0.1.2
+digest: sha256:c795673e6fed64eee9030c707c18ce9b02737732331911585fef2d9668d662b2
+generated: "2026-06-30T10:02:28.95333-07:00"

@@ -1,5 +1,12 @@
 global:
   imagePullSecrets: []
+  registryCredentials:
+    create: false
+    name: nvcr-image-pull-secret
+    server: nvcr.io
+    username: "$oauthtoken"
+    password: ""
+    email: unused@example.com
   nodeSelector: {}
   alertmanagerNamespace: prometheus
 
@@ -113,14 +120,6 @@ llm:
       namespace: mosaic
       name: vllm-nemotron
       externalName: ""
-
-registryCredentials:
-  create: false
-  name: nvcr-image-pull-secret
-  server: nvcr.io
-  username: "$oauthtoken"
-  password: ""
-  email: unused@example.com
 
 mosaicUi:
   enabled: true

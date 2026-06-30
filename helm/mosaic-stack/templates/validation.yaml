@@ -26,6 +26,6 @@
 {{- fail "llm.vllm.replicaCount must be 1 when distributed vLLM is enabled" -}}
 {{- end -}}
 {{- end -}}
-{{- if and .Values.registryCredentials.create (not .Values.registryCredentials.password) -}}
-{{- fail "registryCredentials.password is required when registryCredentials.create=true" -}}
+{{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
+{{- fail "global.registryCredentials.password is required when global.registryCredentials.create=true" -}}
 {{- end -}}
