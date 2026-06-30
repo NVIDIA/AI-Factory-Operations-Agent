@@ -26,6 +26,7 @@ spec:
       automountServiceAccountToken: false
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       containers:
         - name: mosaic-ui
           image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}

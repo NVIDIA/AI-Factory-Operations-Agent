@@ -20,6 +20,7 @@ spec:
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       {{- if .Values.bcmMcp.hostSshKeySecretName }}
       initContainers:
         - name: init-bcm-ssh

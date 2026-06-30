@@ -22,6 +22,7 @@ spec:
       automountServiceAccountToken: true
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       securityContext:
         fsGroup: 1000
         seccompProfile:

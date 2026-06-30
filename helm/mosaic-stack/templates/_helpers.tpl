@@ -59,6 +59,13 @@ nodeSelector:
 {{- end }}
 {{- end -}}
 
+{{- define "mosaic-stack.tolerations" -}}
+{{- with .Values.global.tolerations }}
+tolerations:
+{{ toYaml . | indent 2 }}
+{{- end }}
+{{- end -}}
+
 {{- define "mosaic-stack.clusterScopedBase" -}}
 {{- $base := printf "%s-%s" (include "mosaic-stack.fullname" .) .Release.Namespace -}}
 {{- printf "%s-%s" ($base | trunc 42 | trimSuffix "-") (sha256sum $base | trunc 8) -}}

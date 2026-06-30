@@ -8,6 +8,7 @@ global:
     password: ""
     email: unused@example.com
   nodeSelector: {}
+  tolerations: []
   alertmanagerNamespace: prometheus
 
 namespace:

@@ -38,6 +38,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- else }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       {{- end }}
       containers:
         - name: collector
