@@ -130,7 +130,7 @@
         "enabled": {{ .Values.modules.observability.enabled }},
         "config": {
           "grafanaEnabled": {{ .Values.modules.grafana.enabled }},
-          "grafanaUrl": {{ printf "%s%s" (trimSuffix "/" .Values.observability.grafanaUrl) (ternary "" .Values.observability.grafanaUpstreamPrefix (eq .Values.observability.grafanaUpstreamPrefix "/")) | quote }},
+          "grafanaUrl": {{ .Values.observability.grafanaUrl | quote }},
           "prometheusUrl": {{ .Values.observability.prometheusUrl | quote }},
           "datasourceUid": {{ .Values.observability.grafanaDatasourceUid | quote }}{{- if .Values.observability.grafanaAuth.existingSecret }},
           "basicUser": "${MOSAIC_GRAFANA_BASIC_USER}",

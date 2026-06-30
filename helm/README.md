@@ -22,20 +22,6 @@ Set `NGC_API_KEY` before running these commands. The registry login authenticate
 
 The chart generates and retains the internal OpenClaw gateway token. Installers do not need to provide that credential.
 
-For NMC or Zarf-managed clusters that rewrite image references, keep `--create-namespace` and let the chart label the namespace before regular workload templates run:
-
-```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
-  -n mosaic \
-  --create-namespace \
-  --set global.registryCredentials.create=true \
-  --set-string global.registryCredentials.password="$NGC_API_KEY" \
-  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
-  --reset-values \
-  --wait \
-  --timeout 12m
-```
-
 For an existing pull Secret instead of a Helm-managed credential, set:
 
 ```yaml
@@ -46,7 +32,48 @@ global:
 
 The chart patches the namespace `default` ServiceAccount through a Helm hook so OpenShell-created sandbox pods can pull the configured image.
 
-## 2. LLM Modes
+## 2. Install On An NMC Admin Cluster
+
+Run this flow from the BCM head node after setting `NGC_API_KEY` and `EXTERNAL_LLM_API_KEY`. It selects the NMC `k8s-admin` cluster, connects Mosaic to the existing `kube-prometheus-stack` services, and installs the AgentSandbox CRD and controller from the Mosaic chart.
+
+```bash
+module load kubernetes/k8s-admin
+
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io -u '$oauthtoken' --password-stdin
+helm dependency build ./helm/mosaic-stack
+
+kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create secret generic mosaic-external-llm \
+  --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+GRAFANA_USERNAME=$(kubectl -n prometheus get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-user}' | base64 -d)
+GRAFANA_PASSWORD=$(kubectl -n prometheus get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d)
+kubectl -n mosaic create secret generic mosaic-grafana-auth \
+  --from-literal=username="$GRAFANA_USERNAME" \
+  --from-literal=password="$GRAFANA_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --create-namespace \
+  --set global.registryCredentials.create=true \
+  --set-string global.registryCredentials.password="$NGC_API_KEY" \
+  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
+  --set llm.mode=external \
+  --set llm.external.baseUrl=https://inference-api.nvidia.com/v1 \
+  --set llm.external.model=aws/anthropic/bedrock-claude-sonnet-4-6 \
+  --set llm.external.existingSecret=mosaic-external-llm \
+  --set observability.prometheusUrl=http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090 \
+  --set observability.grafanaUrl=http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana \
+  --set observability.grafanaDatasourceUid=prometheus \
+  --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
+  --reset-values \
+  --wait \
+  --timeout 12m
+```
+
+## 3. LLM Modes
 
 - `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
 - `llm.mode=external`: does not deploy vLLM. Set `llm.external.baseUrl`, `llm.external.model`, and optionally `llm.external.existingSecret` plus `llm.external.apiKeySecretKey`.
@@ -81,7 +108,7 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
   -f helm/mosaic-stack/profiles/vllm-super-1gpu.yaml
 ```
 
-## 3. Modules
+## 4. Modules
 
 `helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
 
@@ -90,50 +117,14 @@ Observability is connected through explicit endpoints:
 ```yaml
 observability:
   prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
-  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000
-  grafanaUpstreamPrefix: /api/grafana/proxy
+  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy
 ```
 
 Those URLs may point at the reference `mosaic-observability` chart or at an existing Prometheus/Grafana deployment.
 
-For an NMC admin cluster using `kube-prometheus-stack`, copy Grafana's generated credentials into the Mosaic namespace, then install with the NMC service paths and datasource UID:
+`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana, `/grafana` for the NMC deployment, or `/api/grafana/proxy` for the bundled reference deployment.
 
-```bash
-kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n prometheus get secret kube-prometheus-stack-grafana -o json \
-  | jq '.metadata={"name":"mosaic-grafana-auth","namespace":"mosaic"} | del(.metadata.creationTimestamp,.metadata.resourceVersion,.metadata.uid,.metadata.ownerReferences)' \
-  | kubectl apply -f -
-
-helm upgrade --install mosaic ./helm/mosaic-stack \
-  -n mosaic \
-  --create-namespace \
-  --set global.registryCredentials.create=true \
-  --set-string global.registryCredentials.password="$NGC_API_KEY" \
-  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
-  --set llm.mode=external \
-  --set llm.external.baseUrl=https://inference-api.nvidia.com/v1 \
-  --set llm.external.model=aws/anthropic/bedrock-claude-sonnet-4-6 \
-  --set llm.external.existingSecret=mosaic-external-llm \
-  --set observability.prometheusUrl=http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090 \
-  --set observability.grafanaUrl=http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local \
-  --set observability.grafanaUpstreamPrefix=/grafana \
-  --set observability.grafanaDatasourceUid=prometheus \
-  --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
-  --set observability.grafanaAuth.usernameKey=admin-user \
-  --set observability.grafanaAuth.passwordKey=admin-password \
-  --reset-values \
-  --wait \
-  --timeout 12m
-```
-
-The embedded Grafana tab is served through Mosaic at `/api/grafana/proxy`. The bundled observability Grafana is configured to serve from that subpath, so the default `observability.grafanaUpstreamPrefix=/api/grafana/proxy` is correct. For an existing Grafana that serves from `/`, set:
-
-```yaml
-observability:
-  grafanaUpstreamPrefix: /
-```
-
-## 4. Open The UI
+## 5. Open The UI
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
@@ -141,7 +132,7 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
-## 5. Headless Mode
+## 6. Headless Mode
 
 The Mosaic UI service also exposes a headless API:
 

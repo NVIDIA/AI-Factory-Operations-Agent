@@ -68,9 +68,7 @@ spec:
             - name: MOSAIC_PROMETHEUS_URL
               value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000" $observability.grafanaUrl | quote }}
-            - name: MOSAIC_GRAFANA_UPSTREAM_PREFIX
-              value: {{ default "/api/grafana/proxy" $observability.grafanaUpstreamPrefix | quote }}
+              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy" $observability.grafanaUrl | quote }}
             {{- with $observability.grafanaAuth.existingSecret }}
             - name: MOSAIC_GRAFANA_BASIC_USER
               valueFrom:
