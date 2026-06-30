@@ -9,7 +9,7 @@ Use this skill when a user asks about a Slurm job failure or queue state.
 
 This workflow is evidence based. Do not assume any external job-management service exists.
 
-First use `slurm_job_evidence` when available. It returns bounded evidence from allowlisted node filesystem roots and job output files.
+First use `slurm_job_evidence` when available. Its `backend` field identifies whether the evidence came from the vanilla read-only filesystem collector or BCM WLM. BCM WLM evidence includes job metadata, stdout, and stderr; vanilla evidence includes bounded matches from the configured filesystem roots.
 
 If the tool is unavailable or incomplete, try read-only Slurm commands if they are available in the sandbox:
 

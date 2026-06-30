@@ -25,7 +25,7 @@
       "sandbox": {
         "mode": "all",
         "backend": "nemoclaw",
-        "scope": "agent",
+        "scope": "session",
         "workspaceAccess": "ro"
       }
     },
@@ -121,7 +121,14 @@
         "enabled": {{ .Values.modules.research.enabled }}
       },
       "bcm": {
-        "enabled": {{ eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+        "enabled": {{ eq (include "mosaic-stack.bcmEnabled" .) "true" }},
+        "config": {
+          "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
+          "headHost": {{ .Values.bcmMcp.headHost | quote }},
+          "mcpMode": {{ .Values.bcmMcp.mode | quote }},
+          "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},
+          "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
+        }
       },
       "grafana": {
         "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}

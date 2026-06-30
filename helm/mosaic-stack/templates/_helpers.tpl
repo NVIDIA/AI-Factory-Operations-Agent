@@ -66,7 +66,9 @@ nodeSelector:
 
 {{- define "mosaic-stack.bcmEnabled" -}}
 {{- $bcm := .Values.modules.bcm | default dict -}}
-{{- if hasKey $bcm "enabled" -}}{{ $bcm.enabled }}{{- else -}}true{{- end -}}
+{{- $moduleEnabled := true -}}
+{{- if hasKey $bcm "enabled" -}}{{- $moduleEnabled = $bcm.enabled -}}{{- end -}}
+{{- if and $moduleEnabled (or .Values.bcmMcp.enabled .Values.externalServices.bcmMcp.enabled) -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
 {{- define "mosaic-stack.slurmEvidenceEnabled" -}}
@@ -74,7 +76,13 @@ nodeSelector:
 {{- $collector := $slurm.evidenceCollector | default dict -}}
 {{- $collectorEnabled := true -}}
 {{- if hasKey $collector "enabled" -}}{{- $collectorEnabled = $collector.enabled -}}{{- end -}}
-{{- if and ($slurm.enabled | default false) $collectorEnabled -}}true{{- else -}}false{{- end -}}
+{{- if and ($slurm.enabled | default false) $collectorEnabled (ne (include "mosaic-stack.slurmBcmEnabled" .) "true") -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.slurmBcmEnabled" -}}
+{{- $slurm := .Values.modules.slurm | default dict -}}
+{{- $backend := $slurm.backend | default "auto" -}}
+{{- if and ($slurm.enabled | default false) (ne $backend "vanilla") (eq (include "mosaic-stack.bcmEnabled" .) "true") -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
 {{- define "mosaic-stack.llmUpstreamBaseUrl" -}}

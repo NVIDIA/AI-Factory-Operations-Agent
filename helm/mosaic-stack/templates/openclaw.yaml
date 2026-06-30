@@ -380,8 +380,10 @@ spec:
             {{- end }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+            {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}
+            {{- end }}
           ports:
             - containerPort: 18789
               name: gateway

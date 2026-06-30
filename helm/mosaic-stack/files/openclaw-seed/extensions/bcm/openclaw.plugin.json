@@ -12,6 +12,7 @@
       "bcm_search_tools",
       "bcm_execute_tool",
       "bcm_execute_cmsh",
+      "slurm_job_evidence",
       "bcm_list_notes",
       "bcm_search_notes",
       "bcm_add_note",
@@ -40,6 +41,23 @@
       "token": {
         "type": "string",
         "description": "Alias for authToken."
+      },
+      "headHost": {
+        "type": "string",
+        "description": "BCM head-node hostname used by the SSH adapter."
+      },
+      "mcpMode": {
+        "type": "string",
+        "enum": ["direct", "ssh-adapter"],
+        "description": "BCM MCP deployment mode."
+      },
+      "cmshEnabled": {
+        "type": "boolean",
+        "description": "Expose read-only CMSH tools."
+      },
+      "slurmEnabled": {
+        "type": "boolean",
+        "description": "Expose BCM WLM-backed Slurm job evidence."
       },
       "timeoutMs": {
         "type": "number",

@@ -68,6 +68,7 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
   --set observability.grafanaUrl=http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana \
   --set observability.grafanaDatasourceUid=prometheus \
   --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
+  --set modules.slurm.enabled=false \
   --reset-values \
   --wait \
   --timeout 12m
@@ -167,6 +168,22 @@ Default collector roots:
 - `/var/log/journal`
 
 The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `sacct`/`scontrol` and any mounted evidence available in the sandbox. Missing paths are expected on many clusters; the skill continues with whatever evidence is present. Adjust `slurmEvidenceCollector.roots` only when a site stores Slurm evidence outside the default candidates.
+
+The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, Mosaic uses BCM WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without BCM, Mosaic uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
+
+On BCM/NMC deployments, enable `bcmMcp` in `ssh-adapter` mode and provide the BCM head host and SSH-key Secret. The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+```yaml
+bcmMcp:
+  enabled: true
+  mode: ssh-adapter
+  headHost: bcm-head.example.com
+  hostSshKeySecretName: bcm-host-ssh-key
+modules:
+  slurm:
+    enabled: true
+    backend: auto
+```
 
 ## OpenShell Dependency
 

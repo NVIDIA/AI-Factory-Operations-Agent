@@ -40,7 +40,7 @@ modules:
     enabled: true
   slurm:
     enabled: true
-    backend: vanilla
+    backend: auto
     evidenceCollector:
       enabled: true
   diagnostics:
@@ -211,7 +211,7 @@ bcmMcp:
   enabled: false
   mode: direct
   mcpUrl: http://bcm-mcp-tools:3001/mcp
-  headHost: BCM-SERV-01
+  headHost: ""
   authTokenSecretName: ""
   authTokenSecretKey: BCM_MCP_TOKEN
   hostSshKeySecretName: ""
@@ -230,7 +230,7 @@ bcmMcp:
     execTimeout: "120"
     maxOutputLines: "200"
     maxOutputChars: "20000"
-    preloadedModules: "auto"
+    preloadedModules: "shared,slurm"
     noCmshUser: false
     cmshUsername: aichatbotuser
     cmshProfile: readonly
@@ -238,7 +238,7 @@ bcmMcp:
     cmshExecTimeout: "120"
     cmshPath: /cm/local/apps/cmd/bin/cmsh
     installServer: auto
-    remoteCommand: bcm-support-mcp --stdio --no-cmsh-user
+    remoteCommand: bcm-support-mcp --stdio --no-cmsh-user --preloaded-modules shared,slurm
   resources:
     requests:
       cpu: 100m
@@ -254,8 +254,8 @@ mosaicTerminal:
     tag: 20-bookworm
     pullPolicy: IfNotPresent
   kubectlInstallerImage:
-    repository: bitnami/kubectl
-    tag: latest
+    repository: registry.k8s.io/kubectl
+    tag: v1.30.0
     pullPolicy: IfNotPresent
   busyboxImage:
     repository: busybox

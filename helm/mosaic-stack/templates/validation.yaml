@@ -1,8 +1,20 @@
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
-{{- if not (has .Values.modules.slurm.backend (list "vanilla")) -}}
-{{- fail "modules.slurm.backend must be vanilla" -}}
+{{- if not (has .Values.modules.slurm.backend (list "auto" "vanilla" "bcm")) -}}
+{{- fail "modules.slurm.backend must be one of: auto, vanilla, bcm" -}}
+{{- end -}}
+{{- if and .Values.modules.slurm.enabled (eq .Values.modules.slurm.backend "bcm") (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- fail "modules.slurm.backend=bcm requires an enabled BCM MCP service" -}}
+{{- end -}}
+{{- if and (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") (ne .Values.bcmMcp.mode "ssh-adapter") -}}
+{{- fail "BCM Slurm evidence requires bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.modules.slurm.enabled (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") .Values.bcmMcp.enabled .Values.bcmMcp.config.noCmshUser -}}
+{{- fail "BCM-backed Slurm evidence requires bcmMcp.config.noCmshUser=false" -}}
+{{- end -}}
+{{- if and .Values.modules.slurm.enabled (ne (include "mosaic-stack.slurmBcmEnabled" .) "true") (not .Values.modules.slurm.evidenceCollector.enabled) -}}
+{{- fail "vanilla Slurm requires modules.slurm.evidenceCollector.enabled=true" -}}
 {{- end -}}
 {{- if eq .Values.llm.mode "external" -}}
 {{- if not .Values.llm.external.baseUrl -}}
@@ -28,4 +40,10 @@
 {{- end -}}
 {{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
 {{- fail "global.registryCredentials.password is required when global.registryCredentials.create=true" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.headHost) -}}
+{{- fail "bcmMcp.headHost is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.hostSshKeySecretName) -}}
+{{- fail "bcmMcp.hostSshKeySecretName is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}

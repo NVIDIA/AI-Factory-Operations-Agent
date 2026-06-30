@@ -1,7 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
-const DEFAULT_BCM_HEAD_HOST = "BCM-SERV-01";
+const DEFAULT_BCM_HEAD_HOST = "";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_EVENT_CHARS = 4000;
 const BCM_CACHE_TTL_MS = 60_000;
@@ -15,6 +15,7 @@ type BcmConfig = {
   headHost: string;
   mcpMode: string;
   cmshEnabled: boolean;
+  slurmEnabled: boolean;
   timeoutMs: number;
   subagentEventsUrl: string;
 };
@@ -130,6 +131,7 @@ function readConfig(pluginConfig: unknown): BcmConfig {
       (typeof process !== "undefined" ? process.env?.MOSAIC_BCM_MCP_MODE || process.env?.BCM_MCP_MODE || "" : "") ||
       "direct",
     cmshEnabled: boolConfig(pluginConfig, "cmshEnabled", envBool("MOSAIC_BCM_CMSH_ENABLED", true)),
+    slurmEnabled: boolConfig(pluginConfig, "slurmEnabled", false),
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
@@ -220,6 +222,31 @@ async function nodeHealthSummary(config: BcmConfig, options: SubagentOptions) {
   }
 }
 
+async function runCmsh(config: BcmConfig, commands: string) {
+  const result = await cachedBcmRpc(
+    config,
+    "tools/call",
+    { name: "execute_cmsh", arguments: bcmToolArgs(config, { commands }) },
+    180_000,
+  );
+  if (result && typeof result === "object" && (result as { isError?: boolean }).isError) {
+    throw new Error(textFromResult(result) || `CMSH failed: ${commands}`);
+  }
+  return truncate(textFromResult(result), 20_000);
+}
+
+async function slurmJobEvidence(config: BcmConfig, jobId: string, options: SubagentOptions) {
+  postSubagentEvent(options, "start", `Reading BCM WLM evidence for Slurm job ${jobId}.`);
+  const result = await cachedBcmRpc(
+    config,
+    "tools/call",
+    { name: "slurm_job_evidence", arguments: bcmToolArgs(config, { job_id: jobId }) },
+    180_000,
+  );
+  postSubagentEvent(options, "complete", `Collected BCM WLM metadata, stdout, and stderr for job ${jobId}.`);
+  return jsonToolResult({ backend: "bcm-wlm", jobId, evidence: textFromResult(result) });
+}
+
 function compactToolSummaries(tools: unknown[]) {
   return tools
     .map((tool) => {
@@ -228,7 +255,7 @@ function compactToolSummaries(tools: unknown[]) {
       }
       const candidate = tool as Record<string, unknown>;
       const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
-      if (!name || isBlockedMcpToolName(name)) {
+      if (!name) {
         return null;
       }
       const description =
@@ -241,14 +268,6 @@ function compactToolSummaries(tools: unknown[]) {
       return description ? { name, description: truncate(description, 180) } : { name };
     })
     .filter(Boolean);
-}
-
-function isBlockedMcpToolName(name: string) {
-  return name.trim().toLowerCase().startsWith("slurm.");
-}
-
-function isSlurmSearchQuery(query: string) {
-  return /\b(slurm|sacct|scontrol|sbatch|squeue|job\s+\d+|job failure|failed job|rca|root cause)\b/i.test(query);
 }
 
 function bcmToolArgs(config: BcmConfig, args: Record<string, unknown>) {
@@ -499,11 +518,14 @@ function mergeLoadedModule(context: Record<string, unknown>, moduleName: string)
 
 function defaultExecutionContext(config: BcmConfig, toolId: string, rawContext?: Record<string, unknown>) {
   const context = rawContext ? { ...rawContext } : {};
-  if (!stringParam(context.ssh_host)) {
+  if (!stringParam(context.ssh_host) && config.headHost) {
     context.ssh_host = config.headHost;
   }
   if (toolId.startsWith("kubernetes.")) {
     mergeLoadedModule(context, "kubernetes");
+  }
+  if (toolId.startsWith("slurm.")) {
+    mergeLoadedModule(context, "slurm");
   }
   return context;
 }
@@ -572,11 +594,40 @@ export default definePluginEntry({
       description: "Return BCM cluster and host information by calling bcm.get_info through bcm-mcp-tools.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
+        const context = defaultExecutionContext(config, "bcm.get_info");
         return callBcmTool(
           config,
           "execute_tool",
-          bcmToolArgs(config, { tool_id: "bcm.get_info", context: { ssh_host: config.headHost } }),
+          bcmToolArgs(config, {
+            tool_id: "bcm.get_info",
+            ...(Object.keys(context).length ? { context } : {}),
+          }),
           subagentOptions(config, toolCallId, "bcm_get_info", "BCM cluster info"),
+        );
+      },
+    });
+
+    if (config.slurmEnabled && config.cmshEnabled) registerTool({
+      name: "slurm_job_evidence",
+      label: "Slurm Job Evidence",
+      description: "Return read-only BCM WLM metadata, stdout, and stderr for a numeric Slurm job id.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["jobId"],
+        properties: {
+          jobId: { type: "string", pattern: "^[0-9]+$", description: "Numeric Slurm job id." },
+        },
+      },
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        const jobId = stringParam(rawParams.jobId);
+        if (!/^[0-9]+$/.test(jobId)) {
+          throw new Error("jobId must be numeric");
+        }
+        return slurmJobEvidence(
+          config,
+          jobId,
+          subagentOptions(config, toolCallId, "slurm_job_evidence", "Slurm job evidence"),
         );
       },
     });
@@ -606,12 +657,6 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const query = stringParam(rawParams.query);
-        if (isSlurmSearchQuery(query)) {
-          return jsonToolResult({
-            tools: [],
-            note: "BCM Slurm MCP tools are disabled for job RCA. Use the configured Slurm evidence tools instead.",
-          });
-        }
         return callBcmTool(
           config,
           "search_tool",
@@ -646,9 +691,6 @@ export default definePluginEntry({
         const toolId = stringParam(rawParams.tool_id);
         if (!toolId) {
           throw new Error("tool_id is required");
-        }
-        if (isBlockedMcpToolName(toolId)) {
-          throw new Error("BCM Slurm MCP tools are disabled for job RCA. Use the configured Slurm evidence tools instead.");
         }
         const args: Record<string, unknown> = { tool_id: toolId };
         const toolKwargs = objectParam(rawParams.tool_kwargs);
