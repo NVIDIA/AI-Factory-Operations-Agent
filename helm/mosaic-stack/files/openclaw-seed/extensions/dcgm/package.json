@@ -2,6 +2,7 @@
   "name": "@mosaic/dcgm-plugin",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "OpenClaw plugin for NVIDIA DCGM exporter metrics",
   "type": "module",
   "openclaw": {

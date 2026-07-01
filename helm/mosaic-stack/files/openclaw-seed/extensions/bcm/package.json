@@ -2,6 +2,7 @@
   "name": "@mosaic/bcm-plugin",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "OpenClaw plugin for BCM MCP diagnostics over MCP streamable HTTP/SSE",
   "type": "module",
   "openclaw": {

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 apiVersion: v2
 name: mosaic-stack
 description: "Mosaic app stack: UI, agent runtime, cluster skills, and optional support services."
