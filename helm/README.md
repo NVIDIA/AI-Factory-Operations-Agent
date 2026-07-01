@@ -113,6 +113,18 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 
 `helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
 
+The Research module connects Mosaic to an existing IRA/Sequoia service. It does not deploy IRA or its OpenSearch dependency:
+
+```yaml
+modules:
+  research:
+    enabled: true
+    baseUrl: http://iraop.research.svc.cluster.local:8000/mcp/sse
+    timeoutMs: 240000
+```
+
+`baseUrl` must be the IRA MCP SSE endpoint reachable from the OpenClaw pod.
+
 Observability is connected through explicit endpoints:
 
 ```yaml

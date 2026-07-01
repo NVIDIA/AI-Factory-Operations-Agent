@@ -58,8 +58,10 @@ spec:
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               rm -rf /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/grafana \
+                /home/node/.openclaw/extensions/iraop \
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
+                /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm \
                 /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
               {{- if .Values.modules.slurm.enabled }}
@@ -68,6 +70,10 @@ spec:
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/observability
+              {{- end }}
+              {{- if .Values.modules.research.enabled }}
+              mkdir -p /home/node/.openclaw/workspace/skills/iraop
+              mkdir -p /home/node/.openclaw/extensions/iraop
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
@@ -148,6 +154,12 @@ spec:
               cp /seed/observability.grafana.ts /home/node/.openclaw/extensions/observability/grafana.ts
               cp /seed/observability.openclaw.plugin.json /home/node/.openclaw/extensions/observability/openclaw.plugin.json
               cp /seed/observability.package.json /home/node/.openclaw/extensions/observability/package.json
+              {{- end }}
+              {{- if .Values.modules.research.enabled }}
+              cp /seed/iraop.SKILL.md /home/node/.openclaw/workspace/skills/iraop/SKILL.md
+              cp /seed/iraop.index.ts /home/node/.openclaw/extensions/iraop/index.ts
+              cp /seed/iraop.openclaw.plugin.json /home/node/.openclaw/extensions/iraop/openclaw.plugin.json
+              cp /seed/iraop.package.json /home/node/.openclaw/extensions/iraop/package.json
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md

@@ -51,6 +51,8 @@ modules:
     enabled: false
   research:
     enabled: false
+    baseUrl: http://iraop:8000/mcp/sse
+    timeoutMs: 240000
   terminal:
     enabled: false
 

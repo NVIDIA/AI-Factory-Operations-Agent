@@ -118,7 +118,11 @@
         "enabled": {{ and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.enabled }}
       },
       "iraop": {
-        "enabled": {{ .Values.modules.research.enabled }}
+        "enabled": {{ .Values.modules.research.enabled }},
+        "config": {
+          "baseUrl": {{ .Values.modules.research.baseUrl | quote }},
+          "timeoutMs": {{ default 240000 .Values.modules.research.timeoutMs }}
+        }
       },
       "bcm": {
         "enabled": {{ eq (include "mosaic-stack.bcmEnabled" .) "true" }},
