@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Feature Request
+description: Propose new or improved Mosaic functionality
+title: "[Feature]: "
+labels: ["feature request"]
+body:
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request type
+      options:
+        - New feature
+        - Improvement
+        - Change to existing behavior
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user problem and operational context.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior and relevant alternatives.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include examples, references, or affected modules.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow Mosaic's [Code of Conduct](https://github.com/NVIDIA/Mosaic/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I searched open issues and found no duplicate.
+          required: true

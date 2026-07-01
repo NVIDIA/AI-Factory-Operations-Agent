@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Bug Report
+description: Report reproducible incorrect behavior in Mosaic
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a Mosaic problem. Do not include credentials or other secrets.
+  - type: input
+    id: version
+    attributes:
+      label: Mosaic version
+      description: Provide the Helm chart version or commit.
+      placeholder: "example: 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: kubernetes-version
+    attributes:
+      label: Kubernetes version
+      placeholder: "example: 1.32"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: Installation method
+      options:
+        - Helm chart from source
+        - Packaged OCI Helm chart
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: modules
+    attributes:
+      label: Enabled modules and relevant configuration
+      description: List enabled modules and sanitized non-secret values relevant to the problem.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Explain what happened and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sequence that reproduces the problem.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant sanitized logs
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow Mosaic's [Code of Conduct](https://github.com/NVIDIA/Mosaic/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I searched open issues and found no duplicate.
+          required: true

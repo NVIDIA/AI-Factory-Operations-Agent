@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: New Documentation Request
+description: Request new Mosaic documentation
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: Requested documentation
+      description: Describe the missing information and who needs it.
+    validations:
+      required: true
+  - type: textarea
+    id: searched
+    attributes:
+      label: Existing documentation reviewed
+      description: List the locations you checked before filing this request.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow Mosaic's [Code of Conduct](https://github.com/NVIDIA/Mosaic/blob/main/CODE_OF_CONDUCT.md).
+          required: true
