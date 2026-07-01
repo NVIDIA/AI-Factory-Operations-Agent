@@ -93,4 +93,4 @@ Use GitHub issues and pull requests for project discussions and collaboration. P
 
 This project is licensed under the [Apache License 2.0](LICENSE).
 
-NVIDIA and third-party attributions are provided in [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The corresponding third-party license texts are distributed in [third_party_licenses](third_party_licenses/).
+NVIDIA and third-party attributions and license texts are provided in [NOTICE](NOTICE) and [LICENSE-3rd-party.txt](LICENSE-3rd-party.txt).
