@@ -27,4 +27,16 @@ Open an issue before substantial implementation work so maintainers can confirm 
 4. Open a pull request using the repository template.
 5. Address review feedback and ensure required status checks pass.
 
+## Developer Certificate Of Origin
+
+External contributions require agreement to the [Developer Certificate of Origin 1.1](DCO.md). Sign off every commit with:
+
+```bash
+git commit --signoff
+```
+
+The sign-off adds a `Signed-off-by: Name <email@example.com>` line and certifies the contribution under the DCO. Pull requests containing unsigned commits cannot be merged.
+
+NVIDIA maintainers also apply the project [IP review process](IP_REVIEW.md) before accepting or distributing third-party contributions.
+
 By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
