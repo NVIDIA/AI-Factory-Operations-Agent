@@ -3,6 +3,11 @@ name: slurm
 description: Inspect mounted Slurm accounting exports and job logs for failed workload root cause analysis.
 ---
 
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Slurm Log RCA
 
 Use this skill when a user asks about a Slurm job failure or queue state.

@@ -11,6 +11,11 @@ metadata:
   }
 ---
 
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # observability — Cluster Metrics and Dashboards
 
 Use the `observability_*` and `dashboard_*` tools for read-only cluster metrics and dashboard creation.

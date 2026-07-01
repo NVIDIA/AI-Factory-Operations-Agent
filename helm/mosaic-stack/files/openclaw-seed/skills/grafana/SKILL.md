@@ -11,6 +11,11 @@ metadata:
   }
 ---
 
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # grafana — Dashboard Builder
 
 Use `grafana_dashboard_create` to build a dashboard from PromQL panels and open it in the Mosaic UI Grafana tab.
