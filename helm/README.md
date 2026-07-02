@@ -113,7 +113,7 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 
 `helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
 
-The Research module connects Mosaic to an existing IRA/Sequoia service. It does not deploy IRA or its OpenSearch dependency:
+The Research module can connect to an existing IRA service:
 
 ```yaml
 modules:
@@ -124,6 +124,20 @@ modules:
 ```
 
 `baseUrl` must be the IRA MCP SSE endpoint reachable from the OpenClaw pod.
+
+For a chart-managed Research Agent and OpenSearch deployment, enable managed mode and provide the NVIDIA API key used by the embedding connector:
+
+```bash
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --create-namespace \
+  --set modules.research.enabled=true \
+  --set modules.research.managed=true \
+  --set modules.research.secrets.create=true \
+  --set-string modules.research.secrets.nvidiaApiKey="$NVIDIA_API_KEY"
+```
+
+Managed mode pulls the pinned `iraop` image and deploys its OpenSearch dependency. The default corpus source is the read-only host path `/cm/shared/iraop-corpus`; override `researchAgent.iraop.corpus.hostPath` when the cluster exposes the corpus elsewhere. When Mosaic uses a different chat model, set `researchAgent.iraop.config.NVIDIA_CHAT_MODEL` to the same model name.
 
 Observability is connected through explicit endpoints:
 

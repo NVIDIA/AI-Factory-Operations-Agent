@@ -50,3 +50,9 @@
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.hostSshKeySecretName) -}}
 {{- fail "bcmMcp.hostSshKeySecretName is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
+{{- if and .Values.modules.research.managed (not .Values.modules.research.enabled) -}}
+{{- fail "modules.research.managed=true requires modules.research.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.research.managed .Values.modules.research.secrets.create (not .Values.modules.research.secrets.nvidiaApiKey) -}}
+{{- fail "modules.research.secrets.nvidiaApiKey is required when the managed Research Agent Secret is created" -}}
+{{- end -}}
