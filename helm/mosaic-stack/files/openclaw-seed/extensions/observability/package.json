@@ -2,6 +2,7 @@
   "name": "@mosaic/observability-plugin",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "OpenClaw plugin for Mosaic observability Prometheus queries",
   "type": "module",
   "openclaw": {

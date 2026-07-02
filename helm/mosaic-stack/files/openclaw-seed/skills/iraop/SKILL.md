@@ -11,6 +11,11 @@ metadata:
   }
 ---
 
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # iraop — IRA Documentation Research
 
 Use the `iraop_query` tool for documentation-backed research.

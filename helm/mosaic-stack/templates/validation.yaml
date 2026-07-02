@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
@@ -46,4 +49,28 @@
 {{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.hostSshKeySecretName) -}}
 {{- fail "bcmMcp.hostSshKeySecretName is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.modules.research.managed (not .Values.modules.research.enabled) -}}
+{{- fail "modules.research.managed=true requires modules.research.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.research.managed .Values.modules.research.secrets.create (not .Values.modules.research.secrets.nvidiaApiKey) -}}
+{{- fail "modules.research.secrets.nvidiaApiKey is required when the managed Research Agent Secret is created" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled (not .Values.diagnosticAgent.enabled) -}}
+{{- fail "modules.diagnostics.enabled=true requires diagnosticAgent.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.apiKeys) -}}
+{{- fail "diagnosticAgent.secrets.apiKeys is required when Hardware Agent Secrets are created" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.hostSshPrivateKey) -}}
+{{- fail "diagnosticAgent.secrets.hostSshPrivateKey is required when Hardware Agent Secrets are created" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.playbooksTgzBase64) -}}
+{{- fail "diagnosticAgent.secrets.playbooksTgzBase64 is required when Hardware Agent Secrets are created" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.bcmWebhookUrl) -}}
+{{- fail "diagnosticAgent.secrets.bcmWebhookUrl is required when Hardware Agent Secrets are created" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.bcmWebhookToken) -}}
+{{- fail "diagnosticAgent.secrets.bcmWebhookToken is required when Hardware Agent Secrets are created" -}}
 {{- end -}}

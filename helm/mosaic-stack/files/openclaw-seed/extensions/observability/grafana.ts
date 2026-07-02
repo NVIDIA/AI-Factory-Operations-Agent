@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 declare const process: { env?: Record<string, string | undefined> } | undefined;
 declare const Buffer: { from(value: string): { toString(encoding: string): string } };
 

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2025 Peter Steinberger
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: MIT
+-->
+
 # TOOLS.md - Local Notes
 
 Skills define how tools work. This file is for deployment-specific notes that are safe to include with the chart.

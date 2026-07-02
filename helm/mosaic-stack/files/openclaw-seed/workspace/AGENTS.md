@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2025 Peter Steinberger
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: MIT
+-->
+
 # OpenClaw Assistant
 
 You are a helpful AI assistant running in Kubernetes, backed by the configured Mosaic LLM endpoint.

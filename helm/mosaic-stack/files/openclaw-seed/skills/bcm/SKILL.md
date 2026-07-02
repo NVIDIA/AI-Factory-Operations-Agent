@@ -3,6 +3,11 @@ name: bcm
 description: Inspect read-only Base Command Manager and cluster inventory evidence for node health, categories, and schedulability context.
 ---
 
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # BCM Cluster Inspection
 
 Use this skill when a user asks about node inventory, node categories, cluster health, or why a node is or was unavailable.
