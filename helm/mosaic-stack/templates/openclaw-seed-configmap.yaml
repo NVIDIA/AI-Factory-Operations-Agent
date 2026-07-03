@@ -11,8 +11,6 @@ metadata:
 data:
   openclaw.json: |-
 {{ tpl (.Files.Get "files/openclaw-seed/nemoclaw.json") . | indent 4 }}
-  k8s-readonly-policy.yaml: |-
-{{ .Files.Get "files/openclaw-seed/policies/k8s-readonly-policy.yaml" | indent 4 }}
   AGENTS.md: |-
 {{ tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") . | indent 4 }}
   HEARTBEAT.md: |-
@@ -25,6 +23,16 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/TOOLS.md" | indent 4 }}
   USER.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
+  {{- if .Values.modules.kubernetes.enabled }}
+  kubernetes.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/kubernetes/index.ts" | indent 4 }}
+  kubernetes.policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/kubernetes/policy.ts" | indent 4 }}
+  kubernetes.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json" | indent 4 }}
+  kubernetes.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/kubernetes/package.json" | indent 4 }}
+  {{- end }}
   {{- if .Values.modules.diagnostics.enabled }}
   diagnostic-agent.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/diagnostic-agent/SKILL.md" | indent 4 }}

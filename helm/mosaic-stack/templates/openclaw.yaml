@@ -5,6 +5,7 @@
 {{- $observability := default dict .Values.observability }}
 {{- $bcmDocs := mergeOverwrite (dict "enabled" true "baseUrl" "https://docs.nvidia.com/base-command-manager/manuals" "version" "11" "timeoutSeconds" "60") (.Values.bcmDocs | default dict) }}
 {{- $bcmDocsImage := mergeOverwrite (dict "repository" "python" "tag" "3.12-alpine" "pullPolicy" "IfNotPresent") ($bcmDocs.image | default dict) }}
+{{- $kubernetesClusters := include "mosaic-stack.kubernetesClusters" . | fromJson }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +28,7 @@ spec:
         checksum/openclaw-seed: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: openclaw
-      automountServiceAccountToken: true
+      automountServiceAccountToken: {{ and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
       {{- include "mosaic-stack.tolerations" . | nindent 6 }}
@@ -36,6 +37,20 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
+        {{- if .Values.modules.kubernetes.enabled }}
+        - name: install-kubectl
+          image: {{ include "mosaic-stack.image" .Values.kubernetes.kubectlInstallerImage | quote }}
+          imagePullPolicy: {{ .Values.kubernetes.kubectlInstallerImage.pullPolicy }}
+          command: ["sh", "-c", "cp \"$(command -v kubectl)\" /tools/kubectl && chmod 0555 /tools/kubectl"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+          volumeMounts:
+            - name: kubectl-tools
+              mountPath: /tools
+        {{- end }}
         - name: init-perms
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
@@ -60,18 +75,25 @@ spec:
                 /home/node/.openclaw/extensions/diagnostic-agent \
                 /home/node/.openclaw/extensions/grafana \
                 /home/node/.openclaw/extensions/iraop \
+                /home/node/.openclaw/extensions/kubernetes \
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
-                /home/node/.openclaw/workspace/skills/slurm \
-                /home/node/.openclaw/workspace/k8s-readonly-policy.yaml
+                /home/node/.openclaw/workspace/skills/slurm
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
               mkdir -p /home/node/.openclaw/extensions/slurm
               {{- end }}
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/observability
+              {{- end }}
+              {{- if .Values.modules.kubernetes.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/kubernetes
+              cp /seed/kubernetes.index.ts /home/node/.openclaw/extensions/kubernetes/index.ts
+              cp /seed/kubernetes.policy.ts /home/node/.openclaw/extensions/kubernetes/policy.ts
+              cp /seed/kubernetes.openclaw.plugin.json /home/node/.openclaw/extensions/kubernetes/openclaw.plugin.json
+              cp /seed/kubernetes.package.json /home/node/.openclaw/extensions/kubernetes/package.json
               {{- end }}
               {{- if .Values.modules.research.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/iraop
@@ -85,17 +107,19 @@ spec:
               mkdir -p /home/node/.openclaw/workspace/skills/bcm
               mkdir -p /home/node/.openclaw/extensions/bcm
               {{- end }}
-              mkdir -p /home/node/.openclaw/workspace/.kube /home/node/.openclaw/workspace/kube /home/node/.openclaw/policies
+              mkdir -p /home/node/.openclaw/policies
               {{- if .Values.modules.observability.enabled }}
               mkdir -p /home/node/.openclaw/extensions/observability
               {{- end }}
-              cat > /home/node/.openclaw/kubeconfig <<EOF
+              {{- if and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
+              mkdir -p /var/run/mosaic-kubernetes/local
+              cat > /var/run/mosaic-kubernetes/local/config <<EOF
               apiVersion: v1
               kind: Config
               clusters:
                 - name: in-cluster
                   cluster:
-                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}
+                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
                     certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
               contexts:
                 - name: in-cluster
@@ -109,37 +133,8 @@ spec:
                   user:
                     tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
               EOF
-              chmod 600 /home/node/.openclaw/kubeconfig
-              ca_data="$(base64 < /var/run/secrets/kubernetes.io/serviceaccount/ca.crt | tr -d '\n')"
-              token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-              namespace="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              cat > /home/node/.openclaw/workspace/kubeconfig <<EOF
-              apiVersion: v1
-              kind: Config
-              clusters:
-                - name: in-cluster
-                  cluster:
-                    server: https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}
-                    certificate-authority-data: ${ca_data}
-              contexts:
-                - name: in-cluster
-                  context:
-                    cluster: in-cluster
-                    namespace: ${namespace}
-                    user: openclaw
-              current-context: in-cluster
-              users:
-                - name: openclaw
-                  user:
-                    token: ${token}
-              EOF
-              chmod 600 /home/node/.openclaw/workspace/kubeconfig
-              cp /home/node/.openclaw/workspace/kubeconfig /home/node/.openclaw/workspace/.kube/config
-              chmod 600 /home/node/.openclaw/workspace/.kube/config
-              cp /home/node/.openclaw/workspace/.kube/config /home/node/.openclaw/workspace/kube/config
-              chmod 600 /home/node/.openclaw/workspace/kube/config
-              cp /seed/k8s-readonly-policy.yaml /home/node/.openclaw/policies/k8s-readonly-policy.yaml
-              sed -i "s|__KUBERNETES_SERVICE_HOST__|${KUBERNETES_SERVICE_HOST}|g" /home/node/.openclaw/policies/k8s-readonly-policy.yaml
+              chmod 600 /var/run/mosaic-kubernetes/local/config
+              {{- end }}
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
               rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
               cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
@@ -188,6 +183,10 @@ spec:
               mountPath: /home/node/.openclaw
             - name: openclaw-seed
               mountPath: /seed
+            {{- if .Values.modules.kubernetes.enabled }}
+            - name: kubernetes-configs
+              mountPath: /var/run/mosaic-kubernetes
+            {{- end }}
         {{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") ($bcmDocs.enabled | default true) }}
         - name: init-bcm-docs
           image: {{ include "mosaic-stack.image" $bcmDocsImage | quote }}
@@ -368,8 +367,6 @@ spec:
               value: /home/node/.openclaw
             - name: XDG_CONFIG_HOME
               value: /home/node/.openclaw/.config
-            - name: KUBECONFIG
-              value: /home/node/.openclaw/kubeconfig
             - name: NODE_ENV
               value: production
             - name: PATH
@@ -455,6 +452,19 @@ spec:
             - name: openclaw-home
               mountPath: /tmp
               subPath: tmp
+            {{- if .Values.modules.kubernetes.enabled }}
+            - name: kubectl-tools
+              mountPath: /tools
+              readOnly: true
+            - name: kubernetes-configs
+              mountPath: /var/run/mosaic-kubernetes
+              readOnly: true
+            {{- range $index, $cluster := .Values.kubernetes.clusters }}
+            - name: kubernetes-external-{{ $index }}
+              mountPath: /var/run/mosaic-kubernetes-external/{{ $cluster.name }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -462,6 +472,20 @@ spec:
         - name: openclaw-seed
           configMap:
             name: openclaw-seed
+        {{- if .Values.modules.kubernetes.enabled }}
+        - name: kubectl-tools
+          emptyDir: {}
+        - name: kubernetes-configs
+          emptyDir: {}
+        {{- range $index, $cluster := .Values.kubernetes.clusters }}
+        - name: kubernetes-external-{{ $index }}
+          secret:
+            secretName: {{ $cluster.kubeconfigSecretRef.name | quote }}
+            items:
+              - key: {{ $cluster.kubeconfigSecretRef.key | quote }}
+                path: config
+        {{- end }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

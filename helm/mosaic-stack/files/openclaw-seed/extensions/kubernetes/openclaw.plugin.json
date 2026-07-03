@@ -1,0 +1,32 @@
+{
+  "id": "kubernetes",
+  "contracts": {
+    "tools": [
+      "run_kubectl"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "command": {
+        "type": "string"
+      },
+      "defaultCluster": {
+        "type": "string"
+      },
+      "clusters": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "maxOutputBytes": {
+        "type": "number"
+      },
+      "timeoutMs": {
+        "type": "number"
+      }
+    }
+  }
+}

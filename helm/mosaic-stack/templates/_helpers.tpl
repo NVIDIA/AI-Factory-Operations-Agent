@@ -125,6 +125,31 @@ tolerations:
 {{- default .Values.llm.vllm.gpuCount .Values.llm.vllm.tensorParallelSize -}}
 {{- end -}}
 
+{{- define "mosaic-stack.kubernetesClusters" -}}
+{{- $clusters := dict -}}
+{{- if .Values.kubernetes.local.enabled -}}
+{{- $_ := set $clusters "local" "/var/run/mosaic-kubernetes/local/config" -}}
+{{- end -}}
+{{- range .Values.kubernetes.clusters -}}
+{{- $name := required "kubernetes.clusters[].name is required" .name -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $name) -}}
+{{- fail (printf "invalid kubernetes cluster name %q" $name) -}}
+{{- end -}}
+{{- if hasKey $clusters $name -}}
+{{- fail (printf "duplicate kubernetes cluster name %q" $name) -}}
+{{- end -}}
+{{- $secret := required (printf "kubernetes cluster %q requires kubeconfigSecretRef.name" $name) .kubeconfigSecretRef.name -}}
+{{- $key := required (printf "kubernetes cluster %q requires kubeconfigSecretRef.key" $name) .kubeconfigSecretRef.key -}}
+{{- $_ := $secret -}}
+{{- $_ := $key -}}
+{{- $_ := set $clusters $name (printf "/var/run/mosaic-kubernetes-external/%s/config" $name) -}}
+{{- end -}}
+{{- if and .Values.modules.kubernetes.enabled (not (hasKey $clusters .Values.kubernetes.defaultCluster)) -}}
+{{- fail (printf "kubernetes.defaultCluster %q is not registered" .Values.kubernetes.defaultCluster) -}}
+{{- end -}}
+{{- $clusters | toJson -}}
+{{- end -}}
+
 {{- define "mosaic-stack.openshellFullname" -}}
 {{- if .Values.openshell.fullnameOverride -}}
 {{- .Values.openshell.fullnameOverride | trunc 63 | trimSuffix "-" -}}

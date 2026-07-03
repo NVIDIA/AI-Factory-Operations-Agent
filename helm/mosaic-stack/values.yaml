@@ -61,6 +61,19 @@ modules:
   terminal:
     enabled: false
 
+kubernetes:
+  defaultCluster: local
+  local:
+    enabled: true
+  command: /tools/kubectl
+  timeoutMs: 60000
+  maxOutputBytes: 1048576
+  kubectlInstallerImage:
+    repository: registry.k8s.io/kubectl
+    tag: v1.34.1
+    pullPolicy: IfNotPresent
+  clusters: []
+
 llm:
   mode: vllm
   requestCompatibility:
@@ -231,7 +244,7 @@ openclaw:
   nemoclaw:
     command: /usr/local/bin/nvidia-openshell
     gatewayEndpoint: ""
-    policy: /home/node/.openclaw/policies/k8s-readonly-policy.yaml
+    policy: ""
   service:
     port: 18789
 

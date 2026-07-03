@@ -8,6 +8,7 @@ metadata:
   name: openclaw
   labels:
     {{- include "mosaic-stack.labels" . | nindent 4 }}
+{{- if and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -45,5 +46,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "mosaic-stack.clusterScopedBase" . }}-oc-reader
+{{- end }}
 ---
 {{- end }}

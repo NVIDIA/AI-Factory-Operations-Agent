@@ -93,6 +93,7 @@
       "diagnostic-agent",
       "grafana",
       "iraop",
+      "kubernetes",
       "nemoclaw",
       "observability",
       "slurm",
@@ -102,14 +103,24 @@
       "llm": {
         "enabled": true
       },
+      "kubernetes": {
+        "enabled": {{ .Values.modules.kubernetes.enabled }},
+        "config": {
+          "command": {{ .Values.kubernetes.command | quote }},
+          "defaultCluster": {{ .Values.kubernetes.defaultCluster | quote }},
+          "clusters": {{ include "mosaic-stack.kubernetesClusters" . }},
+          "maxOutputBytes": {{ .Values.kubernetes.maxOutputBytes }},
+          "timeoutMs": {{ .Values.kubernetes.timeoutMs }}
+        }
+      },
       "nemoclaw": {
         "enabled": true,
         "config": {
           "from": {{ .Values.openshell.server.sandboxImage | quote }},
           "mode": "remote",
           "command": {{ .Values.openclaw.nemoclaw.command | quote }},
-          "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }},
-          "policy": {{ .Values.openclaw.nemoclaw.policy | quote }},
+          "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}{{- if .Values.openclaw.nemoclaw.policy }},
+          "policy": {{ .Values.openclaw.nemoclaw.policy | quote }}{{- end }},
           "remoteWorkspaceDir": "/sandbox",
           "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
         }
