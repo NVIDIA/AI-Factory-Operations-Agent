@@ -85,8 +85,6 @@ export default definePluginEntry({
             blocked: true,
             executed: false,
             reason,
-            instruction:
-              "This operation is outside Mosaic read-only Kubernetes access. Stop using tools and explain the denial; never retry with exec or another tool.",
             exitCode: null,
             stdout: "",
             stderr: reason,

@@ -99,6 +99,7 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /blocked: true/);
   assert.match(source, /executed: false/);
   assert.match(source, /never retry with exec or another tool/);
+  assert.doesNotMatch(source, /instruction:/);
 });
 
 test("instructs the agent to stop after a Kubernetes policy denial", () => {
