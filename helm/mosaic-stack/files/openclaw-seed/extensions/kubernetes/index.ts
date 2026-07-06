@@ -55,7 +55,7 @@ export default definePluginEntry({
       name: "run_kubectl",
       label: "Kubernetes Agent",
       description:
-        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. Mutation, interactive access, Secrets, and credential overrides are rejected.",
+        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. Mutation, interactive access, Secrets, and credential overrides are rejected. If blocked is true, explain the denial and never retry with exec or another tool.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -83,7 +83,10 @@ export default definePluginEntry({
           return toolResult({
             command: ["kubectl", "<rejected>"],
             blocked: true,
+            executed: false,
             reason,
+            instruction:
+              "This operation is outside Mosaic read-only Kubernetes access. Stop using tools and explain the denial; never retry with exec or another tool.",
             exitCode: null,
             stdout: "",
             stderr: reason,

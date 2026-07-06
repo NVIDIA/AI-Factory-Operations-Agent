@@ -97,4 +97,6 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /text: `\$\{command\.join\(" "\)\}\\n/);
   assert.match(source, /command: \["kubectl", "<rejected>"\]/);
   assert.match(source, /blocked: true/);
+  assert.match(source, /executed: false/);
+  assert.match(source, /never retry with exec or another tool/);
 });
