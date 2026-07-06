@@ -21,6 +21,7 @@ const FORBIDDEN_FLAGS = new Set([
   "--certificate-authority",
   "--client-certificate",
   "--client-key",
+  "--cluster",
   "--context",
   "--insecure-skip-tls-verify",
   "--kubeconfig",
@@ -28,8 +29,11 @@ const FORBIDDEN_FLAGS = new Set([
   "--raw",
   "--server",
   "--token",
+  "--user",
   "--username",
 ]);
+
+const FORBIDDEN_SHORT_FLAGS = new Set(["-s"]);
 
 const SECRET_RESOURCE = /(^|[./])secrets?($|[./])/i;
 
@@ -62,7 +66,9 @@ export function validateKubectlArgs(value: unknown): string[] {
 
   for (const arg of args) {
     const flag = flagName(arg);
-    if (FORBIDDEN_FLAGS.has(flag)) throw new Error("kubectl option is not allowed: " + flag);
+    if (FORBIDDEN_FLAGS.has(flag) || FORBIDDEN_SHORT_FLAGS.has(flag)) {
+      throw new Error("kubectl option is not allowed: " + flag);
+    }
   }
 
   if (command === "auth" && args[1]?.toLowerCase() !== "can-i") {

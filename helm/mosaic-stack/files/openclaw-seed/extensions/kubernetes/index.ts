@@ -42,11 +42,12 @@ function run(command: string, args: string[], kubeconfig: string, timeoutMs: num
     let stderr = "";
     let outputBytes = 0;
     let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     const finish = (error?: Error, code = -1) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       if (error) reject(error);
       else resolve({ code, stdout, stderr });
     };
@@ -66,7 +67,7 @@ function run(command: string, args: string[], kubeconfig: string, timeoutMs: num
     child.on("error", (error) => finish(error));
     child.on("close", (code) => finish(undefined, code ?? -1));
 
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       child.kill("SIGKILL");
       finish(new Error("kubectl timed out after " + timeoutMs + " ms"));
     }, timeoutMs);
@@ -117,7 +118,7 @@ export default definePluginEntry({
           cluster: cluster.name,
           command: ["kubectl", ...args],
           exitCode: result.code,
-          stdout: result.stdout,
+          stdout: result.stdout.replaceAll(cluster.kubeconfig, "<kubeconfig>"),
           stderr: result.stderr.replaceAll(cluster.kubeconfig, "<kubeconfig>"),
         });
       },
