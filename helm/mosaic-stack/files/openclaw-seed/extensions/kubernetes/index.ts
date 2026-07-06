@@ -24,9 +24,10 @@ function config(value: unknown): Required<KubernetesConfig> {
   };
 }
 
-function toolResult(payload: unknown) {
+function toolResult(payload: { command: string[]; [key: string]: unknown }) {
+  const { command, ...result } = payload;
   return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    content: [{ type: "text", text: `${command.join(" ")}\n${JSON.stringify(result, null, 2)}` }],
     details: payload,
   };
 }

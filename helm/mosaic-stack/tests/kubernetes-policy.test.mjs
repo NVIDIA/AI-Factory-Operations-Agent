@@ -94,4 +94,5 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   );
   assert.match(source, /api\.on\(\s*"before_tool_call"/);
   assert.doesNotMatch(source, /api\.registerHook\(\s*"before_tool_call"/);
+  assert.match(source, /text: `\$\{command\.join\(" "\)\}\\n/);
 });
