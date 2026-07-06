@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   isKubectlExecFallback,
@@ -84,4 +85,13 @@ test("blocks kubectl fallback through exec without blocking ordinary shell comma
   }
   assert.equal(isKubectlExecFallback("exec", { command: "id && pwd" }), false);
   assert.equal(isKubectlExecFallback("run_kubectl", { command: "kubectl get pods" }), false);
+});
+
+test("registers the exec guard through OpenClaw's typed tool hook", () => {
+  const source = readFileSync(
+    new URL("../files/openclaw-seed/extensions/kubernetes/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /api\.on\(\s*"before_tool_call"/);
+  assert.doesNotMatch(source, /api\.registerHook\(\s*"before_tool_call"/);
 });

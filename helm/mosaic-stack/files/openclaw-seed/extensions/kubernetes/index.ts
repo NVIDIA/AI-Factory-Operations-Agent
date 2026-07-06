@@ -38,7 +38,7 @@ export default definePluginEntry({
   register(api) {
     const settings = config(api.pluginConfig);
 
-    api.registerHook(
+    api.on(
       "before_tool_call",
       (event) =>
         isKubectlExecFallback(event.toolName, event.params)
@@ -48,7 +48,6 @@ export default definePluginEntry({
                 "Kubernetes commands are available only through the read-only run_kubectl tool. Do not retry with exec.",
             }
           : undefined,
-      { name: "block-kubectl-exec-fallback" },
     );
 
     api.registerTool({
