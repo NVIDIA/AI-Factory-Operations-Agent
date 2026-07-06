@@ -36,6 +36,7 @@ const FORBIDDEN_FLAGS = new Set([
 const FORBIDDEN_SHORT_FLAGS = new Set(["-s"]);
 
 const SECRET_RESOURCE = /(^|[./])secrets?($|[./])/i;
+const KUBECTL_COMMAND = /(^|[^a-z0-9_-])kubectl(?:\.real)?(?=$|[^a-z0-9_-])/i;
 
 function flagName(arg: string) {
   return arg.startsWith("--") ? arg.split("=", 1)[0] : arg;
@@ -48,6 +49,13 @@ function referencesSecret(args: string[]) {
       .filter(Boolean)
       .some((part) => SECRET_RESOURCE.test(part)),
   );
+}
+
+export function isKubectlExecFallback(toolName: string, params: Record<string, unknown>) {
+  if (toolName !== "exec") return false;
+  const command = params.command;
+  if (typeof command === "string") return KUBECTL_COMMAND.test(command);
+  return Array.isArray(command) && command.some((arg) => typeof arg === "string" && KUBECTL_COMMAND.test(arg));
 }
 
 export function validateKubectlArgs(value: unknown): string[] {

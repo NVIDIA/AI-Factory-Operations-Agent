@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { resolveCluster, validateKubectlArgs } from "./policy.ts";
+import { isKubectlExecFallback, resolveCluster, validateKubectlArgs } from "./policy.ts";
 import { runKubectl } from "./runner.ts";
 
 type KubernetesConfig = {
@@ -37,6 +37,19 @@ export default definePluginEntry({
   description: "Read-only kubectl access to registered Kubernetes clusters.",
   register(api) {
     const settings = config(api.pluginConfig);
+
+    api.registerHook(
+      "before_tool_call",
+      (event) =>
+        isKubectlExecFallback(event.toolName, event.params)
+          ? {
+              block: true,
+              blockReason:
+                "Kubernetes commands are available only through the read-only run_kubectl tool. Do not retry with exec.",
+            }
+          : undefined,
+      { name: "block-kubectl-exec-fallback" },
+    );
 
     api.registerTool({
       name: "run_kubectl",

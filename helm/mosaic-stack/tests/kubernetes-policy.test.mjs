@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isKubectlExecFallback,
   resolveCluster,
   validateKubectlArgs,
 } from "../files/openclaw-seed/extensions/kubernetes/policy.ts";
@@ -69,4 +70,18 @@ test("resolves only registered clusters", () => {
     kubeconfig: "/clusters/remote/config",
   });
   assert.throws(() => resolveCluster("missing", "local", clusters));
+});
+
+test("blocks kubectl fallback through exec without blocking ordinary shell commands", () => {
+  for (const command of [
+    "kubectl get pods",
+    "which kubectl",
+    "command -v kubectl",
+    "/tools/kubectl version --client",
+    ["sh", "-lc", "kubectl.real get pods"],
+  ]) {
+    assert.equal(isKubectlExecFallback("exec", { command }), true);
+  }
+  assert.equal(isKubectlExecFallback("exec", { command: "id && pwd" }), false);
+  assert.equal(isKubectlExecFallback("run_kubectl", { command: "kubectl get pods" }), false);
 });

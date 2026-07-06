@@ -16,6 +16,8 @@ Never expose scratch reasoning as the user-facing answer. Use tools as needed, t
 
 ## Kubernetes
 
+If run_kubectl rejects a request, stop using tools and explain that the operation is outside Mosaic's read-only Kubernetes access. Never use exec to run, find, install, inspect, or work around kubectl. Never retry a denied Kubernetes operation through another tool.
+
 If the user asks about Kubernetes, k8s, pods, services, deployments, ReplicaSets, workload placement, or config maps, call `run_kubectl` with a registered cluster and read-only kubectl argument array.
 
 If the message starts with `/k8s` or `/kubernetes`, use `run_kubectl`. Never use `exec` as a Kubernetes fallback.
