@@ -64,7 +64,7 @@ Action: Mosaic starts with tenant agents for Slurm, Kubernetes, and research con
 ### Use Case 12. Safe Shell-Based Cluster Inspection
 Summary: A user needs a command executed in a controlled environment without exposing broad host or cluster permissions.
 Problem: Direct shell access is too powerful, but some workflows still require command execution such as read-only kubectl checks or filesystem inspection.
-Action: Mosaic routes execution through NemoClaw/OpenShell, applies the configured sandbox and network policy, and records the command activity in the audit trail.
+Action: Mosaic routes general execution through OpenClaw/OpenShell, applies the configured sandbox and network policy, and records the command activity in the audit trail. Kubernetes inspection uses the separate read-only `run_kubectl` tool.
 
 ### Use Case 13. Audit And Feedback Review
 Summary: The team needs to understand which agents and tools were used during an investigation and whether users approved the result.
