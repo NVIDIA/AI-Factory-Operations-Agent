@@ -1,9 +1,9 @@
 dependencies:
 - name: helm-chart
-  repository: oci://nvcr.io/0948643769302270
-  version: 0.1.2
+  repository: oci://ghcr.io/nvidia/openshell
+  version: 0.0.75
 - name: iraop-stack
   repository: oci://nvcr.io/0948643769302270
   version: 0.1.0-c92b8f34-20260514211602
-digest: sha256:7e294d7235874071519a6a21c9cb81f91b2e6f1425c629d11f67127ec9bbf45c
-generated: "2026-07-02T11:13:07.88522-07:00"
+digest: sha256:41cf0d858b56af4bb5f45a2a53b5b898f2e940047d5c75d422b75d0e1bfd4fa2
+generated: "2026-07-02T17:47:46.42517-07:00"

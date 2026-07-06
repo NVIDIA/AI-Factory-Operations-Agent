@@ -164,5 +164,10 @@ tolerations:
 {{- end -}}
 
 {{- define "mosaic-stack.openshellGatewayEndpoint" -}}
-{{- default (printf "http://%s:%v" (include "mosaic-stack.openshellFullname" .) .Values.openshell.server.sshGatewayPort) .Values.openclaw.nemoclaw.gatewayEndpoint -}}
+{{- $scheme := ternary "http" "https" .Values.openshell.server.disableTls -}}
+{{- default (printf "%s://%s:%v" $scheme (include "mosaic-stack.openshellFullname" .) .Values.openshell.server.sshGatewayPort) .Values.openclaw.openshell.gatewayEndpoint -}}
+{{- end -}}
+
+{{- define "mosaic-stack.openshellGatewayName" -}}
+{{- default (include "mosaic-stack.openshellFullname" .) .Values.openclaw.openshell.gateway -}}
 {{- end -}}

@@ -24,7 +24,7 @@
       "reasoningDefault": "off",
       "sandbox": {
         "mode": "all",
-        "backend": "nemoclaw",
+        "backend": "openshell",
         "scope": "session",
         "workspaceAccess": "ro"
       }
@@ -94,7 +94,7 @@
       "grafana",
       "iraop",
       "kubernetes",
-      "nemoclaw",
+      "openshell",
       "observability",
       "slurm",
       "llm"
@@ -113,14 +113,15 @@
           "timeoutMs": {{ .Values.kubernetes.timeoutMs }}
         }
       },
-      "nemoclaw": {
+      "openshell": {
         "enabled": true,
         "config": {
           "from": {{ .Values.openshell.server.sandboxImage | quote }},
           "mode": "remote",
-          "command": {{ .Values.openclaw.nemoclaw.command | quote }},
-          "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}{{- if .Values.openclaw.nemoclaw.policy }},
-          "policy": {{ .Values.openclaw.nemoclaw.policy | quote }}{{- end }},
+          "command": {{ .Values.openclaw.openshell.command | quote }},
+          "gateway": {{ include "mosaic-stack.openshellGatewayName" . | quote }},
+          "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}{{- if .Values.openclaw.openshell.policy }},
+          "policy": {{ .Values.openclaw.openshell.policy | quote }}{{- end }},
           "remoteWorkspaceDir": "/sandbox",
           "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
         }

@@ -227,13 +227,14 @@ openclaw:
   enabled: true
   gatewayProtocol: 4
   image:
-    repository: nvcr.io/0948643769302270/nemoclaw
-    tag: 0b0cb309
+    repository: ghcr.io/openclaw/openclaw
+    tag: 2026.6.6
     pullPolicy: IfNotPresent
   kubectlInstallerImage:
     repository: registry.k8s.io/kubectl
     tag: v1.30.0
     pullPolicy: IfNotPresent
+  opensshInstallerImage: alpine/git@sha256:e043be20669db13cbcfb6190192babee4cf2dca98709bb0c2d08ca2d35a0a06a
   pvc:
     size: 10Gi
     storageClassName: local-path
@@ -241,10 +242,17 @@ openclaw:
     create: true
     name: openclaw-secrets
     gatewayToken: ""
-  nemoclaw:
-    command: /usr/local/bin/nvidia-openshell
+  openshell:
+    command: /tools/openshell
+    gateway: ""
     gatewayEndpoint: ""
     policy: ""
+    cliVersion: v0.0.75
+    cliSha256:
+      amd64: 9b9331644d0b6350030c521047490314b594591547b4ca28ef105b7adad73eb8
+      arm64: c7bf758ed864ef375ba3358d39b4d6e4b80da9e451b67a47ae1341df82c362e0
+    pluginVersion: 2026.6.6
+    pluginSha256: 1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33
   service:
     port: 18789
 
@@ -252,25 +260,29 @@ openshell:
   nameOverride: ""
   fullnameOverride: ""
   image:
-    repository: nvcr.io/0948643769302270/openshell-gateway
-    tag: 0b0cb309
+    repository: ghcr.io/nvidia/openshell/gateway
+    tag: 0.0.75
     pullPolicy: IfNotPresent
   supervisor:
     image:
-      repository: nvcr.io/0948643769302270/openshell-supervisor
-      tag: 0b0cb309
+      repository: ghcr.io/nvidia/openshell/supervisor
+      tag: 0.0.75
       pullPolicy: IfNotPresent
     sideloadMethod: init-container
   networkPolicy:
     enabled: false
   pkiInitJob:
-    enabled: false
+    enabled: true
   server:
     dbUrl: sqlite:/tmp/openshell.db
-    disableTls: true
+    disableTls: false
+    auth:
+      allowUnauthenticatedUsers: true
+    tls:
+      clientTlsSecretName: openshell-client-tls
     sshGatewayHost: ""
     sshGatewayPort: 8080
-    sandboxImage: nvcr.io/0948643769302270/openshell:0b0cb309
+    sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/base@sha256:aeef1c63f00e2913ea002ccb3aaf925f338b5c5d70e63576f0d95c16a138044e
     sandboxImagePullPolicy: IfNotPresent
 
 slurmEvidenceCollector:
