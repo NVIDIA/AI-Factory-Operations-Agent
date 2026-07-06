@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { spawn } from "node:child_process";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveCluster, validateKubectlArgs } from "./policy.ts";
+import { runKubectl } from "./runner.ts";
 
 type KubernetesConfig = {
   command?: string;
@@ -29,49 +29,6 @@ function toolResult(payload: unknown) {
     content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
     details: payload,
   };
-}
-
-function run(command: string, args: string[], kubeconfig: string, timeoutMs: number, maxOutputBytes: number) {
-  return new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(command, ["--kubeconfig", kubeconfig, ...args], {
-      env: { ...process.env, KUBECONFIG: kubeconfig },
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    let outputBytes = 0;
-    let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const finish = (error?: Error, code = -1) => {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      if (error) reject(error);
-      else resolve({ code, stdout, stderr });
-    };
-    const collect = (target: "stdout" | "stderr", chunk: Buffer) => {
-      outputBytes += chunk.length;
-      if (outputBytes > maxOutputBytes) {
-        child.kill("SIGKILL");
-        finish(new Error("kubectl output exceeded " + maxOutputBytes + " bytes"));
-        return;
-      }
-      if (target === "stdout") stdout += chunk.toString();
-      else stderr += chunk.toString();
-    };
-
-    child.stdout.on("data", (chunk: Buffer) => collect("stdout", chunk));
-    child.stderr.on("data", (chunk: Buffer) => collect("stderr", chunk));
-    child.on("error", (error) => finish(error));
-    child.on("close", (code) => finish(undefined, code ?? -1));
-
-    timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      finish(new Error("kubectl timed out after " + timeoutMs + " ms"));
-    }, timeoutMs);
-  });
 }
 
 export default definePluginEntry({
@@ -107,7 +64,7 @@ export default definePluginEntry({
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
         const args = validateKubectlArgs(rawParams.args);
         const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
-        const result = await run(
+        const result = await runKubectl(
           settings.command,
           args,
           cluster.kubeconfig,
@@ -118,8 +75,8 @@ export default definePluginEntry({
           cluster: cluster.name,
           command: ["kubectl", ...args],
           exitCode: result.code,
-          stdout: result.stdout.replaceAll(cluster.kubeconfig, "<kubeconfig>"),
-          stderr: result.stderr.replaceAll(cluster.kubeconfig, "<kubeconfig>"),
+          stdout: result.stdout,
+          stderr: result.stderr,
         });
       },
     });
