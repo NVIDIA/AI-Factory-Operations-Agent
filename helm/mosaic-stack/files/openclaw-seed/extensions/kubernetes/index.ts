@@ -75,7 +75,20 @@ export default definePluginEntry({
         },
       },
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        const args = validateKubectlArgs(rawParams.args);
+        let args: string[];
+        try {
+          args = validateKubectlArgs(rawParams.args);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "kubectl request was rejected";
+          return toolResult({
+            command: ["kubectl", "<rejected>"],
+            blocked: true,
+            reason,
+            exitCode: null,
+            stdout: "",
+            stderr: reason,
+          });
+        }
         const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
         const result = await runKubectl(
           settings.command,
