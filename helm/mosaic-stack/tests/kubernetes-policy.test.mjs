@@ -100,3 +100,12 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /executed: false/);
   assert.match(source, /never retry with exec or another tool/);
 });
+
+test("instructs the agent to stop after a Kubernetes policy denial", () => {
+  const source = readFileSync(
+    new URL("../files/openclaw-seed/workspace/TOOLS.md", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /If `run_kubectl` blocks an operation, stop immediately/);
+  assert.match(source, /Do not call `exec`, retry `run_kubectl`, or use another tool/);
+});
