@@ -39,14 +39,29 @@ spec:
       initContainers:
         {{- if .Values.modules.kubernetes.enabled }}
         - name: install-kubectl
-          image: {{ include "mosaic-stack.image" .Values.kubernetes.kubectlInstallerImage | quote }}
-          imagePullPolicy: {{ .Values.kubernetes.kubectlInstallerImage.pullPolicy }}
-          command: ["sh", "-c", "cp \"$(command -v kubectl)\" /tools/kubectl && chmod 0555 /tools/kubectl"]
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              case "$(uname -m)" in
+                x86_64) architecture=amd64; sha={{ .Values.kubernetes.kubectlSha256.amd64 | quote }} ;;
+                aarch64|arm64) architecture=arm64; sha={{ .Values.kubernetes.kubectlSha256.arm64 | quote }} ;;
+                *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+              esac
+              curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
+                "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
+              printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
+              chmod 0555 /tools/kubectl
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: runtime-tools
               mountPath: /tools
@@ -121,6 +136,7 @@ spec:
               mkdir -p /home/node/.openclaw/extensions/kubernetes
               cp /seed/kubernetes.index.ts /home/node/.openclaw/extensions/kubernetes/index.ts
               cp /seed/kubernetes.policy.ts /home/node/.openclaw/extensions/kubernetes/policy.ts
+              cp /seed/kubernetes.runner.ts /home/node/.openclaw/extensions/kubernetes/runner.ts
               cp /seed/kubernetes.openclaw.plugin.json /home/node/.openclaw/extensions/kubernetes/openclaw.plugin.json
               cp /seed/kubernetes.package.json /home/node/.openclaw/extensions/kubernetes/package.json
               {{- end }}

@@ -54,6 +54,31 @@ test("renders named external Kubernetes clusters from Secrets", () => {
   assert.ok(output.includes('"remote":"/var/run/mosaic-kubernetes-external/remote/config"'));
 });
 
+test("renders read-only Kubernetes RBAC including metrics without Secrets or pod execution", () => {
+  const output = render("--show-only", "templates/rbac.yaml");
+  assert.match(output, /apiGroups: \["metrics\.k8s\.io"\][\s\S]*resources: \["nodes", "pods"\][\s\S]*verbs: \["get", "list"\]/);
+  assert.doesNotMatch(output, /resources: \[[^\]]*"secrets"/);
+  assert.doesNotMatch(output, /resources: \[[^\]]*"pods\/exec"/);
+  assert.doesNotMatch(output, /verbs: \[[^\]]*"(?:create|delete|patch|update)"/);
+});
+
+test("installs a checksum-pinned upstream kubectl binary", () => {
+  const output = render("--show-only", "templates/openclaw.yaml");
+  assert.match(output, /https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl/);
+  assert.match(output, /7721f265e18709862655affba5343e85e1980639395d5754473dafaadcaa69e3/);
+  assert.match(output, /420e6110e3ba7ee5a3927b5af868d18df17aae36b720529ffa4e9e945aa95450/);
+  assert.doesNotMatch(output, /registry\.k8s\.io\/kubectl/);
+});
+
+test("packages every Kubernetes plugin module into the OpenClaw seed", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  const deployment = render("--show-only", "templates/openclaw.yaml");
+  for (const module of ["index", "policy", "runner"]) {
+    assert.ok(seed.includes(`kubernetes.${module}.ts: |-`));
+    assert.ok(deployment.includes(`cp /seed/kubernetes.${module}.ts /home/node/.openclaw/extensions/kubernetes/${module}.ts`));
+  }
+});
+
 test("rejects an unregistered default Kubernetes cluster", () => {
   const result = spawnSync(
     "helm",

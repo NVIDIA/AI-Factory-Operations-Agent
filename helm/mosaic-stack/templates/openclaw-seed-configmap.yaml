@@ -28,6 +28,8 @@ data:
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/index.ts" | indent 4 }}
   kubernetes.policy.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/policy.ts" | indent 4 }}
+  kubernetes.runner.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/kubernetes/runner.ts" | indent 4 }}
   kubernetes.openclaw.plugin.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json" | indent 4 }}
   kubernetes.package.json: |-
