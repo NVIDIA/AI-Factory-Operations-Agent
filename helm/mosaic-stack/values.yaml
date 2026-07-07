@@ -60,6 +60,19 @@ modules:
       chatApiKey: EMPTY
   terminal:
     enabled: false
+  edit:
+    enabled: false
+    hitl: true
+    approvalTimeoutMs: 120000
+    kubernetes:
+      enabled: true
+      existingClusterRole: ""
+    bcm:
+      enabled: false
+    ssh:
+      enabled: false
+      existingSecret: ""
+      hosts: []
 
 kubernetes:
   defaultCluster: local

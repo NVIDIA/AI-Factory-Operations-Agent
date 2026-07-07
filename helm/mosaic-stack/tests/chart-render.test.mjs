@@ -77,6 +77,95 @@ test("renders read-only Kubernetes RBAC including metrics without Secrets or pod
   assert.doesNotMatch(output, /verbs: \[[^\]]*"(?:create|delete|patch|update)"/);
 });
 
+test("renders workload-only editor RBAC for OpenClaw when edit mode is enabled", () => {
+  const output = render(
+    "--set",
+    "modules.edit.enabled=true",
+    "--set",
+    "modules.terminal.enabled=true",
+    "--show-only",
+    "templates/rbac.yaml",
+  );
+  assert.match(output, /name: .*oc-editor/);
+  assert.match(output, /resources: \["configmaps", "pods", "services"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
+  assert.match(output, /resources: \["daemonsets", "deployments", "statefulsets"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
+  assert.match(output, /resources: \["cronjobs", "jobs"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
+  assert.doesNotMatch(output, /resources: \[[^\]]*"(?:secrets|pods\/exec|clusterroles|customresourcedefinitions|serviceaccounts\/token)"/);
+  const editorBinding = output.slice(output.lastIndexOf("kind: ClusterRoleBinding"));
+  assert.match(editorBinding, /name: openclaw/);
+  assert.doesNotMatch(editorBinding, /name: mosaic-terminal/);
+});
+
+test("binds an installer-supplied editor role without rendering a duplicate role", () => {
+  const output = render(
+    "--set",
+    "modules.edit.enabled=true",
+    "--set",
+    "modules.edit.kubernetes.existingClusterRole=tenant-workload-editor",
+    "--show-only",
+    "templates/rbac.yaml",
+  );
+  assert.doesNotMatch(output, /kind: ClusterRole\s+metadata:\s+name: .*oc-editor/);
+  assert.match(output, /kind: ClusterRoleBinding[\s\S]*name: tenant-workload-editor/);
+});
+
+test("seeds edit mode and approval settings into Kubernetes and BCM plugins", () => {
+  const disabled = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  const enabled = render(
+    "--set",
+    "modules.edit.enabled=true",
+    "--set",
+    "modules.edit.approvalTimeoutMs=45000",
+    "--show-only",
+    "templates/openclaw-seed-configmap.yaml",
+  );
+  assert.match(disabled, /"editEnabled": false/);
+  assert.match(enabled, /"editEnabled": true/);
+  assert.match(enabled, /"hitl": true/);
+  assert.match(enabled, /"approvalTimeoutMs": 45000/);
+});
+
+test("validates edit mode dependencies and backend configuration", () => {
+  const invalid = [
+    ["modules.execution.enabled=false", /requires modules\.execution\.enabled=true/],
+    ["modules.ui.enabled=false", /requires modules\.ui\.enabled=true/],
+    ["modules.edit.approvalTimeoutMs=999", /must be at least 1000/],
+    ["modules.edit.kubernetes.enabled=false", /requires at least one configured edit backend/],
+    ["modules.kubernetes.enabled=false", /requires modules\.kubernetes\.enabled=true/],
+    ["modules.edit.bcm.enabled=true", "modules.bcm.enabled=false", /requires an enabled BCM MCP service/],
+    ["modules.edit.ssh.enabled=true", /existingSecret is required/],
+    ["modules.edit.ssh.enabled=true", "modules.edit.ssh.existingSecret=ssh-key", /hosts must contain at least one host/],
+  ];
+  for (const entry of invalid) {
+    const expected = entry.at(-1);
+    const settings = entry.slice(0, -1);
+    const args = ["template", "mosaic", chart, "--namespace", "mosaic-test", "--set", "modules.edit.enabled=true"];
+    for (const setting of settings) args.push("--set", setting);
+    const result = spawnSync("helm", args, { encoding: "utf8" });
+    assert.notEqual(result.status, 0, settings.join(", "));
+    assert.match(result.stderr, expected);
+  }
+
+  const fullAuto = spawnSync(
+    "helm",
+    [
+      "template",
+      "mosaic",
+      chart,
+      "--namespace",
+      "mosaic-test",
+      "--set",
+      "modules.edit.enabled=true",
+      "--set",
+      "modules.edit.hitl=false",
+      "--set",
+      "modules.ui.enabled=false",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(fullAuto.status, 0, fullAuto.stderr);
+});
+
 test("omits every terminal workload resource when the module is disabled", () => {
   const output = render();
   assert.doesNotMatch(output, /(?:name|app): mosaic-terminal(?:\s|$)/);

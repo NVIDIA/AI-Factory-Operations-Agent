@@ -109,6 +109,9 @@
           "command": {{ .Values.kubernetes.command | quote }},
           "defaultCluster": {{ .Values.kubernetes.defaultCluster | quote }},
           "clusters": {{ include "mosaic-stack.kubernetesClusters" . }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.kubernetes.enabled }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "maxOutputBytes": {{ .Values.kubernetes.maxOutputBytes }},
           "timeoutMs": {{ .Values.kubernetes.timeoutMs }}
         }
@@ -143,6 +146,9 @@
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
         }
       },

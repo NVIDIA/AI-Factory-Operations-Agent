@@ -59,6 +59,35 @@
 {{- if and .Values.modules.terminal.enabled (not .Values.mosaicTerminal.auth.create) (not .Values.mosaicTerminal.auth.existingSecret) -}}
 {{- fail "terminal auth requires mosaicTerminal.auth.create=true or mosaicTerminal.auth.existingSecret" -}}
 {{- end -}}
+{{- if .Values.modules.edit.enabled -}}
+{{- if not .Values.modules.execution.enabled -}}
+{{- fail "modules.edit.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.hitl (not .Values.modules.ui.enabled) -}}
+{{- fail "modules.edit.hitl=true requires modules.ui.enabled=true" -}}
+{{- end -}}
+{{- if lt (int .Values.modules.edit.approvalTimeoutMs) 1000 -}}
+{{- fail "modules.edit.approvalTimeoutMs must be at least 1000" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.kubernetes.enabled (not .Values.modules.kubernetes.enabled) -}}
+{{- fail "modules.edit.kubernetes.enabled=true requires modules.kubernetes.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.kubernetes.enabled (not (or .Values.kubernetes.local.enabled (gt (len .Values.kubernetes.clusters) 0))) -}}
+{{- fail "modules.edit.kubernetes.enabled=true requires a registered Kubernetes cluster" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.bcm.enabled (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- fail "modules.edit.bcm.enabled=true requires an enabled BCM MCP service" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.existingSecret) -}}
+{{- fail "modules.edit.ssh.existingSecret is required when edit SSH is enabled" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (eq (len .Values.modules.edit.ssh.hosts) 0) -}}
+{{- fail "modules.edit.ssh.hosts must contain at least one host when edit SSH is enabled" -}}
+{{- end -}}
+{{- if not (or .Values.modules.edit.kubernetes.enabled .Values.modules.edit.bcm.enabled .Values.modules.edit.ssh.enabled) -}}
+{{- fail "modules.edit.enabled=true requires at least one configured edit backend" -}}
+{{- end -}}
+{{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.headHost) -}}
 {{- fail "bcmMcp.headHost is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
