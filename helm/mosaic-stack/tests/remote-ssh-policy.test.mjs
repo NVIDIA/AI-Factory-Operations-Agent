@@ -54,7 +54,9 @@ test("builds only fixed hardened SSH connection options", () => {
     "ProxyCommand=none",
     "ProxyJump=none",
     "ClearAllForwardings=yes",
+    "ServerAliveCountMax=2",
   ]) assert.ok(args.includes(option), option);
+  assert.ok(args.some((value) => value.startsWith("ServerAliveInterval=")));
   assert.equal(args.filter((value) => value === "-i").length, 1);
 });
 

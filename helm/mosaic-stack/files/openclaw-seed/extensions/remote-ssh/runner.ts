@@ -34,6 +34,8 @@ export function buildSshArgs(settings: SshSettings, host: RemoteHost, remoteComm
     "-o", "RequestTTY=no",
     "-o", "NumberOfPasswordPrompts=0",
     "-o", `ConnectTimeout=${Math.max(1, Math.min(30, Math.ceil(settings.timeoutMs / 1000)))}`,
+    "-o", `ServerAliveInterval=${Math.max(1, Math.min(30, Math.ceil(settings.timeoutMs / 3000)))}`,
+    "-o", "ServerAliveCountMax=2",
     "--",
     `${host.user}@${host.address}`,
     remoteCommand,
