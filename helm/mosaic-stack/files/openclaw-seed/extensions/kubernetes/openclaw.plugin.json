@@ -5,6 +5,9 @@
       "run_kubectl"
     ]
   },
+  "activation": {
+    "onStartup": true
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

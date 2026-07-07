@@ -3,10 +3,18 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const chart = fileURLToPath(new URL("..", import.meta.url));
+
+test("startup-loads the Kubernetes approval hook", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json", import.meta.url)),
+  );
+  assert.equal(manifest.activation?.onStartup, true);
+});
 
 function render(...args) {
   return execFileSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args], {
