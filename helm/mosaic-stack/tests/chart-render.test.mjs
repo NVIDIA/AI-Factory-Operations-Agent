@@ -150,7 +150,8 @@ test("renders an authenticated BCM admin path only for BCM edit mode", () => {
     "--set",
     "bcmMcp.hostSshKeySecretName=bcm-host-ssh",
   );
-  assert.match(output, /kind: Secret[\s\S]*name: bcm-mcp-auth/);
+  assert.match(output, /apiVersion: v1\s+kind: Secret[\s\S]*name: bcm-mcp-auth/);
+  assert.doesNotMatch(output, /Apache-2\.0apiVersion/);
   assert.match(output, /name: MOSAIC_BCM_CMSH_ADMIN_ENABLED\s+value: "true"/);
   assert.match(output, /name: MOSAIC_BCM_MCP_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: bcm-mcp-auth\s+key: BCM_MCP_TOKEN/);
   assert.match(output, /"authToken": "\$\{MOSAIC_BCM_MCP_TOKEN\}"/);
