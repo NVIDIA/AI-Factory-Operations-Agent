@@ -78,6 +78,9 @@
 {{- if and .Values.modules.edit.bcm.enabled (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.edit.bcm.enabled=true requires an enabled BCM MCP service" -}}
 {{- end -}}
+{{- if and .Values.modules.edit.bcm.enabled (ne .Values.bcmMcp.mode "ssh-adapter") -}}
+{{- fail "modules.edit.bcm.enabled=true requires bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
 {{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.existingSecret) -}}
 {{- fail "modules.edit.ssh.existingSecret is required when edit SSH is enabled" -}}
 {{- end -}}
@@ -93,6 +96,12 @@
 {{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.hostSshKeySecretName) -}}
 {{- fail "bcmMcp.hostSshKeySecretName is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.authTokenSecretName) -}}
+{{- fail "bcmMcp.authTokenSecretName is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.authTokenSecretKey) -}}
+{{- fail "bcmMcp.authTokenSecretKey is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
 {{- if and .Values.modules.research.managed (not .Values.modules.research.enabled) -}}
 {{- fail "modules.research.managed=true requires modules.research.enabled=true" -}}

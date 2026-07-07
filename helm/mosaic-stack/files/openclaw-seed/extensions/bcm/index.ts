@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { classifyCmshRequest } from "./policy.ts";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
 const DEFAULT_BCM_HEAD_HOST = "";
@@ -18,6 +19,9 @@ type BcmConfig = {
   headHost: string;
   mcpMode: string;
   cmshEnabled: boolean;
+  editEnabled: boolean;
+  hitl: boolean;
+  approvalTimeoutMs: number;
   slurmEnabled: boolean;
   timeoutMs: number;
   subagentEventsUrl: string;
@@ -134,6 +138,9 @@ function readConfig(pluginConfig: unknown): BcmConfig {
       (typeof process !== "undefined" ? process.env?.MOSAIC_BCM_MCP_MODE || process.env?.BCM_MCP_MODE || "" : "") ||
       "direct",
     cmshEnabled: boolConfig(pluginConfig, "cmshEnabled", envBool("MOSAIC_BCM_CMSH_ENABLED", true)),
+    editEnabled: boolConfig(pluginConfig, "editEnabled", false),
+    hitl: boolConfig(pluginConfig, "hitl", true),
+    approvalTimeoutMs: numberConfig(pluginConfig, "approvalTimeoutMs", 120_000),
     slurmEnabled: boolConfig(pluginConfig, "slurmEnabled", false),
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
@@ -559,6 +566,28 @@ export default definePluginEntry({
       }
     };
 
+    api.on("before_tool_call", event => {
+      if (event.toolName !== "bcm_execute_cmsh") return;
+      try {
+        const request = classifyCmshRequest(event.params.commands, config.editEnabled);
+        if (!request.mutating || !config.hitl) return;
+        return {
+          requireApproval: {
+            title: "BCM CMSH change",
+            description: `${request.commands} on BCM head ${config.headHost}`.slice(0, 256),
+            severity: "critical",
+            timeoutMs: config.approvalTimeoutMs,
+            timeoutBehavior: "deny",
+          },
+        };
+      } catch (error) {
+        return {
+          block: true,
+          blockReason: error instanceof Error ? error.message : "CMSH request was rejected",
+        };
+      }
+    });
+
     registerTool({
       name: "bcm_health",
       label: "BCM MCP Health",
@@ -714,7 +743,7 @@ export default definePluginEntry({
     if (config.cmshEnabled) registerTool({
       name: "bcm_execute_cmsh",
       label: "BCM Execute CMSH",
-      description: "Execute read-only CMSH commands through bcm-mcp-tools. Use cmsh -c style semicolon-separated commands, for example kubernetes; list.",
+      description: "Execute CMSH through bcm-mcp-tools. Read commands use the readonly BCM identity. Edit mode permits validated changes through a separate admin path and may require approval. Use cmsh -c style semicolon-separated commands.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -724,14 +753,11 @@ export default definePluginEntry({
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
-        const commands = stringParam(rawParams.commands);
-        if (!commands) {
-          throw new Error("commands is required");
-        }
+        const request = classifyCmshRequest(rawParams.commands, config.editEnabled);
         return callBcmTool(
           config,
-          "execute_cmsh",
-          bcmToolArgs(config, { commands }),
+          request.mutating ? "execute_cmsh_admin" : "execute_cmsh",
+          bcmToolArgs(config, { commands: request.commands }),
           subagentOptions(config, toolCallId, "bcm_execute_cmsh", "BCM CMSH"),
         );
       },

@@ -318,8 +318,10 @@ bcmMcp:
   mode: direct
   mcpUrl: http://bcm-mcp-tools:3001/mcp
   headHost: ""
-  authTokenSecretName: ""
+  authTokenCreate: true
+  authTokenSecretName: bcm-mcp-auth
   authTokenSecretKey: BCM_MCP_TOKEN
+  authToken: ""
   hostSshKeySecretName: ""
   service:
     name: bcm-mcp-tools

@@ -133,6 +133,49 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
   assert.match(enabled, /"approvalTimeoutMs": 45000/);
 });
 
+test("renders an authenticated BCM admin path only for BCM edit mode", () => {
+  const output = render(
+    "--set",
+    "modules.edit.enabled=true",
+    "--set",
+    "modules.edit.kubernetes.enabled=false",
+    "--set",
+    "modules.edit.bcm.enabled=true",
+    "--set",
+    "bcmMcp.enabled=true",
+    "--set",
+    "bcmMcp.mode=ssh-adapter",
+    "--set",
+    "bcmMcp.headHost=bcm-head",
+    "--set",
+    "bcmMcp.hostSshKeySecretName=bcm-host-ssh",
+  );
+  assert.match(output, /kind: Secret[\s\S]*name: bcm-mcp-auth/);
+  assert.match(output, /name: MOSAIC_BCM_CMSH_ADMIN_ENABLED\s+value: "true"/);
+  assert.match(output, /name: MOSAIC_BCM_MCP_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: bcm-mcp-auth\s+key: BCM_MCP_TOKEN/);
+  assert.match(output, /"authToken": "\$\{MOSAIC_BCM_MCP_TOKEN\}"/);
+  assert.match(output, /"editEnabled": true/);
+  assert.match(output, /bcm\.policy\.ts: \|-/);
+  assert.doesNotMatch(output, /"authToken": "[A-Za-z0-9]{48}"/);
+});
+
+test("keeps the managed BCM adapter read-only when edit mode is disabled", () => {
+  const output = render(
+    "--set",
+    "bcmMcp.enabled=true",
+    "--set",
+    "bcmMcp.mode=ssh-adapter",
+    "--set",
+    "bcmMcp.headHost=bcm-head",
+    "--set",
+    "bcmMcp.hostSshKeySecretName=bcm-host-ssh",
+  );
+  assert.match(output, /name: MOSAIC_BCM_CMSH_ADMIN_ENABLED\s+value: "false"/);
+  assert.match(output, /name: MOSAIC_BCM_CMSH_USERNAME\s+value: "aichatbotuser"/);
+  assert.match(output, /name: MOSAIC_BCM_CMSH_PROFILE\s+value: "readonly"/);
+  assert.match(output, /"editEnabled": false/);
+});
+
 test("exposes edit and HITL state to the UI without changing their defaults", () => {
   const disabled = render("--show-only", "templates/mosaic-ui.yaml");
   const enabled = render(
@@ -155,6 +198,7 @@ test("validates edit mode dependencies and backend configuration", () => {
     ["modules.edit.kubernetes.enabled=false", /requires at least one configured edit backend/],
     ["modules.kubernetes.enabled=false", /requires modules\.kubernetes\.enabled=true/],
     ["modules.edit.bcm.enabled=true", "modules.bcm.enabled=false", /requires an enabled BCM MCP service/],
+    ["modules.edit.kubernetes.enabled=false", "modules.edit.bcm.enabled=true", "bcmMcp.enabled=true", /requires bcmMcp\.mode=ssh-adapter/],
     ["modules.edit.ssh.enabled=true", /existingSecret is required/],
     ["modules.edit.ssh.enabled=true", "modules.edit.ssh.existingSecret=ssh-key", /hosts must contain at least one host/],
   ];

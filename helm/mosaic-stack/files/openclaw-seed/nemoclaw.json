@@ -145,6 +145,9 @@
           "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
+          {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+          "authToken": "${MOSAIC_BCM_MCP_TOKEN}",
+          {{- end }}
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},
           "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
           "hitl": {{ .Values.modules.edit.hitl }},

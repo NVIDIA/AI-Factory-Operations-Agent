@@ -86,6 +86,8 @@ data:
   {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/bcm/index.ts" | indent 4 }}
+  bcm.policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/bcm/policy.ts" | indent 4 }}
   bcm.openclaw.plugin.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/bcm/openclaw.plugin.json" | indent 4 }}
   bcm.package.json: |-

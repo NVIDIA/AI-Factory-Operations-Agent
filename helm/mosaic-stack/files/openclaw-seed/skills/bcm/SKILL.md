@@ -1,6 +1,6 @@
 ---
 name: bcm
-description: Inspect read-only Base Command Manager and cluster inventory evidence for node health, categories, and schedulability context.
+description: Inspect Base Command Manager inventory and health evidence, and make explicitly requested changes when BCM edit mode is enabled.
 ---
 
 <!--
@@ -20,7 +20,7 @@ Some BCM MCP deployments may disable CMSH. If `bcm_execute_cmsh` is absent or re
 
 Never use BCM MCP `slurm.*` tools for failed-job RCA, Slurm job ids, `sacct`, `scontrol`, Slurm logs, or root-cause questions. Those requests belong to the configured Slurm evidence route, not this BCM skill.
 
-Prefer read-only commands and evidence sources. Do not make provisioning, power, category, or scheduler changes. If BCM MCP tools are unavailable, say that the BCM evidence source is unavailable and answer only from Kubernetes, Slurm, or observability evidence that is present.
+Prefer read-only commands and evidence sources. Make a provisioning, power, category, or scheduler change only when the user explicitly requests it and BCM edit mode accepts it. `bcm_execute_cmsh` classifies mutations, blocks them when edit mode is off, and routes accepted mutations through the separate administrator path; never use another tool or shell command to bypass a rejection. When HITL is enabled, wait for the approval result and stop after a denial or timeout. If BCM MCP tools are unavailable, say that the BCM evidence source is unavailable and answer only from Kubernetes, Slurm, or observability evidence that is present.
 
 For node questions, separate current state from historical symptoms. Report node name, current schedulability, category or role if known, observed health state, and the exact BCM MCP evidence used.
 

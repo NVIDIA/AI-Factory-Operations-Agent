@@ -26,6 +26,7 @@ spec:
         app: openclaw
       annotations:
         checksum/openclaw-seed: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
+        checksum/bcm-auth-config: {{ printf "%s:%s:%s" .Values.bcmMcp.authTokenSecretName .Values.bcmMcp.authTokenSecretKey .Values.bcmMcp.authToken | sha256sum }}
     spec:
       serviceAccountName: openclaw
       automountServiceAccountToken: {{ and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
@@ -216,6 +217,7 @@ spec:
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
               cp /seed/bcm.index.ts /home/node/.openclaw/extensions/bcm/index.ts
+              cp /seed/bcm.policy.ts /home/node/.openclaw/extensions/bcm/policy.ts
               cp /seed/bcm.openclaw.plugin.json /home/node/.openclaw/extensions/bcm/openclaw.plugin.json
               cp /seed/bcm.package.json /home/node/.openclaw/extensions/bcm/package.json
               {{- end }}
@@ -448,6 +450,13 @@ spec:
             {{- end }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+            {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+            - name: MOSAIC_BCM_MCP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bcmMcp.authTokenSecretName }}
+                  key: {{ .Values.bcmMcp.authTokenSecretKey }}
+            {{- end }}
             {{- if .Values.modules.diagnostics.enabled }}
             - name: DIAGNOSTIC_AGENT_API_KEY
               valueFrom:
