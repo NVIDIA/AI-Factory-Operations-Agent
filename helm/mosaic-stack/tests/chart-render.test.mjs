@@ -29,6 +29,16 @@ test("renders only official OpenClaw and OpenShell runtime images", () => {
   assert.doesNotMatch(output, /nvidia-openshell|backend["']?:\s*["']nemoclaw/);
 });
 
+test("pins every default runtime image", () => {
+  const output = render();
+  assert.ok(
+    output.includes(
+      "vllm/vllm-openai@sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f",
+    ),
+  );
+  assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
+});
+
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
   const output = render();
   assert.match(output, /"backend": "openshell"/);

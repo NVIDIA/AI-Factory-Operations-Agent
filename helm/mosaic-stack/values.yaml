@@ -92,7 +92,7 @@ llm:
     replicaCount: 1
     image:
       repository: vllm/vllm-openai
-      tag: latest
+      digest: sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f
       pullPolicy: IfNotPresent
     model: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4
     servedModelName: nemotron-ultra-550b

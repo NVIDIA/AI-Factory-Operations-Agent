@@ -27,7 +27,11 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | 
 {{- end -}}
 
 {{- define "mosaic-stack.image" -}}
+{{- if .digest -}}
+{{- printf "%s@%s" .repository .digest -}}
+{{- else -}}
 {{- printf "%s:%s" .repository .tag -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "mosaic-stack.pullSecrets" -}}
