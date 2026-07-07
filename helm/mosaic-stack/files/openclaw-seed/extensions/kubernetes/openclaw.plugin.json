@@ -26,6 +26,15 @@
       },
       "timeoutMs": {
         "type": "number"
+      },
+      "editEnabled": {
+        "type": "boolean"
+      },
+      "hitl": {
+        "type": "boolean"
+      },
+      "approvalTimeoutMs": {
+        "type": "number"
       }
     }
   }

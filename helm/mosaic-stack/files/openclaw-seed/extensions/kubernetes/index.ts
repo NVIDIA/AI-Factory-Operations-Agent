@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { isKubectlExecFallback, resolveCluster, validateKubectlArgs } from "./policy.ts";
+import { classifyKubectlRequest, isKubectlExecFallback, resolveCluster } from "./policy.ts";
 import { runKubectl } from "./runner.ts";
 
 type KubernetesConfig = {
@@ -11,6 +11,9 @@ type KubernetesConfig = {
   clusters?: Record<string, string>;
   maxOutputBytes?: number;
   timeoutMs?: number;
+  editEnabled?: boolean;
+  hitl?: boolean;
+  approvalTimeoutMs?: number;
 };
 
 function config(value: unknown): Required<KubernetesConfig> {
@@ -21,6 +24,9 @@ function config(value: unknown): Required<KubernetesConfig> {
     clusters: raw.clusters || {},
     maxOutputBytes: raw.maxOutputBytes || 1_048_576,
     timeoutMs: raw.timeoutMs || 60_000,
+    editEnabled: raw.editEnabled === true,
+    hitl: raw.hitl !== false,
+    approvalTimeoutMs: raw.approvalTimeoutMs || 120_000,
   };
 }
 
@@ -39,23 +45,42 @@ export default definePluginEntry({
   register(api) {
     const settings = config(api.pluginConfig);
 
-    api.on(
-      "before_tool_call",
-      (event) =>
-        isKubectlExecFallback(event.toolName, event.params)
-          ? {
-              block: true,
-              blockReason:
-                "Kubernetes commands are available only through the read-only run_kubectl tool. Do not retry with exec.",
-            }
-          : undefined,
-    );
+    api.on("before_tool_call", (event) => {
+      if (isKubectlExecFallback(event.toolName, event.params)) {
+        return {
+          block: true,
+          blockReason: "Kubernetes commands are available only through run_kubectl. Do not retry with exec.",
+        };
+      }
+      if (event.toolName !== "run_kubectl") return;
+      try {
+        const request = classifyKubectlRequest(event.params.args, event.params.manifest, settings.editEnabled);
+        if (!request.mutating || !settings.hitl) return;
+        const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
+        const target = request.targets.join(", ");
+        const digest = request.manifestSha256 ? ` Manifest SHA-256: ${request.manifestSha256}.` : "";
+        return {
+          requireApproval: {
+            title: `${request.args[0]} ${request.targets[0]}`.slice(0, 80),
+            description: `${request.args[0]} ${target} on Kubernetes cluster ${cluster.name}.${digest}`.slice(0, 256),
+            severity: "warning",
+            timeoutMs: settings.approvalTimeoutMs,
+            timeoutBehavior: "deny",
+          },
+        };
+      } catch (error) {
+        return {
+          block: true,
+          blockReason: error instanceof Error ? error.message : "kubectl request was rejected",
+        };
+      }
+    });
 
     api.registerTool({
       name: "run_kubectl",
       label: "Kubernetes Agent",
       description:
-        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. Mutation, interactive access, Secrets, and credential overrides are rejected. If blocked is true, explain the denial and never retry with exec or another tool.",
+        "Run one kubectl operation against a registered cluster. Pass argv without the kubectl prefix. Read operations are always available. When edit mode is enabled, apply accepts an inline manifest and delete requires an exact resource name; HITL may require approval. Interactive access, Secrets, credential overrides, and shell syntax are rejected. If blocked, never retry with exec or another tool.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -70,14 +95,31 @@ export default definePluginEntry({
             minItems: 1,
             maxItems: 64,
             items: { type: "string" },
-            description: "kubectl arguments, beginning with a read-only command such as get, describe, or logs.",
+            description: "kubectl arguments beginning with a supported read command, or apply/delete when edit mode is enabled.",
+          },
+          manifest: {
+            type: "object",
+            required: ["apiVersion", "kind", "metadata"],
+            properties: {
+              apiVersion: { type: "string" },
+              kind: { type: "string" },
+              metadata: {
+                type: "object",
+                required: ["name", "namespace"],
+                properties: {
+                  name: { type: "string" },
+                  namespace: { type: "string" },
+                },
+              },
+            },
+            description: "One structured Kubernetes object required by kubectl apply -f -. Never pass YAML or a file path.",
           },
         },
       },
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        let args: string[];
+        let request;
         try {
-          args = validateKubectlArgs(rawParams.args);
+          request = classifyKubectlRequest(rawParams.args, rawParams.manifest, settings.editEnabled);
         } catch (error) {
           const reason = error instanceof Error ? error.message : "kubectl request was rejected";
           return toolResult({
@@ -93,14 +135,18 @@ export default definePluginEntry({
         const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
         const result = await runKubectl(
           settings.command,
-          args,
+          request.args,
           cluster.kubeconfig,
           settings.timeoutMs,
           settings.maxOutputBytes,
+          request.manifest,
         );
         return toolResult({
           cluster: cluster.name,
-          command: ["kubectl", ...args],
+          command: ["kubectl", ...request.args],
+          mutating: request.mutating,
+          targets: request.targets,
+          manifestSha256: request.manifestSha256,
           exitCode: result.code,
           stdout: result.stdout,
           stderr: result.stderr,

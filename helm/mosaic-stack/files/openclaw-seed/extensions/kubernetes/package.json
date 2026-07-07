@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Read-only kubectl plugin for registered Kubernetes clusters",
+  "description": "Policy-controlled kubectl plugin for registered Kubernetes clusters",
   "type": "module",
   "openclaw": {
     "extensions": [
