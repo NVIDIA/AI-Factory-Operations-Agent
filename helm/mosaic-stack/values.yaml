@@ -72,6 +72,10 @@ modules:
     ssh:
       enabled: false
       existingSecret: ""
+      privateKeyKey: privateKey
+      knownHostsKey: knownHosts
+      timeoutMs: 60000
+      maxOutputBytes: 65536
       hosts: []
 
 kubernetes:

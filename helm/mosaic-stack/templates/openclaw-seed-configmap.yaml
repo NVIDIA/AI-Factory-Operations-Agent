@@ -35,6 +35,18 @@ data:
   kubernetes.package.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/package.json" | indent 4 }}
   {{- end }}
+  {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+  remote-ssh.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/index.ts" | indent 4 }}
+  remote-ssh.policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/policy.ts" | indent 4 }}
+  remote-ssh.runner.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/runner.ts" | indent 4 }}
+  remote-ssh.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/openclaw.plugin.json" | indent 4 }}
+  remote-ssh.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/package.json" | indent 4 }}
+  {{- end }}
   {{- if .Values.modules.diagnostics.enabled }}
   diagnostic-agent.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/diagnostic-agent/SKILL.md" | indent 4 }}

@@ -121,6 +121,7 @@ spec:
                 /home/node/.openclaw/extensions/grafana \
                 /home/node/.openclaw/extensions/iraop \
                 /home/node/.openclaw/extensions/kubernetes \
+                /home/node/.openclaw/extensions/remote-ssh \
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
@@ -140,6 +141,14 @@ spec:
               cp /seed/kubernetes.runner.ts /home/node/.openclaw/extensions/kubernetes/runner.ts
               cp /seed/kubernetes.openclaw.plugin.json /home/node/.openclaw/extensions/kubernetes/openclaw.plugin.json
               cp /seed/kubernetes.package.json /home/node/.openclaw/extensions/kubernetes/package.json
+              {{- end }}
+              {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/remote-ssh
+              cp /seed/remote-ssh.index.ts /home/node/.openclaw/extensions/remote-ssh/index.ts
+              cp /seed/remote-ssh.policy.ts /home/node/.openclaw/extensions/remote-ssh/policy.ts
+              cp /seed/remote-ssh.runner.ts /home/node/.openclaw/extensions/remote-ssh/runner.ts
+              cp /seed/remote-ssh.openclaw.plugin.json /home/node/.openclaw/extensions/remote-ssh/openclaw.plugin.json
+              cp /seed/remote-ssh.package.json /home/node/.openclaw/extensions/remote-ssh/package.json
               {{- end }}
               {{- if .Values.modules.research.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/iraop
@@ -234,6 +243,33 @@ spec:
             - name: kubernetes-configs
               mountPath: /var/run/mosaic-kubernetes
             {{- end }}
+        {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+        - name: init-remote-ssh-credentials
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cp /source/private-key /credentials/id
+              cp /source/known-hosts /credentials/known_hosts
+              chown 1000:1000 /credentials/id /credentials/known_hosts
+              chmod 0400 /credentials/id
+              chmod 0444 /credentials/known_hosts
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: remote-ssh-source
+              mountPath: /source
+              readOnly: true
+            - name: remote-ssh-credentials
+              mountPath: /credentials
+        {{- end }}
         {{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") ($bcmDocs.enabled | default true) }}
         - name: init-bcm-docs
           image: {{ include "mosaic-stack.image" $bcmDocsImage | quote }}
@@ -522,6 +558,11 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
+            {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+            - name: remote-ssh-credentials
+              mountPath: /var/run/mosaic-ssh
+              readOnly: true
+            {{- end }}
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -533,6 +574,19 @@ spec:
           emptyDir: {}
         - name: openshell-plugin
           emptyDir: {}
+        {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+        - name: remote-ssh-source
+          secret:
+            secretName: {{ .Values.modules.edit.ssh.existingSecret | quote }}
+            items:
+              - key: {{ .Values.modules.edit.ssh.privateKeyKey | quote }}
+                path: private-key
+              - key: {{ .Values.modules.edit.ssh.knownHostsKey | quote }}
+                path: known-hosts
+        - name: remote-ssh-credentials
+          emptyDir:
+            medium: Memory
+        {{- end }}
         {{- if not .Values.openshell.server.disableTls }}
         - name: openshell-client-tls
           secret:

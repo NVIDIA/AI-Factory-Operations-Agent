@@ -16,6 +16,13 @@ test("startup-loads the Kubernetes approval hook", () => {
   assert.equal(manifest.activation?.onStartup, true);
 });
 
+test("startup-loads the remote SSH approval hook", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../files/openclaw-seed/extensions/remote-ssh/openclaw.plugin.json", import.meta.url)),
+  );
+  assert.equal(manifest.activation?.onStartup, true);
+});
+
 function render(...args) {
   return execFileSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args], {
     encoding: "utf8",
@@ -202,6 +209,7 @@ test("validates edit mode dependencies and backend configuration", () => {
     ["modules.edit.kubernetes.enabled=false", "modules.edit.bcm.enabled=true", "bcmMcp.enabled=true", /requires bcmMcp\.mode=ssh-adapter/],
     ["modules.edit.ssh.enabled=true", /existingSecret is required/],
     ["modules.edit.ssh.enabled=true", "modules.edit.ssh.existingSecret=ssh-key", /hosts must contain at least one host/],
+    ["modules.edit.ssh.enabled=true", "modules.edit.ssh.existingSecret=ssh-key", "modules.edit.ssh.hosts[0].alias=-bad", "modules.edit.ssh.hosts[0].address=node004", "modules.edit.ssh.hosts[0].user=root", /alias is invalid/],
   ];
   for (const entry of invalid) {
     const expected = entry.at(-1);
@@ -231,6 +239,38 @@ test("validates edit mode dependencies and backend configuration", () => {
     { encoding: "utf8" },
   );
   assert.equal(fullAuto.status, 0, fullAuto.stderr);
+});
+
+test("renders constrained remote SSH only in the OpenClaw pod", () => {
+  const settings = [
+    "--set", "modules.edit.enabled=true",
+    "--set", "modules.edit.kubernetes.enabled=false",
+    "--set", "modules.edit.ssh.enabled=true",
+    "--set", "modules.edit.ssh.existingSecret=remote-node-key",
+    "--set", "modules.edit.ssh.hosts[0].alias=node004",
+    "--set", "modules.edit.ssh.hosts[0].address=10.0.0.4",
+    "--set", "modules.edit.ssh.hosts[0].user=root",
+  ];
+  const output = render(...settings, "--show-only", "templates/openclaw.yaml");
+  const seed = render(...settings, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(output, /name: init-remote-ssh-credentials/);
+  assert.match(output, /secretName: "remote-node-key"/);
+  assert.match(output, /mountPath: \/var\/run\/mosaic-ssh\s+readOnly: true/);
+  assert.match(output, /emptyDir:\s+medium: Memory/);
+  assert.doesNotMatch(output, /mountPath: \/sandbox[\s\S]*remote-ssh/);
+  for (const module of ["index", "policy", "runner"]) {
+    assert.ok(seed.includes(`remote-ssh.${module}.ts: |-`));
+    assert.ok(output.includes(`cp /seed/remote-ssh.${module}.ts /home/node/.openclaw/extensions/remote-ssh/${module}.ts`));
+  }
+  assert.match(seed, /"remote-ssh":\s*{\s*"enabled": true/);
+  assert.match(seed, /"alias":"node004"/);
+});
+
+test("omits remote SSH credentials and plugin files by default", () => {
+  const output = render("--show-only", "templates/openclaw.yaml");
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.doesNotMatch(output, /remote-ssh-(?:source|credentials)/);
+  assert.doesNotMatch(seed, /remote-ssh\.index\.ts/);
 });
 
 test("omits every terminal workload resource when the module is disabled", () => {

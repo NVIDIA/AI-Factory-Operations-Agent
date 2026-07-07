@@ -1,0 +1,13 @@
+{
+  "name": "@mosaic/remote-ssh-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Approval-controlled remote SSH argv execution",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
