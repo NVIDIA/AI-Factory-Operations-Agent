@@ -39,6 +39,11 @@ test("pins every default runtime image", () => {
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
 });
 
+test("pins the UI to the immutable GitLab short SHA tag", () => {
+  const output = render("--show-only", "templates/mosaic-ui.yaml");
+  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
+});
+
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
   const output = render();
   assert.match(output, /"backend": "openshell"/);
