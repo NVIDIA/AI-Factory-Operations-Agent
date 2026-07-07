@@ -154,6 +154,24 @@ tolerations:
 {{- $clusters | toJson -}}
 {{- end -}}
 
+{{- define "mosaic-stack.clusterMonitorTargets" -}}
+{{- $targets := list -}}
+{{- $monitor := .Values.mosaicClusterMonitor -}}
+{{- if and $monitor.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- $targets = append $targets (dict "kind" "bcm" "id" $monitor.bcm.id "name" $monitor.bcm.name "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- if and $monitor.kubernetes.enabled .Values.modules.kubernetes.enabled -}}
+{{- if .Values.kubernetes.local.enabled -}}
+{{- $targets = append $targets (dict "kind" "kubernetes" "id" "local" "name" $monitor.kubernetes.localName "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- range .Values.kubernetes.clusters -}}
+{{- $name := required "kubernetes.clusters[].name is required" .name -}}
+{{- $targets = append $targets (dict "kind" "kubernetes" "id" $name "name" (default $name .displayName) "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- end -}}
+{{- $targets | toJson -}}
+{{- end -}}
+
 {{- define "mosaic-stack.openshellFullname" -}}
 {{- if .Values.openshell.fullnameOverride -}}
 {{- .Values.openshell.fullnameOverride | trunc 63 | trimSuffix "-" -}}

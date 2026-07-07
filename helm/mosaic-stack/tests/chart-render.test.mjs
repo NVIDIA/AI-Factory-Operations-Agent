@@ -345,6 +345,61 @@ test("rejects terminal deployments without their required modules", () => {
   }
 });
 
+test("omits the cluster monitor when its module is disabled", () => {
+  const output = render();
+  assert.doesNotMatch(output, /(?:name|app): mosaic-cluster-monitor(?:\s|$)/);
+  assert.match(output, /name: MOSAIC_CLUSTERS_ENABLED\s+value: "false"/);
+});
+
+test("renders a credential-isolated persistent cluster monitor from configured targets", () => {
+  const output = render(
+    "--set", "modules.clusters.enabled=true",
+    "--set", "modules.slurm.enabled=false",
+    "--set", "bcmMcp.enabled=true",
+    "--set", "kubernetes.clusters[0].name=training",
+    "--set", "kubernetes.clusters[0].displayName=Training Kubernetes",
+    "--set", "kubernetes.clusters[0].kubeconfigSecretRef.name=training-kubeconfig",
+    "--set", "kubernetes.clusters[0].kubeconfigSecretRef.key=config",
+  );
+  const monitor = render(
+    "--set", "modules.clusters.enabled=true",
+    "--show-only", "templates/mosaic-cluster-monitor.yaml",
+  );
+  assert.match(output, /kind: Deployment[\s\S]*name: mosaic-cluster-monitor/);
+  assert.match(output, /kind: Service[\s\S]*name: mosaic-cluster-monitor/);
+  assert.match(output, /kind: PersistentVolumeClaim[\s\S]*name: mosaic-cluster-monitor/);
+  assert.match(output, /kind: Secret[\s\S]*name: mosaic-cluster-monitor-auth/);
+  assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-cluster-monitor\.mjs"\]/);
+  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
+  assert.match(output, /automountServiceAccountToken: false/);
+  assert.match(output, /name: MOSAIC_CLUSTERS_ENABLED\s+value: "true"/);
+  assert.match(output, /name: MOSAIC_CLUSTER_MONITOR_URL\s+value: "http:\/\/mosaic-cluster-monitor:3003"/);
+  assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*BCM Cluster/);
+  assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*Local Kubernetes/);
+  assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*Training Kubernetes/);
+  assert.doesNotMatch(monitor, /automountServiceAccountToken: true/);
+});
+
+test("validates cluster monitor dependencies and configuration", () => {
+  const invalid = [
+    ["modules.ui.enabled=false", /requires modules\.ui\.enabled=true/],
+    ["modules.execution.enabled=false", /requires modules\.execution\.enabled=true/],
+    ["mosaicClusterMonitor.auth.create=false", /cluster monitor auth requires/],
+    ["mosaicClusterMonitor.historyLimit=0", /historyLimit must be at least 1/],
+    ["mosaicClusterMonitor.defaultIntervalHours=0", /must be between 1 and 8760/],
+    ["mosaicClusterMonitor.kubernetes.enabled=false", /requires at least one configured BCM or Kubernetes target/],
+  ];
+  for (const [setting, expected] of invalid) {
+    const result = spawnSync(
+      "helm",
+      ["template", "mosaic", chart, "--namespace", "mosaic-test", "--set", "modules.clusters.enabled=true", "--set", setting],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, setting);
+    assert.match(result.stderr, expected);
+  }
+});
+
 test("installs a checksum-pinned upstream kubectl binary", () => {
   const output = render("--show-only", "templates/openclaw.yaml");
   assert.match(output, /https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl/);

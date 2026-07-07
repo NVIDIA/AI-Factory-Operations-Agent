@@ -59,6 +59,29 @@
 {{- if and .Values.modules.terminal.enabled (not .Values.mosaicTerminal.auth.create) (not .Values.mosaicTerminal.auth.existingSecret) -}}
 {{- fail "terminal auth requires mosaicTerminal.auth.create=true or mosaicTerminal.auth.existingSecret" -}}
 {{- end -}}
+{{- if .Values.modules.clusters.enabled -}}
+{{- if not .Values.modules.ui.enabled -}}
+{{- fail "modules.clusters.enabled=true requires modules.ui.enabled=true" -}}
+{{- end -}}
+{{- if not .Values.modules.execution.enabled -}}
+{{- fail "modules.clusters.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and (not .Values.mosaicClusterMonitor.auth.create) (not .Values.mosaicClusterMonitor.auth.existingSecret) -}}
+{{- fail "cluster monitor auth requires mosaicClusterMonitor.auth.create=true or mosaicClusterMonitor.auth.existingSecret" -}}
+{{- end -}}
+{{- if lt (int .Values.mosaicClusterMonitor.historyLimit) 1 -}}
+{{- fail "mosaicClusterMonitor.historyLimit must be at least 1" -}}
+{{- end -}}
+{{- $interval := int .Values.mosaicClusterMonitor.defaultIntervalHours -}}
+{{- if or (lt $interval 1) (gt $interval 8760) -}}
+{{- fail "mosaicClusterMonitor.defaultIntervalHours must be between 1 and 8760" -}}
+{{- end -}}
+{{- $hasBcm := and .Values.mosaicClusterMonitor.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- $hasKubernetes := and .Values.mosaicClusterMonitor.kubernetes.enabled .Values.modules.kubernetes.enabled (or .Values.kubernetes.local.enabled (gt (len .Values.kubernetes.clusters) 0)) -}}
+{{- if not (or $hasBcm $hasKubernetes) -}}
+{{- fail "modules.clusters.enabled=true requires at least one configured BCM or Kubernetes target" -}}
+{{- end -}}
+{{- end -}}
 {{- if .Values.modules.edit.enabled -}}
 {{- if not .Values.modules.execution.enabled -}}
 {{- fail "modules.edit.enabled=true requires modules.execution.enabled=true" -}}

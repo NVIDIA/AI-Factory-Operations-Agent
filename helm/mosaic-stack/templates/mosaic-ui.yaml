@@ -52,6 +52,17 @@ spec:
               value: {{ .Values.modules.edit.enabled | quote }}
             - name: MOSAIC_EDIT_HITL
               value: {{ .Values.modules.edit.hitl | quote }}
+            - name: MOSAIC_CLUSTERS_ENABLED
+              value: {{ .Values.modules.clusters.enabled | quote }}
+            {{- if .Values.modules.clusters.enabled }}
+            - name: MOSAIC_CLUSTER_MONITOR_URL
+              value: {{ printf "http://mosaic-cluster-monitor:%v" .Values.mosaicClusterMonitor.service.port | quote }}
+            - name: MOSAIC_AUTOMATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicClusterMonitor.auth.name .Values.mosaicClusterMonitor.auth.existingSecret }}
+                  key: token
+            {{- end }}
             {{- if .Values.modules.terminal.enabled }}
             - name: MOSAIC_TERMINAL_URL
               value: {{ printf "http://mosaic-terminal:%v" .Values.mosaicTerminal.service.port | quote }}

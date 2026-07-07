@@ -60,6 +60,8 @@ modules:
       chatApiKey: EMPTY
   terminal:
     enabled: false
+  clusters:
+    enabled: false
   edit:
     enabled: false
     hitl: true
@@ -232,7 +234,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: 4631f444
+    tag: fac63685
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -368,6 +370,34 @@ mosaicTerminal:
     name: mosaic-terminal-auth
     existingSecret: ""
     token: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+mosaicClusterMonitor:
+  service:
+    port: 3003
+  auth:
+    create: true
+    name: mosaic-cluster-monitor-auth
+    existingSecret: ""
+    token: ""
+  persistence:
+    size: 1Gi
+    storageClassName: ""
+  historyLimit: 10
+  defaultIntervalHours: 24
+  bcm:
+    enabled: true
+    id: bcm
+    name: BCM Cluster
+  kubernetes:
+    enabled: true
+    localName: Local Kubernetes
   resources:
     requests:
       cpu: 100m
