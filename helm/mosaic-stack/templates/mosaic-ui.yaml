@@ -48,6 +48,10 @@ spec:
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
             - name: MOSAIC_TERMINAL_ENABLED
               value: {{ .Values.modules.terminal.enabled | quote }}
+            - name: MOSAIC_EDIT_ENABLED
+              value: {{ .Values.modules.edit.enabled | quote }}
+            - name: MOSAIC_EDIT_HITL
+              value: {{ .Values.modules.edit.hitl | quote }}
             {{- if .Values.modules.terminal.enabled }}
             - name: MOSAIC_TERMINAL_URL
               value: {{ printf "http://mosaic-terminal:%v" .Values.mosaicTerminal.service.port | quote }}

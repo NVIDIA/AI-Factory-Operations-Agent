@@ -125,6 +125,20 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
   assert.match(enabled, /"approvalTimeoutMs": 45000/);
 });
 
+test("exposes edit and HITL state to the UI without changing their defaults", () => {
+  const disabled = render("--show-only", "templates/mosaic-ui.yaml");
+  const enabled = render(
+    "--set",
+    "modules.edit.enabled=true",
+    "--show-only",
+    "templates/mosaic-ui.yaml",
+  );
+  assert.match(disabled, /name: MOSAIC_EDIT_ENABLED\s+value: "false"/);
+  assert.match(disabled, /name: MOSAIC_EDIT_HITL\s+value: "true"/);
+  assert.match(enabled, /name: MOSAIC_EDIT_ENABLED\s+value: "true"/);
+  assert.match(enabled, /name: MOSAIC_EDIT_HITL\s+value: "true"/);
+});
+
 test("validates edit mode dependencies and backend configuration", () => {
   const invalid = [
     ["modules.execution.enabled=false", /requires modules\.execution\.enabled=true/],
