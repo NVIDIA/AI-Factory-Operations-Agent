@@ -23,9 +23,10 @@ async function succeeds(cluster: keyof typeof clusters, args: string[], expected
   assert.doesNotMatch(result.stdout + result.stderr, /\/configs\/(?:local|external)\/config/);
 }
 
-async function cannot(cluster: keyof typeof clusters, verb: string, resource: string) {
-  const result = await kubectl(cluster, ["auth", "can-i", verb, resource]);
-  assert.equal(result.code, 1, `${cluster}: auth can-i ${verb} ${resource}\n${result.stderr}`);
+async function cannot(cluster: keyof typeof clusters, verb: string, resource: string, subresource?: string) {
+  const args = ["auth", "can-i", verb, resource, ...(subresource ? [`--subresource=${subresource}`] : [])];
+  const result = await kubectl(cluster, args);
+  assert.equal(result.code, 1, `${cluster}: kubectl ${args.join(" ")}\n${result.stderr}`);
   assert.match(result.stdout, /^no\s*$/m);
 }
 
@@ -44,7 +45,7 @@ for (const [cluster, marker] of [
   await cannot(cluster, "create", "namespaces");
   await cannot(cluster, "patch", "deployments.apps");
   await cannot(cluster, "delete", "pods");
-  await cannot(cluster, "create", "pods/exec");
+  await cannot(cluster, "create", "pods", "exec");
 }
 
 for (const args of [
