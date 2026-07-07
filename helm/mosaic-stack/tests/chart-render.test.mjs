@@ -254,6 +254,8 @@ test("renders constrained remote SSH only in the OpenClaw pod", () => {
   const output = render(...settings, "--show-only", "templates/openclaw.yaml");
   const seed = render(...settings, "--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(output, /name: init-remote-ssh-credentials/);
+  assert.match(output, /name: init-remote-ssh-credentials[\s\S]*runAsNonRoot: true[\s\S]*runAsUser: 1000/);
+  assert.doesNotMatch(output, /chown 1000:1000 \/credentials/);
   assert.match(output, /secretName: "remote-node-key"/);
   assert.match(output, /mountPath: \/var\/run\/mosaic-ssh\s+readOnly: true/);
   assert.match(output, /emptyDir:\s+medium: Memory/);

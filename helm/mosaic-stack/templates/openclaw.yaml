@@ -254,15 +254,15 @@ spec:
               set -eu
               cp /source/private-key /credentials/id
               cp /source/known-hosts /credentials/known_hosts
-              chown 1000:1000 /credentials/id /credentials/known_hosts
               chmod 0400 /credentials/id
               chmod 0444 /credentials/known_hosts
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-            runAsUser: 0
-            runAsGroup: 0
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: remote-ssh-source
               mountPath: /source
