@@ -44,6 +44,21 @@
 {{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
 {{- fail "global.registryCredentials.password is required when global.registryCredentials.create=true" -}}
 {{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.ui.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.ui.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.execution.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.kubernetes.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.kubernetes.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.kubernetes.local.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires kubernetes.local.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.mosaicTerminal.auth.create) (not .Values.mosaicTerminal.auth.existingSecret) -}}
+{{- fail "terminal auth requires mosaicTerminal.auth.create=true or mosaicTerminal.auth.existingSecret" -}}
+{{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.headHost) -}}
 {{- fail "bcmMcp.headHost is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}

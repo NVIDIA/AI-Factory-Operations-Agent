@@ -215,7 +215,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: 4acbea33
+    tag: ed2d0b1
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -341,19 +341,21 @@ bcmMcp:
       memory: 512Mi
 
 mosaicTerminal:
-  enabled: true
-  image:
-    repository: node
-    tag: 20-bookworm
-    pullPolicy: IfNotPresent
-  kubectlInstallerImage:
-    repository: registry.k8s.io/kubectl
-    tag: v1.30.0
-    pullPolicy: IfNotPresent
-  busyboxImage:
-    repository: busybox
-    tag: "1.37"
-    pullPolicy: IfNotPresent
+  service:
+    port: 3002
+  idleTimeoutMs: 1800000
+  auth:
+    create: true
+    name: mosaic-terminal-auth
+    existingSecret: ""
+    token: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 
 diagnosticAgent:
   enabled: true

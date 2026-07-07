@@ -72,6 +72,43 @@ test("renders read-only Kubernetes RBAC including metrics without Secrets or pod
   assert.doesNotMatch(output, /verbs: \[[^\]]*"(?:create|delete|patch|update)"/);
 });
 
+test("omits every terminal workload resource when the module is disabled", () => {
+  const output = render();
+  assert.doesNotMatch(output, /(?:name|app): mosaic-terminal(?:\s|$)/);
+  assert.match(output, /name: MOSAIC_TERMINAL_ENABLED\s+value: "false"/);
+});
+
+test("renders the terminal service from the UI image with isolated read-only access", () => {
+  const output = render("--set", "modules.terminal.enabled=true");
+  const rbac = render("--set", "modules.terminal.enabled=true", "--show-only", "templates/rbac.yaml");
+  assert.match(output, /kind: ServiceAccount[\s\S]*name: mosaic-terminal/);
+  assert.match(output, /kind: Deployment[\s\S]*name: mosaic-terminal/);
+  assert.match(output, /kind: Service[\s\S]*name: mosaic-terminal/);
+  assert.match(output, /kind: Secret[\s\S]*name: mosaic-terminal-auth/);
+  assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-terminal\.mjs"\]/);
+  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[^"]+"/);
+  assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
+  assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);
+  assert.match(output, /requiredDuringSchedulingIgnoredDuringExecution:[\s\S]*app: openclaw/);
+  assert.match(output, /curl -fsSL --retry 5 --retry-all-errors -o \/tools\/kubectl \\\s+"https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl"/);
+  assert.doesNotMatch(output, /registry\.k8s\.io\/kubectl/);
+  assert.doesNotMatch(rbac, /resources: \[[^\]]*"secrets"/);
+  assert.doesNotMatch(rbac, /resources: \[[^\]]*"pods\/exec"/);
+  assert.doesNotMatch(rbac, /verbs: \[[^\]]*"(?:create|delete|patch|update)"/);
+});
+
+test("rejects terminal deployments without their required modules", () => {
+  for (const disabled of ["modules.ui.enabled=false", "modules.execution.enabled=false", "modules.kubernetes.enabled=false"]) {
+    const result = spawnSync(
+      "helm",
+      ["template", "mosaic", chart, "--namespace", "mosaic-test", "--set", "modules.terminal.enabled=true", "--set", disabled],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, disabled);
+    assert.match(result.stderr, /modules\.terminal\.enabled=true requires/);
+  }
+});
+
 test("installs a checksum-pinned upstream kubectl binary", () => {
   const output = render("--show-only", "templates/openclaw.yaml");
   assert.match(output, /https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl/);

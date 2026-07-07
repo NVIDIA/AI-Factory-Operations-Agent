@@ -45,6 +45,11 @@ subjects:
   - kind: ServiceAccount
     name: openclaw
     namespace: {{ .Release.Namespace }}
+  {{- if .Values.modules.terminal.enabled }}
+  - kind: ServiceAccount
+    name: mosaic-terminal
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

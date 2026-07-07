@@ -46,6 +46,17 @@ spec:
               value: "0.0.0.0"
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
+            - name: MOSAIC_TERMINAL_ENABLED
+              value: {{ .Values.modules.terminal.enabled | quote }}
+            {{- if .Values.modules.terminal.enabled }}
+            - name: MOSAIC_TERMINAL_URL
+              value: {{ printf "http://mosaic-terminal:%v" .Values.mosaicTerminal.service.port | quote }}
+            - name: MOSAIC_TERMINAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicTerminal.auth.name .Values.mosaicTerminal.auth.existingSecret }}
+                  key: token
+            {{- end }}
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
