@@ -146,12 +146,12 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
     "templates/openclaw-seed-configmap.yaml",
   );
   assert.match(disabled, /"editEnabled": false/);
-  assert.doesNotMatch(disabled, /^  mutation-ledger\.ts: \|-/m);
+  assert.match(disabled, /^  mutation-ledger\.ts: \|-/m);
   assert.match(enabled, /"editEnabled": true/);
   assert.match(enabled, /"hitl": true/);
   assert.match(enabled, /"approvalTimeoutMs": 45000/);
   assert.match(enabled, /mutation-ledger\.ts: \|-/);
-  assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw.yaml"), /cp \/seed\/mutation-ledger\.ts \/home\/node\/\.openclaw\/extensions\/mutation-ledger\.ts/);
+  assert.match(render("--show-only", "templates/openclaw.yaml"), /cp \/seed\/mutation-ledger\.ts \/home\/node\/\.openclaw\/extensions\/mutation-ledger\.ts/);
 });
 
 test("tells the assistant about edit mode only when the module is enabled", () => {
