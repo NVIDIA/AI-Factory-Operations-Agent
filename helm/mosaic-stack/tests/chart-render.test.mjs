@@ -377,6 +377,7 @@ test("renders a credential-isolated persistent cluster monitor from configured t
   assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*BCM Cluster/);
   assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*Local Kubernetes/);
   assert.match(output, /MOSAIC_CLUSTER_TARGETS[\s\S]*Training Kubernetes/);
+  assert.match(output, /name: MOSAIC_CLUSTER_TIMEOUT_MS\s+value: "600000"/);
   assert.doesNotMatch(monitor, /automountServiceAccountToken: true/);
 });
 
@@ -386,6 +387,7 @@ test("validates cluster monitor dependencies and configuration", () => {
     ["modules.execution.enabled=false", /requires modules\.execution\.enabled=true/],
     ["mosaicClusterMonitor.auth.create=false", /cluster monitor auth requires/],
     ["mosaicClusterMonitor.historyLimit=0", /historyLimit must be at least 1/],
+    ["mosaicClusterMonitor.timeoutMs=1000", /timeoutMs must be between 5000 and 600000/],
     ["mosaicClusterMonitor.defaultIntervalHours=0", /must be between 1 and 8760/],
     ["mosaicClusterMonitor.kubernetes.enabled=false", /requires at least one configured BCM or Kubernetes target/],
   ];

@@ -50,6 +50,8 @@ spec:
               value: {{ include "mosaic-stack.clusterMonitorTargets" . | quote }}
             - name: MOSAIC_CLUSTER_HISTORY_LIMIT
               value: {{ .Values.mosaicClusterMonitor.historyLimit | quote }}
+            - name: MOSAIC_CLUSTER_TIMEOUT_MS
+              value: {{ .Values.mosaicClusterMonitor.timeoutMs | quote }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui:%v" .Values.mosaicUi.service.port | quote }}
             - name: MOSAIC_AUTOMATION_TOKEN

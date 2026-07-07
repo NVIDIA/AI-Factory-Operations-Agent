@@ -234,7 +234,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: fac63685
+    tag: 99d3ed66
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -390,6 +390,7 @@ mosaicClusterMonitor:
     size: 1Gi
     storageClassName: ""
   historyLimit: 10
+  timeoutMs: 600000
   defaultIntervalHours: 24
   bcm:
     enabled: true

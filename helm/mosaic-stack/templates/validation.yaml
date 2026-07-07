@@ -72,6 +72,10 @@
 {{- if lt (int .Values.mosaicClusterMonitor.historyLimit) 1 -}}
 {{- fail "mosaicClusterMonitor.historyLimit must be at least 1" -}}
 {{- end -}}
+{{- $timeout := int .Values.mosaicClusterMonitor.timeoutMs -}}
+{{- if or (lt $timeout 5000) (gt $timeout 600000) -}}
+{{- fail "mosaicClusterMonitor.timeoutMs must be between 5000 and 600000" -}}
+{{- end -}}
 {{- $interval := int .Values.mosaicClusterMonitor.defaultIntervalHours -}}
 {{- if or (lt $interval 1) (gt $interval 8760) -}}
 {{- fail "mosaicClusterMonitor.defaultIntervalHours must be between 1 and 8760" -}}
