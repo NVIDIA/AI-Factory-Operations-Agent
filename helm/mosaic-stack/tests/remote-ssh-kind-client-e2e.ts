@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
-import plugin from "./index.ts";
+import plugin from "./extensions/remote-ssh/index.ts";
 
 const marker = "/tmp/mosaic-remote-ssh-kind-marker";
 const baseConfig = {
@@ -32,12 +32,14 @@ function register(pluginConfig = baseConfig) {
   return { hook, tool };
 }
 
+let sequence = 0;
+
 async function run(
   tool: NonNullable<ReturnType<typeof register>["tool"]>,
   argv: string[],
   extra: Record<string, unknown> = {},
 ) {
-  const response = await tool.execute("kind-e2e", { host: "kind-target", argv, ...extra });
+  const response = await tool.execute(`kind-e2e-${++sequence}`, { host: "kind-target", argv, ...extra });
   return response.details as Record<string, unknown>;
 }
 
@@ -54,6 +56,7 @@ assert.equal((await run(tool, ["/bin/busybox", "test", "!", "-e", marker])).exit
 assert.equal((await run(tool, ["/bin/busybox", "test", "!", "-e", marker])).exitCode, 0);
 
 assert.equal((await tool.execute("approved", request)).details.exitCode, 0);
+assert.equal((await tool.execute("approved", request)).details.replayed, true);
 assert.equal((await run(tool, ["/bin/busybox", "test", "-e", marker])).exitCode, 0);
 assert.equal((await run(tool, ["/bin/busybox", "rm", "-f", marker])).exitCode, 0);
 assert.equal((await run(tool, ["/bin/busybox", "test", "!", "-e", marker])).exitCode, 0);
@@ -85,5 +88,11 @@ assert.match(String(bounded.reason), /output exceeded 32 bytes/);
 
 const fullAuto = register({ ...baseConfig, hitl: false });
 assert.equal(fullAuto.hook({ toolName: "run_remote_ssh", params: request }), undefined);
+const autoMarker = "/tmp/mosaic-remote-ssh-full-auto-marker";
+const autoRequest = { host: "kind-target", argv: ["/bin/busybox", "touch", autoMarker] };
+assert.equal((await fullAuto.tool.execute("full-auto", autoRequest)).details.exitCode, 0);
+assert.equal((await fullAuto.tool.execute("full-auto", autoRequest)).details.replayed, true);
+assert.equal((await run(tool, ["/bin/busybox", "test", "-e", autoMarker])).exitCode, 0);
+assert.equal((await run(tool, ["/bin/busybox", "rm", "-f", autoMarker])).exitCode, 0);
 
 console.log("remote-ssh-kind-e2e-passed");

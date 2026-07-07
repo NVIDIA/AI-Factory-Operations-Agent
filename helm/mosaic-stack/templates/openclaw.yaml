@@ -127,6 +127,10 @@ spec:
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
+              rm -f /home/node/.openclaw/extensions/mutation-ledger.ts
+              {{- if .Values.modules.edit.enabled }}
+              cp /seed/mutation-ledger.ts /home/node/.openclaw/extensions/mutation-ledger.ts
+              {{- end }}
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
               mkdir -p /home/node/.openclaw/extensions/slurm

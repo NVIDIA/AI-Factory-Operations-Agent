@@ -23,6 +23,10 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/TOOLS.md" | indent 4 }}
   USER.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
+  {{- if .Values.modules.edit.enabled }}
+  mutation-ledger.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/mutation-ledger.ts" | indent 4 }}
+  {{- end }}
   {{- if .Values.modules.kubernetes.enabled }}
   kubernetes.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/index.ts" | indent 4 }}

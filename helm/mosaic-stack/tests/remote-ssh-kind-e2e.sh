@@ -114,6 +114,7 @@ k -n "$NAMESPACE" create configmap remote-ssh-kind-e2e \
   --from-file=index.ts="$ROOT/files/openclaw-seed/extensions/remote-ssh/index.ts" \
   --from-file=policy.ts="$ROOT/files/openclaw-seed/extensions/remote-ssh/policy.ts" \
   --from-file=runner.ts="$ROOT/files/openclaw-seed/extensions/remote-ssh/runner.ts" \
+  --from-file=mutation-ledger.ts="$ROOT/files/openclaw-seed/extensions/mutation-ledger.ts" \
   --from-file=e2e.ts="$ROOT/tests/remote-ssh-kind-client-e2e.ts"
 
 k -n "$NAMESPACE" apply -f - <<'EOF'
@@ -160,6 +161,9 @@ spec:
       image: kind.local/openclaw:2026.6.6
       imagePullPolicy: Never
       command: ["node", "--experimental-strip-types", "/app/test/e2e.ts"]
+      env:
+        - name: MOSAIC_EDIT_LEDGER_PATH
+          value: /tmp/mosaic-edit-ledger.json
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -183,6 +187,12 @@ spec:
     - name: test
       configMap:
         name: remote-ssh-kind-e2e
+        items:
+          - { key: e2e.ts, path: e2e.ts }
+          - { key: mutation-ledger.ts, path: extensions/mutation-ledger.ts }
+          - { key: index.ts, path: extensions/remote-ssh/index.ts }
+          - { key: policy.ts, path: extensions/remote-ssh/policy.ts }
+          - { key: runner.ts, path: extensions/remote-ssh/runner.ts }
     - name: credentials
       secret:
         secretName: ssh-client

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifySshRequest, normalizeHosts } from "./policy.ts";
 import { runSsh } from "./runner.ts";
 
@@ -89,13 +90,29 @@ export default definePluginEntry({
           },
         },
       },
-      async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         try {
           const request = classifySshRequest(rawParams, settings.hosts);
-          const execution = await runSsh(settings, request.host, request.remoteCommand);
+          const attempt = await runMutationOnce({
+            toolCallId,
+            toolName: "run_remote_ssh",
+            target: request.host.alias,
+            args: request.argv,
+          }, () => runSsh(settings, request.host, request.remoteCommand),
+          value => value.code === 0 ? "completed" : "failed");
+          if (attempt.replayed) return result({
+            host: request.host.alias,
+            argv: request.argv,
+            replayed: true,
+            executed: false,
+            idempotencyKey: toolCallId,
+            previousStatus: attempt.state,
+          });
+          const execution = attempt.result;
           return result({
             host: request.host.alias,
             argv: request.argv,
+            idempotencyKey: toolCallId,
             exitCode: execution.code,
             stdout: execution.stdout,
             stderr: execution.stderr,

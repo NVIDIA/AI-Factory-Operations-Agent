@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifyKubectlRequest, isKubectlExecFallback, resolveCluster } from "./policy.ts";
 import { runKubectl } from "./runner.ts";
 
@@ -116,7 +117,7 @@ export default definePluginEntry({
           },
         },
       },
-      async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         let request;
         try {
           request = classifyKubectlRequest(rawParams.args, rawParams.manifest, settings.editEnabled);
@@ -133,7 +134,7 @@ export default definePluginEntry({
           });
         }
         const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
-        const result = await runKubectl(
+        const execute = () => runKubectl(
           settings.command,
           request.args,
           cluster.kubeconfig,
@@ -141,15 +142,34 @@ export default definePluginEntry({
           settings.maxOutputBytes,
           request.manifest,
         );
+        const attempt = request.mutating
+          ? await runMutationOnce({
+              toolCallId,
+              toolName: "run_kubectl",
+              target: `${cluster.name}:${request.targets.join(",")}`,
+              args: { args: request.args, manifestSha256: request.manifestSha256 },
+            }, execute, value => value.code === 0 ? "completed" : "failed")
+          : { replayed: false as const, state: "completed" as const, result: await execute() };
+        if (attempt.replayed) return toolResult({
+          cluster: cluster.name,
+          command: ["kubectl", ...request.args],
+          mutating: true,
+          replayed: true,
+          executed: false,
+          idempotencyKey: toolCallId,
+          previousStatus: attempt.state,
+        });
+        const execution = attempt.result;
         return toolResult({
           cluster: cluster.name,
           command: ["kubectl", ...request.args],
           mutating: request.mutating,
+          idempotencyKey: request.mutating ? toolCallId : undefined,
           targets: request.targets,
           manifestSha256: request.manifestSha256,
-          exitCode: result.code,
-          stdout: result.stdout,
-          stderr: result.stderr,
+          exitCode: execution.code,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
         });
       },
     });

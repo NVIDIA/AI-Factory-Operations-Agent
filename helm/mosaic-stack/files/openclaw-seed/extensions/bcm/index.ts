@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifyCmshRequest } from "./policy.ts";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
@@ -754,12 +755,27 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const request = classifyCmshRequest(rawParams.commands, config.editEnabled);
-        return callBcmTool(
+        const execute = () => callBcmTool(
           config,
           request.mutating ? "execute_cmsh_admin" : "execute_cmsh",
           bcmToolArgs(config, { commands: request.commands }),
           subagentOptions(config, toolCallId, "bcm_execute_cmsh", "BCM CMSH"),
         );
+        if (!request.mutating) return execute();
+        const attempt = await runMutationOnce({
+          toolCallId,
+          toolName: "bcm_execute_cmsh",
+          target: config.headHost,
+          args: request.commands,
+        }, execute);
+        return attempt.replayed
+          ? jsonToolResult({
+              replayed: true,
+              executed: false,
+              idempotencyKey: toolCallId,
+              previousStatus: attempt.state,
+            })
+          : attempt.result;
       },
     });
 
