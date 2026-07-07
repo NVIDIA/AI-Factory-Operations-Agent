@@ -17,7 +17,7 @@ _Learn about the person you're helping. Update this as you go._
 - **Timezone:**
 
 - **Notes:**
-  Team of SREs monitoring an NVIDIA cluster; read-only interactions via OpenClaw.
+  Team of SREs operating an NVIDIA cluster through the modules enabled by the installer.
 
 ## Context
 

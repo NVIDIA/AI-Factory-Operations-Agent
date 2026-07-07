@@ -140,6 +140,25 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
   assert.match(enabled, /"approvalTimeoutMs": 45000/);
 });
 
+test("tells the assistant about edit mode only when the module is enabled", () => {
+  const readonly = render();
+  assert.match(readonly, /Mosaic edit mode is disabled/);
+  assert.doesNotMatch(readonly, /Remote commands are permitted only/);
+
+  const editable = render(
+    "--set", "modules.edit.enabled=true",
+    "--set", "modules.edit.ssh.enabled=true",
+    "--set", "modules.edit.ssh.existingSecret=remote-ssh",
+    "--set", "modules.edit.ssh.hosts[0].alias=worker-1",
+    "--set", "modules.edit.ssh.hosts[0].address=10.0.0.7",
+    "--set", "modules.edit.ssh.hosts[0].user=root",
+    "--set", "modules.edit.ssh.hosts[0].port=22",
+  );
+  assert.match(editable, /Mosaic edit mode is enabled/);
+  assert.match(editable, /call `run_remote_ssh`/);
+  assert.match(editable, /Remote commands are permitted only/);
+});
+
 test("renders an authenticated BCM admin path only for BCM edit mode", () => {
   const output = render(
     "--set",
