@@ -131,6 +131,17 @@ test("applies installer-owned API endpoint overrides outside model arguments", (
   ]);
 });
 
+test("accepts structured registered cluster settings in the plugin schema", () => {
+  const schema = JSON.parse(readFileSync(
+    new URL("../files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json", import.meta.url),
+    "utf8",
+  ));
+  const variants = schema.configSchema.properties.clusters.additionalProperties.oneOf;
+  assert.deepEqual(variants.map(variant => variant.type), ["string", "object"]);
+  assert.deepEqual(variants[1].required, ["kubeconfig"]);
+  assert.deepEqual(Object.keys(variants[1].properties), ["kubeconfig", "server", "tlsServerName"]);
+});
+
 test("blocks kubectl fallback through exec without blocking ordinary shell commands", () => {
   for (const command of [
     "kubectl get pods",

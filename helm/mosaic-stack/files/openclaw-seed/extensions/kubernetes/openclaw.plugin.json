@@ -21,7 +21,29 @@
       "clusters": {
         "type": "object",
         "additionalProperties": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kubeconfig"
+              ],
+              "properties": {
+                "kubeconfig": {
+                  "type": "string"
+                },
+                "server": {
+                  "type": "string"
+                },
+                "tlsServerName": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
         }
       },
       "maxOutputBytes": {
