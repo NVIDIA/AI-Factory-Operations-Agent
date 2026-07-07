@@ -29,6 +29,22 @@ export type KubectlRequest = {
   manifestSha256?: string;
 };
 
+function quoteCommandArg(value: string) {
+  return /^[a-zA-Z0-9_./:=@+-]+$/.test(value) ? value : `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+export function formatKubectlApproval(request: KubectlRequest, cluster: string) {
+  const description = [
+    `Cluster: ${cluster}`,
+    `Command: ${["kubectl", ...request.args].map(quoteCommandArg).join(" ")}`,
+  ];
+  if (request.manifest) description.push("Standard input:", JSON.stringify(JSON.parse(request.manifest), null, 2));
+  return {
+    title: `${request.args[0]} ${request.targets[0]}`.slice(0, 80),
+    description: description.join("\n"),
+  };
+}
+
 function flagName(arg: string) {
   return arg.startsWith("--") ? arg.split("=", 1)[0] : arg;
 }

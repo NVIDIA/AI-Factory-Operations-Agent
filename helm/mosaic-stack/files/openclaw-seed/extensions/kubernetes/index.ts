@@ -6,6 +6,7 @@ import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import {
   classifyKubectlRequest,
+  formatKubectlApproval,
   isKubectlExecFallback,
   resolveCluster,
   type KubernetesClusterConfig,
@@ -68,12 +69,10 @@ export default definePluginEntry({
         );
         if (!request.mutating || !settings.hitl) return;
         const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
-        const target = request.targets.join(", ");
-        const digest = request.manifestSha256 ? ` Manifest SHA-256: ${request.manifestSha256}.` : "";
+        const approval = formatKubectlApproval(request, cluster.name);
         return {
           requireApproval: {
-            title: `${request.args[0]} ${request.targets[0]}`.slice(0, 80),
-            description: `${request.args[0]} ${target} on Kubernetes cluster ${cluster.name}.${digest}`.slice(0, 256),
+            ...approval,
             severity: "warning",
             timeoutMs: settings.approvalTimeoutMs,
             timeoutBehavior: "deny",

@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   classifyKubectlRequest,
+  formatKubectlApproval,
   isKubectlExecFallback,
   resolveCluster,
   validateKubectlArgs,
@@ -74,6 +75,15 @@ test("allows only stdin apply and exact-name delete when edit mode is enabled", 
   assert.deepEqual(apply.targets, ["ConfigMap/edit-test in namespace mosaic-edit-e2e-test"]);
   assert.equal(apply.manifestSha256?.length, 64);
   assert.deepEqual(JSON.parse(apply.manifest), manifest);
+  assert.deepEqual(formatKubectlApproval(apply, "local"), {
+    title: "apply ConfigMap/edit-test in namespace mosaic-edit-e2e-test",
+    description: [
+      "Cluster: local",
+      "Command: kubectl apply -f -",
+      "Standard input:",
+      JSON.stringify(manifest, null, 2),
+    ].join("\n"),
+  });
   assert.deepEqual(classifyKubectlRequest(["delete", "configmap", "edit-test", "-n", "mosaic-edit-e2e-test"], undefined, true), {
     args: ["delete", "configmap", "edit-test", "-n", "mosaic-edit-e2e-test"],
     mutating: true,
@@ -170,6 +180,7 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /never retry with exec or another tool/);
   assert.match(source, /requireApproval:/);
   assert.match(source, /timeoutBehavior: "deny"/);
+  assert.match(source, /formatKubectlApproval/);
   assert.match(source, /request\.manifestSha256/);
   assert.match(source, /settings\.editEnabled && !isReadonlyAutomationSession\(context\.sessionKey\)/);
   assert.doesNotMatch(source, /instruction:/);
