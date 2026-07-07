@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifyCmshRequest } from "./policy.ts";
 
@@ -567,10 +568,20 @@ export default definePluginEntry({
       }
     };
 
-    api.on("before_tool_call", event => {
+    api.on("before_tool_call", (event, context) => {
+      if (isReadonlyAutomationSession(context.sessionKey)
+          && (event.toolName === "bcm_add_note" || event.toolName === "bcm_remove_note")) {
+        return {
+          block: true,
+          blockReason: "Automated Mosaic sessions cannot change BCM notes.",
+        };
+      }
       if (event.toolName !== "bcm_execute_cmsh") return;
       try {
-        const request = classifyCmshRequest(event.params.commands, config.editEnabled);
+        const request = classifyCmshRequest(
+          event.params.commands,
+          config.editEnabled && !isReadonlyAutomationSession(context.sessionKey),
+        );
         if (!request.mutating || !config.hitl) return;
         return {
           requireApproval: {

@@ -23,6 +23,17 @@ test("startup-loads the remote SSH approval hook", () => {
   assert.equal(manifest.activation?.onStartup, true);
 });
 
+test("startup-loads the automation read-only guard", () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL("../files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json", import.meta.url)),
+  );
+  assert.equal(manifest.activation?.onStartup, true);
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(seed, /"automation-guard":\s*{\s*"enabled": true/);
+  assert.match(seed, /automation-context\.ts: \|-/);
+  assert.match(render("--show-only", "templates/openclaw.yaml"), /cp \/seed\/automation-guard\.index\.ts/);
+});
+
 function render(...args) {
   return execFileSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args], {
     encoding: "utf8",

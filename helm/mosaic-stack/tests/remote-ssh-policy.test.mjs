@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { classifySshRequest, normalizeHosts, quoteRemoteArg } from "../files/openclaw-seed/extensions/remote-ssh/policy.ts";
 import { buildSshArgs, redactSshOutput } from "../files/openclaw-seed/extensions/remote-ssh/runner.ts";
@@ -72,4 +73,12 @@ test("redacts all credential paths from process output", () => {
   assert.doesNotMatch(output, /\/var\/run\/mosaic-ssh/);
   assert.match(output, /<ssh-private-key>/);
   assert.match(output, /<ssh-known-hosts>/);
+});
+
+test("blocks remote SSH in readonly automation sessions", () => {
+  const source = readFileSync(
+    new URL("../files/openclaw-seed/extensions/remote-ssh/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /isReadonlyAutomationSession\(context\.sessionKey\)/);
 });

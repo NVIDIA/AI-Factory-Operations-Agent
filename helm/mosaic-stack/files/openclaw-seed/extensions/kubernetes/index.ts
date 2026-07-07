@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifyKubectlRequest, isKubectlExecFallback, resolveCluster } from "./policy.ts";
 import { runKubectl } from "./runner.ts";
@@ -46,7 +47,7 @@ export default definePluginEntry({
   register(api) {
     const settings = config(api.pluginConfig);
 
-    api.on("before_tool_call", (event) => {
+    api.on("before_tool_call", (event, context) => {
       if (isKubectlExecFallback(event.toolName, event.params)) {
         return {
           block: true,
@@ -55,7 +56,11 @@ export default definePluginEntry({
       }
       if (event.toolName !== "run_kubectl") return;
       try {
-        const request = classifyKubectlRequest(event.params.args, event.params.manifest, settings.editEnabled);
+        const request = classifyKubectlRequest(
+          event.params.args,
+          event.params.manifest,
+          settings.editEnabled && !isReadonlyAutomationSession(context.sessionKey),
+        );
         if (!request.mutating || !settings.hitl) return;
         const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
         const target = request.targets.join(", ");

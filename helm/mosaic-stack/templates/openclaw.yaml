@@ -116,7 +116,8 @@ spec:
               set -eu
               mkdir -p /home/node/.openclaw/tmp/openclaw
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
-              rm -rf /home/node/.openclaw/extensions/dcgm \
+              rm -rf /home/node/.openclaw/extensions/automation-guard \
+                /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/diagnostic-agent \
                 /home/node/.openclaw/extensions/grafana \
                 /home/node/.openclaw/extensions/iraop \
@@ -127,7 +128,13 @@ spec:
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
-              rm -f /home/node/.openclaw/extensions/mutation-ledger.ts
+              rm -f /home/node/.openclaw/extensions/automation-context.ts \
+                /home/node/.openclaw/extensions/mutation-ledger.ts
+              mkdir -p /home/node/.openclaw/extensions/automation-guard
+              cp /seed/automation-context.ts /home/node/.openclaw/extensions/automation-context.ts
+              cp /seed/automation-guard.index.ts /home/node/.openclaw/extensions/automation-guard/index.ts
+              cp /seed/automation-guard.openclaw.plugin.json /home/node/.openclaw/extensions/automation-guard/openclaw.plugin.json
+              cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json
               {{- if .Values.modules.edit.enabled }}
               cp /seed/mutation-ledger.ts /home/node/.openclaw/extensions/mutation-ledger.ts
               {{- end }}

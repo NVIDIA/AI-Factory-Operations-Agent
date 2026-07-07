@@ -136,6 +136,7 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /requireApproval:/);
   assert.match(source, /timeoutBehavior: "deny"/);
   assert.match(source, /request\.manifestSha256/);
+  assert.match(source, /settings\.editEnabled && !isReadonlyAutomationSession\(context\.sessionKey\)/);
   assert.doesNotMatch(source, /instruction:/);
 });
 

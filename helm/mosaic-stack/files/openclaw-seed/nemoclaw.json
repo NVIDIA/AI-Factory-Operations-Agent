@@ -89,6 +89,7 @@
   },
   "plugins": {
     "allow": [
+      "automation-guard",
       "bcm",
       "diagnostic-agent",
       "grafana",
@@ -101,6 +102,9 @@
       "llm"
     ],
     "entries": {
+      "automation-guard": {
+        "enabled": true
+      },
       "llm": {
         "enabled": true
       },

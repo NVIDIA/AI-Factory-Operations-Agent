@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import { classifySshRequest, normalizeHosts } from "./policy.ts";
 import { runSsh } from "./runner.ts";
@@ -45,8 +46,14 @@ export default definePluginEntry({
   register(api) {
     const settings = config(api.pluginConfig);
 
-    api.on("before_tool_call", (event) => {
+    api.on("before_tool_call", (event, context) => {
       if (event.toolName !== "run_remote_ssh") return;
+      if (isReadonlyAutomationSession(context.sessionKey)) {
+        return {
+          block: true,
+          blockReason: "Automated Mosaic sessions cannot run remote SSH commands.",
+        };
+      }
       try {
         const request = classifySshRequest(event.params, settings.hosts);
         if (!settings.hitl) return;

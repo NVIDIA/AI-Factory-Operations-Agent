@@ -23,6 +23,14 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/TOOLS.md" | indent 4 }}
   USER.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
+  automation-context.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-context.ts" | indent 4 }}
+  automation-guard.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/index.ts" | indent 4 }}
+  automation-guard.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json" | indent 4 }}
+  automation-guard.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/package.json" | indent 4 }}
   {{- if .Values.modules.edit.enabled }}
   mutation-ledger.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/mutation-ledger.ts" | indent 4 }}
