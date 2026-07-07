@@ -19,6 +19,11 @@
 {{- if and .Values.modules.slurm.enabled (ne (include "mosaic-stack.slurmBcmEnabled" .) "true") (not .Values.modules.slurm.evidenceCollector.enabled) -}}
 {{- fail "vanilla Slurm requires modules.slurm.evidenceCollector.enabled=true" -}}
 {{- end -}}
+{{- range .Values.kubernetes.clusters -}}
+{{- if and .server (not (regexMatch "^https://[^[:space:]]+$" .server)) -}}
+{{- fail (printf "kubernetes cluster %q server must be an https URL" .name) -}}
+{{- end -}}
+{{- end -}}
 {{- if eq .Values.llm.mode "external" -}}
 {{- if not .Values.llm.external.baseUrl -}}
 {{- fail "llm.external.baseUrl is required when llm.mode=external" -}}

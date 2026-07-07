@@ -4,13 +4,18 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
-import { classifyKubectlRequest, isKubectlExecFallback, resolveCluster } from "./policy.ts";
+import {
+  classifyKubectlRequest,
+  isKubectlExecFallback,
+  resolveCluster,
+  type KubernetesClusterConfig,
+} from "./policy.ts";
 import { runKubectl } from "./runner.ts";
 
 type KubernetesConfig = {
   command?: string;
   defaultCluster?: string;
-  clusters?: Record<string, string>;
+  clusters?: Record<string, string | KubernetesClusterConfig>;
   maxOutputBytes?: number;
   timeoutMs?: number;
   editEnabled?: boolean;
@@ -146,6 +151,8 @@ export default definePluginEntry({
           settings.timeoutMs,
           settings.maxOutputBytes,
           request.manifest,
+          cluster.server,
+          cluster.tlsServerName,
         );
         const attempt = request.mutating
           ? await runMutationOnce({

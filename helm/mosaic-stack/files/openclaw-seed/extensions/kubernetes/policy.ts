@@ -170,12 +170,25 @@ export function validateKubectlArgs(value: unknown): string[] {
   return classifyKubectlRequest(value, undefined, false).args;
 }
 
-export function resolveCluster(requested: unknown, defaultCluster: string, clusters: Record<string, string>) {
+export type KubernetesClusterConfig = {
+  kubeconfig: string;
+  server?: string;
+  tlsServerName?: string;
+};
+
+export function resolveCluster(
+  requested: unknown,
+  defaultCluster: string,
+  clusters: Record<string, string | KubernetesClusterConfig>,
+) {
   if (requested !== undefined && (typeof requested !== "string" || !requested.trim())) {
     throw new Error("cluster must be a non-empty string");
   }
   const name = typeof requested === "string" ? requested.trim() : defaultCluster;
-  const kubeconfig = clusters[name];
-  if (!kubeconfig) throw new Error("unknown Kubernetes cluster: " + name);
-  return { name, kubeconfig };
+  const configured = clusters[name];
+  if (!configured) throw new Error("unknown Kubernetes cluster: " + name);
+  return {
+    name,
+    ...(typeof configured === "string" ? { kubeconfig: configured } : configured),
+  };
 }

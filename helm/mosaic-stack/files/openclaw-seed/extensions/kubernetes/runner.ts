@@ -3,6 +3,20 @@
 
 import { spawn } from "node:child_process";
 
+export function kubectlArgv(
+  kubeconfig: string,
+  args: string[],
+  server?: string,
+  tlsServerName?: string,
+) {
+  return [
+    "--kubeconfig", kubeconfig,
+    ...(server ? ["--server", server] : []),
+    ...(tlsServerName ? ["--tls-server-name", tlsServerName] : []),
+    ...args,
+  ];
+}
+
 export function runKubectl(
   command: string,
   args: string[],
@@ -10,9 +24,11 @@ export function runKubectl(
   timeoutMs: number,
   maxOutputBytes: number,
   stdin?: string,
+  server?: string,
+  tlsServerName?: string,
 ) {
   return new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(command, ["--kubeconfig", kubeconfig, ...args], {
+    const child = spawn(command, kubectlArgv(kubeconfig, args, server, tlsServerName), {
       env: { ...process.env, KUBECONFIG: kubeconfig },
       shell: false,
       stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],

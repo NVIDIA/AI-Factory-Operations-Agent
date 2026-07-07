@@ -89,10 +89,14 @@ test("renders named external Kubernetes clusters from Secrets", () => {
     "kubernetes.clusters[0].kubeconfigSecretRef.name=remote-kubeconfig",
     "--set",
     "kubernetes.clusters[0].kubeconfigSecretRef.key=config",
+    "--set",
+    "kubernetes.clusters[0].server=https://bcm-head.example.com:11443",
+    "--set",
+    "kubernetes.clusters[0].tlsServerName=127.0.0.1",
   );
   assert.ok(output.includes("name: kubernetes-external-0"));
   assert.ok(output.includes('secretName: "remote-kubeconfig"'));
-  assert.ok(output.includes('"remote":"/var/run/mosaic-kubernetes-external/remote/config"'));
+  assert.match(output, /"remote":\{[^}]*"kubeconfig":"\/var\/run\/mosaic-kubernetes-external\/remote\/config"[^}]*"server":"https:\/\/bcm-head\.example\.com:11443"[^}]*"tlsServerName":"127\.0\.0\.1"/);
 });
 
 test("renders read-only Kubernetes RBAC including metrics without Secrets or pod execution", () => {

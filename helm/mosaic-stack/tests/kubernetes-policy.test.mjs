@@ -10,6 +10,7 @@ import {
   resolveCluster,
   validateKubectlArgs,
 } from "../files/openclaw-seed/extensions/kubernetes/policy.ts";
+import { kubectlArgv } from "../files/openclaw-seed/extensions/kubernetes/runner.ts";
 
 const allowed = [
   ["get", "pods", "-A", "-o", "wide"],
@@ -95,7 +96,14 @@ test("keeps mutation disabled by default and blocks unsafe edit shapes", () => {
 });
 
 test("resolves only registered clusters", () => {
-  const clusters = { local: "/clusters/local/config", remote: "/clusters/remote/config" };
+  const clusters = {
+    local: "/clusters/local/config",
+    remote: {
+      kubeconfig: "/clusters/remote/config",
+      server: "https://bcm-head.example.com:11443",
+      tlsServerName: "127.0.0.1",
+    },
+  };
   assert.deepEqual(resolveCluster(undefined, "local", clusters), {
     name: "local",
     kubeconfig: "/clusters/local/config",
@@ -103,8 +111,24 @@ test("resolves only registered clusters", () => {
   assert.deepEqual(resolveCluster("remote", "local", clusters), {
     name: "remote",
     kubeconfig: "/clusters/remote/config",
+    server: "https://bcm-head.example.com:11443",
+    tlsServerName: "127.0.0.1",
   });
   assert.throws(() => resolveCluster("missing", "local", clusters));
+});
+
+test("applies installer-owned API endpoint overrides outside model arguments", () => {
+  assert.deepEqual(kubectlArgv(
+    "/clusters/remote/config",
+    ["get", "nodes"],
+    "https://bcm-head.example.com:11443",
+    "127.0.0.1",
+  ), [
+    "--kubeconfig", "/clusters/remote/config",
+    "--server", "https://bcm-head.example.com:11443",
+    "--tls-server-name", "127.0.0.1",
+    "get", "nodes",
+  ]);
 });
 
 test("blocks kubectl fallback through exec without blocking ordinary shell commands", () => {
