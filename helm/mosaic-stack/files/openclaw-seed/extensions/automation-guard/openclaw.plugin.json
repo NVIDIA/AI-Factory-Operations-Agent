@@ -6,6 +6,10 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "editEnabled": {
+        "type": "boolean"
+      }
+    }
   }
 }

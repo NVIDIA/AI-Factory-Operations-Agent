@@ -103,7 +103,10 @@
     ],
     "entries": {
       "automation-guard": {
-        "enabled": true
+        "enabled": true,
+        "config": {
+          "editEnabled": {{ .Values.modules.edit.enabled }}
+        }
       },
       "llm": {
         "enabled": true

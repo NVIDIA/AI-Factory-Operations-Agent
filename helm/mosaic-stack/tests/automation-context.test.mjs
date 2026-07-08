@@ -4,9 +4,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  blocksAutomationTool,
   isReadonlyAutomationSession,
   readonlyAutomationSource,
+  sessionAccessMode,
+  sessionAllowsEdit,
+  toolRequiresEdit,
 } from "../files/openclaw-seed/extensions/automation-context.ts";
 
 for (const [sessionKey, source] of [
@@ -25,12 +27,25 @@ test("does not trust unrelated session names", () => {
   }
 });
 
-test("blocks generic mutation tools only in automation sessions", () => {
-  const sessionKey = "agent:default:mosaic-automation-cluster-monitor-local";
+test("defaults conversations to view and never enables automation edits", () => {
+  assert.equal(sessionAccessMode(undefined), "view");
+  assert.equal(sessionAccessMode({ mode: "view" }), "view");
+  assert.equal(sessionAccessMode({ mode: "edit" }), "edit");
+  assert.equal(sessionAllowsEdit("agent:default:interactive", { mode: "edit" }), true);
+  assert.equal(sessionAllowsEdit("agent:default:interactive", undefined), false);
+  assert.equal(sessionAllowsEdit("agent:default:mosaic-automation-cluster-monitor-local", { mode: "edit" }), false);
+});
+
+test("classifies generic, Kubernetes, and BCM mutations", () => {
   for (const tool of ["exec", "write", "edit", "apply_patch", "run_remote_ssh", "bcm_add_note", "bcm_remove_note"]) {
-    assert.equal(blocksAutomationTool(tool, sessionKey), true, tool);
-    assert.equal(blocksAutomationTool(tool, "agent:default:interactive"), false, tool);
+    assert.equal(toolRequiresEdit(tool), true, tool);
   }
-  assert.equal(blocksAutomationTool("run_kubectl", sessionKey), false);
-  assert.equal(blocksAutomationTool("bcm_execute_cmsh", sessionKey), false);
+  assert.equal(toolRequiresEdit("run_kubectl", { args: ["get", "pods"] }), false);
+  assert.equal(toolRequiresEdit("run_kubectl", {
+    args: ["apply", "-f", "-"],
+    manifest: { apiVersion: "v1", kind: "ConfigMap", metadata: { name: "demo", namespace: "default" } },
+  }), true);
+  assert.equal(toolRequiresEdit("bcm_execute_cmsh", { commands: "device; list" }), false);
+  assert.equal(toolRequiresEdit("bcm_execute_cmsh", { commands: "device; use dgx-01; set notes demo; commit" }), true);
+  assert.equal(toolRequiresEdit("observability_query"), false);
 });

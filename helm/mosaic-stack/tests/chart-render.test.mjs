@@ -29,7 +29,8 @@ test("startup-loads the automation read-only guard", () => {
   );
   assert.equal(manifest.activation?.onStartup, true);
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
-  assert.match(seed, /"automation-guard":\s*{\s*"enabled": true/);
+  assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"config":\s*{\s*"editEnabled": false/);
+  assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);
   assert.match(seed, /automation-context\.ts: \|-/);
   assert.match(render("--show-only", "templates/openclaw.yaml"), /cp \/seed\/automation-guard\.index\.ts/);
 });
