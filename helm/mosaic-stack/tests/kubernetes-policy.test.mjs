@@ -10,7 +10,7 @@ import {
   isKubectlExecFallback,
   resolveCluster,
   validateKubectlArgs,
-} from "../files/openclaw-seed/extensions/kubernetes/policy.ts";
+} from "../files/openclaw-seed/extensions/kubernetes-policy.ts";
 import { kubectlArgv } from "../files/openclaw-seed/extensions/kubernetes/runner.ts";
 
 const allowed = [

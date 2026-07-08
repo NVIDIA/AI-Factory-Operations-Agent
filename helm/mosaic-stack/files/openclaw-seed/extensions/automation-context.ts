@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const AUTOMATION_SESSION = /(?:^|:)mosaic-automation-(cluster-monitor|alert)-[a-z0-9][a-z0-9_-]*(?::|$)/i;
-import { classifyCmshRequest } from "./bcm/policy.ts";
-import { classifyKubectlRequest } from "./kubernetes/policy.ts";
+import { classifyCmshRequest } from "./bcm-policy.ts";
+import { classifyKubectlRequest } from "./kubernetes-policy.ts";
 
 const ALWAYS_MUTATING_TOOLS = new Set([
   "apply_patch",

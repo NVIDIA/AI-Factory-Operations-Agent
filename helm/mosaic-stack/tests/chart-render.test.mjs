@@ -32,7 +32,19 @@ test("startup-loads the automation read-only guard", () => {
   assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"config":\s*{\s*"editEnabled": false/);
   assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);
   assert.match(seed, /automation-context\.ts: \|-/);
-  assert.match(render("--show-only", "templates/openclaw.yaml"), /cp \/seed\/automation-guard\.index\.ts/);
+  const runtime = render("--show-only", "templates/openclaw.yaml");
+  assert.match(runtime, /cp \/seed\/automation-guard\.index\.ts/);
+  assert.match(runtime, /cp \/seed\/bcm-policy\.ts/);
+  assert.match(runtime, /cp \/seed\/kubernetes-policy\.ts/);
+
+  const withoutOptionalPlugins = render(
+    "--set", "modules.bcm.enabled=false",
+    "--set", "bcmMcp.enabled=false",
+    "--set", "modules.kubernetes.enabled=false",
+    "--show-only", "templates/openclaw-seed-configmap.yaml",
+  );
+  assert.match(withoutOptionalPlugins, /bcm-policy\.ts: \|-/);
+  assert.match(withoutOptionalPlugins, /kubernetes-policy\.ts: \|-/);
 });
 
 function render(...args) {
