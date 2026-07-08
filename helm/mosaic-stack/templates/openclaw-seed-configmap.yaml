@@ -25,10 +25,6 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
   automation-context.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-context.ts" | indent 4 }}
-  bcm-policy.ts: |-
-{{ .Files.Get "files/openclaw-seed/extensions/bcm-policy.ts" | indent 4 }}
-  kubernetes-policy.ts: |-
-{{ .Files.Get "files/openclaw-seed/extensions/kubernetes-policy.ts" | indent 4 }}
   automation-guard.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-guard/index.ts" | indent 4 }}
   automation-guard.openclaw.plugin.json: |-
@@ -112,8 +108,6 @@ data:
   {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
   bcm.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/bcm/index.ts" | indent 4 }}
-  bcm.policy.ts: |-
-{{ .Files.Get "files/openclaw-seed/extensions/bcm/policy.ts" | indent 4 }}
   bcm.openclaw.plugin.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/bcm/openclaw.plugin.json" | indent 4 }}
   bcm.package.json: |-

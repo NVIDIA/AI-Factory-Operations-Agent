@@ -103,7 +103,7 @@ EOF
 local_kubectl -n "$NAMESPACE" create secret generic local-kubeconfig --from-file=config="$TMP/local-config"
 local_kubectl -n "$NAMESPACE" create secret generic external-kubeconfig --from-file=config="$TMP/external-config"
 local_kubectl -n "$NAMESPACE" create configmap kubernetes-plugin-e2e \
-  --from-file=policy.ts="$ROOT/files/openclaw-seed/extensions/kubernetes-policy.ts" \
+  --from-file=policy.ts="$ROOT/files/openclaw-seed/extensions/kubernetes/policy.ts" \
   --from-file=runner.ts="$ROOT/files/openclaw-seed/extensions/kubernetes/runner.ts" \
   --from-file=e2e.ts="$ROOT/tests/kubernetes-kind-client-e2e.ts"
 

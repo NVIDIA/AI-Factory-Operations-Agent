@@ -31,7 +31,7 @@ export default definePluginEntry({
       evaluate(event, context) {
         let mutating = false;
         try {
-          mutating = toolRequiresEdit(event.toolName, event.params);
+          mutating = toolRequiresEdit(event.toolName);
         } catch {
           mutating = true;
         }

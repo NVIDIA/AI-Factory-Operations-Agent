@@ -36,16 +36,14 @@ test("defaults conversations to view and never enables automation edits", () => 
   assert.equal(sessionAllowsEdit("agent:default:mosaic-automation-cluster-monitor-local", { mode: "edit" }), false);
 });
 
-test("classifies generic, Kubernetes, and BCM mutations", () => {
-  for (const tool of ["exec", "write", "edit", "apply_patch", "run_remote_ssh", "bcm_add_note", "bcm_remove_note"]) {
+test("uses fixed tool capabilities instead of classifying command text", () => {
+  for (const tool of [
+    "exec", "write", "edit", "apply_patch", "run_remote_ssh",
+    "run_kubectl_admin", "bcm_execute_cmsh_admin", "bcm_add_note", "bcm_remove_note",
+  ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
   }
-  assert.equal(toolRequiresEdit("run_kubectl", { args: ["get", "pods"] }), false);
-  assert.equal(toolRequiresEdit("run_kubectl", {
-    args: ["apply", "-f", "-"],
-    manifest: { apiVersion: "v1", kind: "ConfigMap", metadata: { name: "demo", namespace: "default" } },
-  }), true);
-  assert.equal(toolRequiresEdit("bcm_execute_cmsh", { commands: "device; list" }), false);
-  assert.equal(toolRequiresEdit("bcm_execute_cmsh", { commands: "device; use dgx-01; set notes demo; commit" }), true);
+  assert.equal(toolRequiresEdit("run_kubectl"), false);
+  assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
   assert.equal(toolRequiresEdit("observability_query"), false);
 });

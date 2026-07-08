@@ -35,17 +35,7 @@ test("startup-loads the automation read-only guard", () => {
   assert.match(seed, /automation-context\.ts: \|-/);
   const runtime = render("--show-only", "templates/openclaw.yaml");
   assert.match(runtime, /cp \/seed\/automation-guard\.index\.ts/);
-  assert.match(runtime, /cp \/seed\/bcm-policy\.ts/);
-  assert.match(runtime, /cp \/seed\/kubernetes-policy\.ts/);
-
-  const withoutOptionalPlugins = render(
-    "--set", "modules.bcm.enabled=false",
-    "--set", "bcmMcp.enabled=false",
-    "--set", "modules.kubernetes.enabled=false",
-    "--show-only", "templates/openclaw-seed-configmap.yaml",
-  );
-  assert.match(withoutOptionalPlugins, /bcm-policy\.ts: \|-/);
-  assert.match(withoutOptionalPlugins, /kubernetes-policy\.ts: \|-/);
+  assert.doesNotMatch(runtime, /cp \/seed\/(?:bcm|kubernetes)-policy\.ts/);
 });
 
 function render(...args) {
@@ -214,7 +204,7 @@ test("renders an authenticated BCM admin path only for BCM edit mode", () => {
   assert.match(output, /name: MOSAIC_BCM_MCP_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: bcm-mcp-auth\s+key: BCM_MCP_TOKEN/);
   assert.match(output, /"authToken": "\$\{MOSAIC_BCM_MCP_TOKEN\}"/);
   assert.match(output, /"editEnabled": true/);
-  assert.match(output, /bcm\.policy\.ts: \|-/);
+  assert.match(output, /bcm_execute_cmsh_admin/);
   assert.doesNotMatch(output, /"authToken": "[A-Za-z0-9]{48}"/);
 });
 

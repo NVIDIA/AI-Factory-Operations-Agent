@@ -12,6 +12,7 @@
       "bcm_search_tools",
       "bcm_execute_tool",
       "bcm_execute_cmsh",
+      "bcm_execute_cmsh_admin",
       "slurm_job_evidence",
       "bcm_list_notes",
       "bcm_search_notes",

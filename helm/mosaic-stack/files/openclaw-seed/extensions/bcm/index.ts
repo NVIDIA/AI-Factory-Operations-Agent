@@ -4,7 +4,6 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { isReadonlyAutomationSession } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
-import { classifyCmshRequest } from "./policy.ts";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
 const DEFAULT_BCM_HEAD_HOST = "";
@@ -151,6 +150,12 @@ function readConfig(pluginConfig: unknown): BcmConfig {
 
 function truncate(value: string, maxChars = MAX_EVENT_CHARS) {
   return value.length > maxChars ? `${value.slice(0, maxChars).trim()}\n...(truncated)` : value;
+}
+
+function cmshCommands(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) throw new Error("commands is required");
+  if (value.length > 4096 || value.includes("\0")) throw new Error("commands must not exceed 4096 characters");
+  return value.replace(/\r\n?/g, "\n").trim();
 }
 
 function textFromResult(result: unknown) {
@@ -569,24 +574,21 @@ export default definePluginEntry({
     };
 
     api.on("before_tool_call", (event, context) => {
-      if (isReadonlyAutomationSession(context.sessionKey)
-          && (event.toolName === "bcm_add_note" || event.toolName === "bcm_remove_note")) {
+      const automated = isReadonlyAutomationSession(context.sessionKey);
+      if (automated && ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName)) {
         return {
           block: true,
-          blockReason: "Automated Mosaic sessions cannot change BCM notes.",
+          blockReason: "Automated Mosaic sessions cannot use BCM mutation tools.",
         };
       }
-      if (event.toolName !== "bcm_execute_cmsh") return;
+      if (event.toolName !== "bcm_execute_cmsh_admin") return;
       try {
-        const request = classifyCmshRequest(
-          event.params.commands,
-          config.editEnabled && !isReadonlyAutomationSession(context.sessionKey),
-        );
-        if (!request.mutating || !config.hitl) return;
+        const commands = cmshCommands(event.params.commands);
+        if (!config.hitl) return;
         return {
           requireApproval: {
             title: "BCM CMSH change",
-            description: `${request.commands} on BCM head ${config.headHost}`.slice(0, 256),
+            description: `${commands} on BCM head ${config.headHost}`.slice(0, 256),
             severity: "critical",
             timeoutMs: config.approvalTimeoutMs,
             timeoutBehavior: "deny",
@@ -755,7 +757,7 @@ export default definePluginEntry({
     if (config.cmshEnabled) registerTool({
       name: "bcm_execute_cmsh",
       label: "BCM Execute CMSH",
-      description: "Execute CMSH through bcm-mcp-tools. Read commands use the readonly BCM identity. Edit mode permits validated changes through a separate admin path and may require approval. Use cmsh -c style semicolon-separated commands.",
+      description: "Execute CMSH through the BCM readonly identity. This tool never uses admin access and never requests approval. Use cmsh -c style semicolon-separated commands.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -765,19 +767,40 @@ export default definePluginEntry({
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
-        const request = classifyCmshRequest(rawParams.commands, config.editEnabled);
-        const execute = () => callBcmTool(
+        return callBcmTool(
           config,
-          request.mutating ? "execute_cmsh_admin" : "execute_cmsh",
-          bcmToolArgs(config, { commands: request.commands }),
+          "execute_cmsh",
+          bcmToolArgs(config, { commands: cmshCommands(rawParams.commands) }),
           subagentOptions(config, toolCallId, "bcm_execute_cmsh", "BCM CMSH"),
         );
-        if (!request.mutating) return execute();
+      },
+    });
+
+    if (config.editEnabled && config.cmshEnabled) registerTool({
+      name: "bcm_execute_cmsh_admin",
+      label: "BCM Execute CMSH Admin",
+      description: "Execute one CMSH request through the configured BCM admin identity. This tool always uses edit capability and may require approval. Use bcm_execute_cmsh for every readonly request.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["commands"],
+        properties: {
+          commands: { type: "string", description: "Exact CMSH command body in cmsh -c semicolon-separated form." },
+        },
+      },
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        const commands = cmshCommands(rawParams.commands);
+        const execute = () => callBcmTool(
+          config,
+          "execute_cmsh_admin",
+          bcmToolArgs(config, { commands }),
+          subagentOptions(config, toolCallId, "bcm_execute_cmsh_admin", "BCM CMSH admin"),
+        );
         const attempt = await runMutationOnce({
           toolCallId,
-          toolName: "bcm_execute_cmsh",
+          toolName: "bcm_execute_cmsh_admin",
           target: config.headHost,
-          args: request.commands,
+          args: commands,
         }, execute);
         return attempt.replayed
           ? jsonToolResult({

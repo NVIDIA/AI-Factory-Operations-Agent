@@ -129,13 +129,9 @@ spec:
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
               rm -f /home/node/.openclaw/extensions/automation-context.ts \
-                /home/node/.openclaw/extensions/bcm-policy.ts \
-                /home/node/.openclaw/extensions/kubernetes-policy.ts \
                 /home/node/.openclaw/extensions/mutation-ledger.ts
               mkdir -p /home/node/.openclaw/extensions/automation-guard
               cp /seed/automation-context.ts /home/node/.openclaw/extensions/automation-context.ts
-              cp /seed/bcm-policy.ts /home/node/.openclaw/extensions/bcm-policy.ts
-              cp /seed/kubernetes-policy.ts /home/node/.openclaw/extensions/kubernetes-policy.ts
               cp /seed/automation-guard.index.ts /home/node/.openclaw/extensions/automation-guard/index.ts
               cp /seed/automation-guard.openclaw.plugin.json /home/node/.openclaw/extensions/automation-guard/openclaw.plugin.json
               cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json
@@ -239,7 +235,6 @@ spec:
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
               cp /seed/bcm.SKILL.md /home/node/.openclaw/workspace/skills/bcm/SKILL.md
               cp /seed/bcm.index.ts /home/node/.openclaw/extensions/bcm/index.ts
-              cp /seed/bcm.policy.ts /home/node/.openclaw/extensions/bcm/policy.ts
               cp /seed/bcm.openclaw.plugin.json /home/node/.openclaw/extensions/bcm/openclaw.plugin.json
               cp /seed/bcm.package.json /home/node/.openclaw/extensions/bcm/package.json
               {{- end }}

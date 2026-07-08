@@ -2,7 +2,8 @@
   "id": "kubernetes",
   "contracts": {
     "tools": [
-      "run_kubectl"
+      "run_kubectl",
+      "run_kubectl_admin"
     ]
   },
   "activation": {
