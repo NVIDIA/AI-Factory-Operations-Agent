@@ -28,6 +28,7 @@ test("startup-loads the automation read-only guard", () => {
     readFileSync(new URL("../files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json", import.meta.url)),
   );
   assert.equal(manifest.activation?.onStartup, true);
+  assert.deepEqual(manifest.contracts?.trustedToolPolicies, ["session-access"]);
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"config":\s*{\s*"editEnabled": false/);
   assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);

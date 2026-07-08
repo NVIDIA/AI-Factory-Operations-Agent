@@ -1,5 +1,8 @@
 {
   "id": "automation-guard",
+  "contracts": {
+    "trustedToolPolicies": ["session-access"]
+  },
   "activation": {
     "onStartup": true
   },
