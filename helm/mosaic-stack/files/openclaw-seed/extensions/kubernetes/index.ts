@@ -191,7 +191,7 @@ export default definePluginEntry({
       name: "run_kubectl_admin",
       label: "Kubernetes Admin",
       description:
-        "Apply one structured workload manifest or delete one exact named workload resource. This tool always uses edit capability and may require approval. Use run_kubectl for every read.",
+        "Apply one structured workload manifest with args exactly [\"apply\", \"-f\", \"-\"], or delete one exact named workload resource. This tool always uses edit capability and may require approval. After success, report this result directly without a verification read unless the user requested one. Use run_kubectl for every requested read.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -206,7 +206,7 @@ export default definePluginEntry({
             minItems: 1,
             maxItems: 64,
             items: { type: "string" },
-            description: "Exactly one supported apply or delete operation without the kubectl prefix.",
+            description: "Exactly one supported operation without the kubectl prefix. Apply must be exactly [\"apply\", \"-f\", \"-\"].",
           },
           manifest: {
             type: "object",
