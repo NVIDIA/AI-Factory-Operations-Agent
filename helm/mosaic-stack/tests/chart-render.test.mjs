@@ -47,7 +47,7 @@ function render(...args) {
 test("renders only official OpenClaw and OpenShell runtime images", () => {
   const output = render();
   for (const image of [
-    "ghcr.io/openclaw/openclaw:2026.6.6",
+    "ghcr.io/openclaw/openclaw:2026.6.10",
     "ghcr.io/nvidia/openshell/gateway:0.0.75",
     "ghcr.io/nvidia/openshell/supervisor:0.0.75",
     "ghcr.io/nvidia/openshell-community/sandboxes/base@sha256:aeef1c63f00e2913ea002ccb3aaf925f338b5c5d70e63576f0d95c16a138044e",

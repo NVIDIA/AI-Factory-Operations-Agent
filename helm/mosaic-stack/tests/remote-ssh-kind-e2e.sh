@@ -35,7 +35,7 @@ load_image() {
 }
 load_image alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce kind.local/alpine:3.22 "$TMP/alpine.tar"
 load_image alpine/git@sha256:e043be20669db13cbcfb6190192babee4cf2dca98709bb0c2d08ca2d35a0a06a kind.local/alpine-git:e043be20 "$TMP/alpine-git.tar"
-load_image ghcr.io/openclaw/openclaw:2026.6.6@sha256:4826ca6157377e93463786d5c16852e34eede9f4bd4be55e3773cdc509762857 kind.local/openclaw:2026.6.6 "$TMP/openclaw.tar"
+load_image ghcr.io/openclaw/openclaw:2026.6.10@sha256:2e5dd6672ecd134c33438243d2e27e4767af15323d717ff96b022fe62595f770 kind.local/openclaw:2026.6.10 "$TMP/openclaw.tar"
 k() { KUBECONFIG=$KUBECONFIG "$KUBECTL" "$@"; }
 k create namespace "$NAMESPACE"
 
@@ -158,7 +158,7 @@ spec:
           mountPath: /tools
   containers:
     - name: test
-      image: kind.local/openclaw:2026.6.6
+      image: kind.local/openclaw:2026.6.10
       imagePullPolicy: Never
       command: ["node", "--experimental-strip-types", "/app/test/e2e.ts"]
       env:

@@ -29,8 +29,8 @@ external_kubectl() { KUBECONFIG=$EXTERNAL_CONFIG "$KUBECTL" "$@"; }
 
 "$KIND" create cluster --name "$LOCAL_CLUSTER" --kubeconfig "$LOCAL_CONFIG" --wait 120s
 "$KIND" create cluster --name "$EXTERNAL_CLUSTER" --kubeconfig "$EXTERNAL_CONFIG" --wait 120s
-if "$DOCKER" image inspect ghcr.io/openclaw/openclaw:2026.6.6 >/dev/null 2>&1; then
-  "$DOCKER" save ghcr.io/openclaw/openclaw:2026.6.6 -o "$TMP/openclaw.tar"
+if "$DOCKER" image inspect ghcr.io/openclaw/openclaw:2026.6.10 >/dev/null 2>&1; then
+  "$DOCKER" save ghcr.io/openclaw/openclaw:2026.6.10 -o "$TMP/openclaw.tar"
   case $("$DOCKER" exec "$LOCAL_CLUSTER-control-plane" uname -m) in
     x86_64) platform=linux/amd64 ;;
     aarch64|arm64) platform=linux/arm64 ;;
@@ -122,7 +122,7 @@ spec:
     fsGroup: 1000
   initContainers:
     - name: kubectl
-      image: ghcr.io/openclaw/openclaw:2026.6.6
+      image: ghcr.io/openclaw/openclaw:2026.6.10
       command:
         - sh
         - -c
@@ -144,7 +144,7 @@ spec:
           mountPath: /tools
   containers:
     - name: test
-      image: ghcr.io/openclaw/openclaw:2026.6.6
+      image: ghcr.io/openclaw/openclaw:2026.6.10
       command: ["node", "--experimental-strip-types", "/test/e2e.ts"]
       securityContext:
         allowPrivilegeEscalation: false

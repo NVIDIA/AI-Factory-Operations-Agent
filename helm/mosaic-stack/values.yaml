@@ -247,7 +247,7 @@ openclaw:
   gatewayProtocol: 4
   image:
     repository: ghcr.io/openclaw/openclaw
-    tag: 2026.6.6
+    tag: 2026.6.10
     pullPolicy: IfNotPresent
   opensshInstallerImage: alpine/git@sha256:e043be20669db13cbcfb6190192babee4cf2dca98709bb0c2d08ca2d35a0a06a
   pvc:
