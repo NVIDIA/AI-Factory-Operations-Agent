@@ -7,6 +7,12 @@
 {{- if not (has .Values.modules.slurm.backend (list "auto" "vanilla" "bcm")) -}}
 {{- fail "modules.slurm.backend must be one of: auto, vanilla, bcm" -}}
 {{- end -}}
+{{- if and .Values.openclaw.slack.enabled (not .Values.openclaw.slack.existingSecret) -}}
+{{- fail "openclaw.slack.existingSecret is required when native Slack is enabled" -}}
+{{- end -}}
+{{- if and .Values.openclaw.slack.enabled (empty .Values.openclaw.slack.allowedUserIds) -}}
+{{- fail "openclaw.slack.allowedUserIds must contain at least one Slack user ID" -}}
+{{- end -}}
 {{- if and .Values.modules.slurm.enabled (eq .Values.modules.slurm.backend "bcm") (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.slurm.backend=bcm requires an enabled BCM MCP service" -}}
 {{- end -}}

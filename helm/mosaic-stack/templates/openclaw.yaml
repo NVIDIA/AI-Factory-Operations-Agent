@@ -232,6 +232,28 @@ spec:
             - name: kubernetes-configs
               mountPath: /var/run/mosaic-kubernetes
             {{- end }}
+        {{- if .Values.openclaw.slack.enabled }}
+        - name: init-slack-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force
+              node /seed/slack-enterprise-grid-patch.mjs
+          env:
+            - name: HOME
+              value: /home/node
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: openclaw-seed
+              mountPath: /seed
+        {{- end }}
         {{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") ($bcmDocs.enabled | default true) }}
         - name: init-bcm-docs
           image: {{ include "mosaic-stack.image" $bcmDocsImage | quote }}
@@ -361,12 +383,7 @@ spec:
             - -c
             - |
               set -eu
-              package=/openshell-plugin
-              rm -rf /home/node/.openclaw/extensions/openshell
-              mkdir -p /home/node/.openclaw/extensions/openshell
-              cp -R "$package"/. /home/node/.openclaw/extensions/openshell/
-              mkdir -p /home/node/.openclaw/extensions/openshell/node_modules
-              ln -sfn /app /home/node/.openclaw/extensions/openshell/node_modules/openclaw
+              node /app/dist/index.js plugins install /openshell-plugin --force
               config_root=/home/node/.openclaw/.config/openshell
               gateway_name={{ include "mosaic-stack.openshellGatewayName" . | quote }}
               gateway_endpoint={{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}
@@ -430,6 +447,18 @@ spec:
               {{- end }}
             - name: OPENCLAW_VLLM_BASE_URL
               value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
+            {{- if .Values.openclaw.slack.enabled }}
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.slack.existingSecret | quote }}
+                  key: {{ .Values.openclaw.slack.botTokenKey | quote }}
+            - name: SLACK_APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.slack.existingSecret | quote }}
+                  key: {{ .Values.openclaw.slack.appTokenKey | quote }}
+            {{- end }}
             - name: MOSAIC_PROMETHEUS_URL
               value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL

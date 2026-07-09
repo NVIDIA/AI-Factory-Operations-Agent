@@ -226,6 +226,29 @@ mosaicUi:
 openclaw:
   enabled: true
   gatewayProtocol: 4
+  slack:
+    enabled: false
+    maxConcurrent: 8
+    session:
+      dmScope: per-channel-peer
+    diagnostics:
+      stuckSessionWarnMs: 60000
+      stuckSessionAbortMs: 150000
+    existingSecret: ""
+    botTokenKey: SLACK_BOT_TOKEN
+    appTokenKey: SLACK_APP_TOKEN
+    allowedUserIds: []
+    channelMentionsEnabled: false
+    groupDmsEnabled: false
+    queueMode: followup
+    replyToModeByChatType:
+      direct: "off"
+      group: "off"
+      channel: "off"
+    streaming:
+      mode: partial
+      nativeTransport: true
+    pluginVersion: 2026.6.6
   image:
     repository: ghcr.io/openclaw/openclaw
     tag: 2026.6.6

@@ -22,6 +22,9 @@
       },
       "thinkingDefault": "off",
       "reasoningDefault": "off",
+      {{- if .Values.openclaw.slack.enabled }}
+      "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
+      {{- end }}
       "sandbox": {
         "mode": "all",
         "backend": "openshell",
@@ -39,6 +42,23 @@
       }
     ]
   },
+  {{- if .Values.openclaw.slack.enabled }}
+  "session": {
+    "dmScope": {{ .Values.openclaw.slack.session.dmScope | quote }}
+  },
+  "diagnostics": {
+    "enabled": true,
+    "stuckSessionWarnMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionWarnMs }},
+    "stuckSessionAbortMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionAbortMs }}
+  },
+  "messages": {
+    "queue": {
+      "byChannel": {
+        "slack": {{ .Values.openclaw.slack.queueMode | quote }}
+      }
+    }
+  },
+  {{- end }}
   "tools": {
     "alsoAllow": [
       "group:plugins"
@@ -51,6 +71,37 @@
       }
     }
   },
+  {{- if .Values.openclaw.slack.enabled }}
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "mode": "socket",
+      "botToken": "${SLACK_BOT_TOKEN}",
+      "appToken": "${SLACK_APP_TOKEN}",
+      "configWrites": false,
+      "allowBots": false,
+      "dmPolicy": "allowlist",
+      "allowFrom": {{ .Values.openclaw.slack.allowedUserIds | toJson }},
+      "dm": {
+        "groupEnabled": {{ .Values.openclaw.slack.groupDmsEnabled }}
+      },
+      "replyToModeByChatType": {{ .Values.openclaw.slack.replyToModeByChatType | toJson }},
+      "streaming": {{ .Values.openclaw.slack.streaming | toJson }},
+      "groupPolicy": {{ ternary "allowlist" "disabled" .Values.openclaw.slack.channelMentionsEnabled | quote }},
+      {{- if .Values.openclaw.slack.channelMentionsEnabled }}
+      "channels": {
+        "*": {
+          "enabled": true,
+          "requireMention": true,
+          "users": {{ .Values.openclaw.slack.allowedUserIds | toJson }}
+        }
+      },
+      {{- end }}
+      "unfurlLinks": false,
+      "unfurlMedia": false
+    }
+  },
+  {{- end }}
   "models": {
     "providers": {
       "llm": {
@@ -97,12 +148,16 @@
       "openshell",
       "observability",
       "slurm",
-      "llm"
+      "llm"{{- if .Values.openclaw.slack.enabled }},
+      "slack"{{- end }}
     ],
     "entries": {
       "llm": {
         "enabled": true
-      },
+      }{{- if .Values.openclaw.slack.enabled }},
+      "slack": {
+        "enabled": true
+      }{{- end }},
       "kubernetes": {
         "enabled": {{ .Values.modules.kubernetes.enabled }},
         "config": {
