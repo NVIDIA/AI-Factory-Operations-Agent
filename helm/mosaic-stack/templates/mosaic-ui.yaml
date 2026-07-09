@@ -3,6 +3,16 @@
 
 {{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
 {{- $observability := default dict .Values.observability }}
+{{- $sessionAccessPlugins := list "automation-guard" }}
+{{- if .Values.modules.kubernetes.enabled }}
+{{- $sessionAccessPlugins = append $sessionAccessPlugins "kubernetes" }}
+{{- end }}
+{{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
+{{- $sessionAccessPlugins = append $sessionAccessPlugins "bcm" }}
+{{- end }}
+{{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+{{- $sessionAccessPlugins = append $sessionAccessPlugins "remote-ssh" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -52,6 +62,8 @@ spec:
               value: {{ .Values.modules.edit.enabled | quote }}
             - name: MOSAIC_EDIT_HITL
               value: {{ .Values.modules.edit.hitl | quote }}
+            - name: MOSAIC_SESSION_ACCESS_PLUGINS
+              value: {{ join "," $sessionAccessPlugins | quote }}
             - name: MOSAIC_CLUSTERS_ENABLED
               value: {{ .Values.modules.clusters.enabled | quote }}
             {{- if .Values.modules.clusters.enabled }}

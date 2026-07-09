@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { isReadonlyAutomationSession } from "../automation-context.ts";
+import {
+  isReadonlyAutomationSession,
+  sessionAccessExtension,
+  sessionSkipsApproval,
+} from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 
 const DEFAULT_MCP_URL = "http://bcm-mcp-tools:3001/mcp";
@@ -567,39 +571,51 @@ export default definePluginEntry({
   description: "MCP streamable HTTP/SSE bridge from OpenClaw to bcm-mcp-tools diagnostics.",
   register(api) {
     const config = readConfig(api.pluginConfig);
+    api.session.state.registerSessionExtension(sessionAccessExtension);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
       if (isToolEnabled(api.pluginConfig, tool.name)) {
         api.registerTool(tool);
       }
     };
 
-    api.on("before_tool_call", (event, context) => {
-      const automated = isReadonlyAutomationSession(context.sessionKey);
-      if (automated && ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName)) {
-        return {
-          block: true,
-          blockReason: "Automated Mosaic sessions cannot use BCM mutation tools.",
-        };
-      }
-      if (event.toolName !== "bcm_execute_cmsh_admin") return;
-      try {
-        const commands = cmshCommands(event.params.commands);
-        if (!config.hitl) return;
-        return {
-          requireApproval: {
-            title: "BCM CMSH change",
-            description: `${commands} on BCM head ${config.headHost}`.slice(0, 256),
-            severity: "critical",
-            timeoutMs: config.approvalTimeoutMs,
-            timeoutBehavior: "deny",
-          },
-        };
-      } catch (error) {
-        return {
-          block: true,
-          blockReason: error instanceof Error ? error.message : "CMSH request was rejected",
-        };
-      }
+    api.registerTrustedToolPolicy({
+      id: "bcm-access",
+      description: "Blocks automated BCM mutations and requires approval in Edit mode.",
+      evaluate(event, context) {
+        const automated = isReadonlyAutomationSession(context.sessionKey);
+        if (automated && ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName)) {
+          return {
+            block: true,
+            blockReason: "Automated Mosaic sessions cannot use BCM mutation tools.",
+          };
+        }
+        const mutating = ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName);
+        if (!mutating) return;
+        try {
+          const commands = event.toolName === "bcm_execute_cmsh_admin"
+            ? cmshCommands(event.params.commands)
+            : undefined;
+          if (!config.hitl || sessionSkipsApproval(
+            context.sessionKey,
+            context.getSessionExtension?.("access"),
+          )) return;
+          const noteAction = event.toolName === "bcm_add_note" ? "Add BCM investigation note" : "Remove BCM investigation note";
+          return {
+            requireApproval: {
+              title: event.toolName === "bcm_execute_cmsh_admin" ? "BCM CMSH change" : noteAction,
+              description: commands ? `${commands} on BCM head ${config.headHost}`.slice(0, 256) : noteAction,
+              severity: "critical",
+              timeoutMs: config.approvalTimeoutMs,
+              timeoutBehavior: "deny",
+            },
+          };
+        } catch (error) {
+          return {
+            block: true,
+            blockReason: error instanceof Error ? error.message : "CMSH request was rejected",
+          };
+        }
+      },
     });
 
     registerTool({

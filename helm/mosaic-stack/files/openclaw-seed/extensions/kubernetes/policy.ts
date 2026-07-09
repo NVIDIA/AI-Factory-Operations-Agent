@@ -64,6 +64,13 @@ function assertEditableKind(kind: string) {
 }
 
 function parseManifest(value: unknown) {
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      throw new Error("manifest must be a Kubernetes object or serialized JSON object");
+    }
+  }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("manifest must be one structured Kubernetes object");
   }
@@ -71,10 +78,13 @@ function parseManifest(value: unknown) {
   const metadata = record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
     ? record.metadata as Record<string, unknown>
     : {};
+  const apiVersion = typeof record.apiVersion === "string" ? record.apiVersion.trim() : "";
   const kind = typeof record.kind === "string" ? record.kind.trim() : "";
   const name = typeof metadata.name === "string" ? metadata.name.trim() : "";
   const namespace = typeof metadata.namespace === "string" ? metadata.namespace.trim() : "";
-  if (!kind || !name || !namespace) throw new Error("manifest requires kind, metadata.name, and metadata.namespace");
+  if (!apiVersion || !kind || !name || !namespace) {
+    throw new Error("manifest requires apiVersion, kind, metadata.name, and metadata.namespace");
+  }
   assertEditableKind(kind);
   if (!RESOURCE_NAME.test(name) || name.length > 253) throw new Error("manifest metadata.name is invalid");
   if (!NAMESPACE_NAME.test(namespace) || namespace.length > 63) throw new Error("manifest metadata.namespace is invalid");

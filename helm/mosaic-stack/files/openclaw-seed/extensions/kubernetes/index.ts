@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { sessionAccessExtension, sessionSkipsApproval } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import {
   formatKubectlApproval,
@@ -115,38 +116,46 @@ export default definePluginEntry({
   description: "Read-only kubectl access to registered Kubernetes clusters.",
   register(api) {
     const settings = config(api.pluginConfig);
+    api.session.state.registerSessionExtension(sessionAccessExtension);
 
-    api.on("before_tool_call", (event, context) => {
-      if (isKubectlExecFallback(event.toolName, event.params)) {
-        return {
-          block: true,
-          blockReason: "Kubernetes commands are available only through run_kubectl. Do not retry with exec.",
-        };
-      }
-      try {
-        if (event.toolName === "run_kubectl") {
-          validateKubectlReadRequest(event.params.args);
-          return;
+    api.registerTrustedToolPolicy({
+      id: "kubernetes-access",
+      description: "Validates Kubernetes tools and requires approval for Edit mutations.",
+      evaluate(event, context) {
+        if (isKubectlExecFallback(event.toolName, event.params)) {
+          return {
+            block: true,
+            blockReason: "Kubernetes commands are available only through run_kubectl. Do not retry with exec.",
+          };
         }
-        if (event.toolName !== "run_kubectl_admin") return;
-        const request = validateKubectlAdminRequest(event.params.args, event.params.manifest);
-        if (!settings.hitl) return;
-        const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
-        const approval = formatKubectlApproval(request, cluster.name);
-        return {
-          requireApproval: {
-            ...approval,
-            severity: "warning",
-            timeoutMs: settings.approvalTimeoutMs,
-            timeoutBehavior: "deny",
-          },
-        };
-      } catch (error) {
-        return {
-          block: true,
-          blockReason: error instanceof Error ? error.message : "kubectl request was rejected",
-        };
-      }
+        try {
+          if (event.toolName === "run_kubectl") {
+            validateKubectlReadRequest(event.params.args);
+            return;
+          }
+          if (event.toolName !== "run_kubectl_admin") return;
+          const request = validateKubectlAdminRequest(event.params.args, event.params.manifest);
+          if (!settings.hitl || sessionSkipsApproval(
+            context.sessionKey,
+            context.getSessionExtension?.("access"),
+          )) return;
+          const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
+          const approval = formatKubectlApproval(request, cluster.name);
+          return {
+            requireApproval: {
+              ...approval,
+              severity: "warning",
+              timeoutMs: settings.approvalTimeoutMs,
+              timeoutBehavior: "deny",
+            },
+          };
+        } catch (error) {
+          return {
+            block: true,
+            blockReason: error instanceof Error ? error.message : "kubectl request was rejected",
+          };
+        }
+      },
     });
 
     api.registerTool({
@@ -209,21 +218,15 @@ export default definePluginEntry({
             description: "Exactly one supported operation without the kubectl prefix. Apply must be exactly [\"apply\", \"-f\", \"-\"].",
           },
           manifest: {
-            type: "object",
-            required: ["apiVersion", "kind", "metadata"],
-            properties: {
-              apiVersion: { type: "string" },
-              kind: { type: "string" },
-              metadata: {
+            oneOf: [
+              {
                 type: "object",
-                required: ["name", "namespace"],
-                properties: {
-                  name: { type: "string" },
-                  namespace: { type: "string" },
-                },
+                additionalProperties: true,
+                required: ["apiVersion", "kind", "metadata"],
               },
-            },
-            description: "One structured Kubernetes object required by kubectl apply -f -.",
+              { type: "string", minLength: 2 },
+            ],
+            description: "One complete Kubernetes object required by kubectl apply -f -. Accepts an object or its serialized JSON representation.",
           },
         },
       },

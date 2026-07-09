@@ -72,6 +72,7 @@ test("validates the separate admin tool's stdin apply and exact-name delete", ()
     data: { result: "approved" },
   };
   const apply = validateKubectlAdminRequest(["apply", "-f", "-"], manifest);
+  assert.deepEqual(validateKubectlAdminRequest(["apply", "-f", "-"], JSON.stringify(manifest)), apply);
   assert.equal(apply.mutating, true);
   assert.deepEqual(apply.targets, ["ConfigMap/edit-test in namespace mosaic-edit-e2e-test"]);
   assert.equal(apply.manifestSha256?.length, 64);
@@ -102,6 +103,7 @@ test("keeps mutation out of the read tool and blocks unsafe admin shapes", () =>
   assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-", ";", "id"], configMap), /shell syntax/);
   assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-", "--prune"], configMap), /stdin form/);
   assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-"], { ...configMap, metadata: { name: "edit-test" } }), /namespace/);
+  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-"], '{'), /serialized JSON/);
   assert.throws(() => validateKubectlAdminRequest(["delete", "secret", "api-key"], undefined), /Secret/);
   assert.throws(() => validateKubectlAdminRequest(["delete", "pods", "--all"], undefined), /bulk/);
   assert.throws(() => validateKubectlAdminRequest(["delete", "pod", "one", "two"], undefined), /exactly one/);
@@ -168,13 +170,13 @@ test("blocks kubectl fallback through exec without blocking ordinary shell comma
   assert.equal(isKubectlExecFallback("run_kubectl", { command: "kubectl get pods" }), false);
 });
 
-test("registers the exec guard through OpenClaw's typed tool hook", () => {
+test("registers the exec guard through OpenClaw's trusted tool policy", () => {
   const source = readFileSync(
     new URL("../files/openclaw-seed/extensions/kubernetes/index.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /api\.on\(\s*"before_tool_call"/);
-  assert.doesNotMatch(source, /api\.registerHook\(\s*"before_tool_call"/);
+  assert.match(source, /api\.registerTrustedToolPolicy\(/);
+  assert.match(source, /id: "kubernetes-access"/);
   assert.match(source, /text: `\$\{command\.join\(" "\)\}\\n/);
   assert.match(source, /command: \["kubectl", "<rejected>"\]/);
   assert.match(source, /blocked: true/);
@@ -185,17 +187,20 @@ test("registers the exec guard through OpenClaw's typed tool hook", () => {
   assert.match(source, /request\.manifestSha256/);
   assert.match(source, /if \(settings\.editEnabled\) api\.registerTool/);
   assert.match(source, /name: "run_kubectl_admin"/);
+  assert.match(source, /validateKubectlAdminRequest\(event\.params\.args, event\.params\.manifest\)/);
+  assert.match(source, /oneOf: \[/);
+  assert.match(source, /Accepts an object or its serialized JSON representation/);
   assert.match(source, /Apply must be exactly \[\\"apply\\", \\"-f\\", \\"-\\"\]/);
   assert.doesNotMatch(source, /classifyKubectlRequest/);
   assert.doesNotMatch(source, /instruction:/);
 });
 
-test("instructs the agent to stop after a Kubernetes policy denial", () => {
+test("instructs the agent to report a Kubernetes policy denial", () => {
   const source = readFileSync(
     new URL("../files/openclaw-seed/workspace/TOOLS.md", import.meta.url),
     "utf8",
   );
-  assert.match(source, /If a Kubernetes tool blocks an operation, stop immediately/);
+  assert.match(source, /give a brief plain-text final response that the action was not performed/);
   assert.match(source, /Do not call `exec` or retry through another tool/);
 });
 

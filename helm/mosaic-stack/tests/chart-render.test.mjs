@@ -14,6 +14,14 @@ test("startup-loads the Kubernetes approval hook", () => {
     readFileSync(new URL("../files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json", import.meta.url)),
   );
   assert.equal(manifest.activation?.onStartup, true);
+  assert.deepEqual(manifest.contracts?.trustedToolPolicies, ["kubernetes-access"]);
+});
+
+test("startup-loads one shared diagnostic policy", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  const runtime = render("--show-only", "templates/openclaw.yaml");
+  assert.match(seed, /diagnostic-policy\.ts/);
+  assert.match(runtime, /cp \/seed\/diagnostic-policy\.ts \/home\/node\/\.openclaw\/extensions\/diagnostic-policy\.ts/);
 });
 
 test("startup-loads the remote SSH approval hook", () => {
@@ -21,6 +29,7 @@ test("startup-loads the remote SSH approval hook", () => {
     readFileSync(new URL("../files/openclaw-seed/extensions/remote-ssh/openclaw.plugin.json", import.meta.url)),
   );
   assert.equal(manifest.activation?.onStartup, true);
+  assert.deepEqual(manifest.contracts?.trustedToolPolicies, ["remote-ssh-access"]);
 });
 
 test("startup-loads the automation read-only guard", () => {
@@ -72,6 +81,19 @@ test("pins every default runtime image", () => {
 test("pins the UI to the immutable GitLab short SHA tag", () => {
   const output = render("--show-only", "templates/mosaic-ui.yaml");
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
+});
+
+test("can disable thinking for an external vLLM endpoint", () => {
+  const output = render(
+    "--set", "llm.mode=external",
+    "--set", "llm.external.baseUrl=http://vllm.example/v1",
+    "--set", "llm.external.model=nemotron-super-120b",
+    "--set", "llm.requestCompatibility.vllmUpstream=true",
+    "--show-only", "templates/llm-compat.yaml",
+  );
+  assert.match(output, /name: VLLM_UPSTREAM\s+value: "true"/);
+  assert.match(output, /const vllmUpstream = process\.env\.VLLM_UPSTREAM === 'true'/);
+  assert.match(output, /llmMode !== 'vllm' && !vllmUpstream/);
 });
 
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
@@ -237,6 +259,19 @@ test("exposes edit and HITL state to the UI without changing their defaults", ()
   assert.match(disabled, /name: MOSAIC_EDIT_HITL\s+value: "true"/);
   assert.match(enabled, /name: MOSAIC_EDIT_ENABLED\s+value: "true"/);
   assert.match(enabled, /name: MOSAIC_EDIT_HITL\s+value: "true"/);
+  assert.match(enabled, /name: MOSAIC_SESSION_ACCESS_PLUGINS\s+value: "automation-guard,kubernetes"/);
+
+  const ssh = render(
+    "--set", "modules.edit.enabled=true",
+    "--set", "modules.edit.kubernetes.enabled=false",
+    "--set", "modules.edit.ssh.enabled=true",
+    "--set", "modules.edit.ssh.existingSecret=ssh-key",
+    "--set", "modules.edit.ssh.hosts[0].alias=node-a",
+    "--set", "modules.edit.ssh.hosts[0].address=node-a",
+    "--set", "modules.edit.ssh.hosts[0].user=tester",
+    "--show-only", "templates/mosaic-ui.yaml",
+  );
+  assert.match(ssh, /name: MOSAIC_SESSION_ACCESS_PLUGINS\s+value: "automation-guard,kubernetes,remote-ssh"/);
 });
 
 test("validates edit mode dependencies and backend configuration", () => {

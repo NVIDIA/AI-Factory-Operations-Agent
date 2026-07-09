@@ -18,7 +18,8 @@
       "bcm_search_notes",
       "bcm_add_note",
       "bcm_remove_note"
-    ]
+    ],
+    "trustedToolPolicies": ["bcm-access"]
   },
   "configSchema": {
     "type": "object",

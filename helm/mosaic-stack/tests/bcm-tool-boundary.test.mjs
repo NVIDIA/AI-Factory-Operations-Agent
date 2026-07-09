@@ -19,13 +19,18 @@ test("keeps readonly and admin CMSH on separate tools and identities", () => {
   assert.doesNotMatch(plugin, /request\.mutating/);
 });
 
-test("requires approval only for the admin CMSH tool", () => {
-  const start = plugin.indexOf('api.on("before_tool_call"');
+test("requires approval for BCM mutation tools", () => {
+  const start = plugin.indexOf("api.registerTrustedToolPolicy");
   const hook = plugin.slice(start, plugin.indexOf("registerTool({", start));
-  assert.match(hook, /event\.toolName !== "bcm_execute_cmsh_admin"/);
+  assert.match(hook, /bcm_add_note.*bcm_execute_cmsh_admin.*bcm_remove_note/s);
   assert.match(hook, /requireApproval:/);
   assert.match(hook, /timeoutBehavior: "deny"/);
-  assert.doesNotMatch(hook, /event\.toolName !== "bcm_execute_cmsh"/);
+  assert.doesNotMatch(hook, /bcm_execute_cmsh"/);
+});
+
+test("uses per-session Auto to skip BCM approvals without weakening automation", () => {
+  assert.match(plugin, /sessionSkipsApproval\(/);
+  assert.match(plugin, /isReadonlyAutomationSession\(context\.sessionKey\)/);
 });
 
 test("retains the authenticated admin backend without readonly fallback", () => {

@@ -3,7 +3,8 @@
   "contracts": {
     "tools": [
       "run_remote_ssh"
-    ]
+    ],
+    "trustedToolPolicies": ["remote-ssh-access"]
   },
   "activation": {
     "onStartup": true

@@ -51,6 +51,7 @@ test("builds only fixed hardened SSH connection options", () => {
   assert.deepEqual(args.slice(-3), ["--", "root@10.0.0.7", "'touch' '/tmp/marker'"]);
   for (const option of [
     "BatchMode=yes",
+    "PreferredAuthentications=publickey",
     "StrictHostKeyChecking=yes",
     "ProxyCommand=none",
     "ProxyJump=none",

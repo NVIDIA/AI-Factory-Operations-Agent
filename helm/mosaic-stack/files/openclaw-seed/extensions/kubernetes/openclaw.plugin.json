@@ -4,7 +4,8 @@
     "tools": [
       "run_kubectl",
       "run_kubectl_admin"
-    ]
+    ],
+    "trustedToolPolicies": ["kubernetes-access"]
   },
   "activation": {
     "onStartup": true

@@ -129,9 +129,11 @@ spec:
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
               rm -f /home/node/.openclaw/extensions/automation-context.ts \
+                /home/node/.openclaw/extensions/diagnostic-policy.ts \
                 /home/node/.openclaw/extensions/mutation-ledger.ts
               mkdir -p /home/node/.openclaw/extensions/automation-guard
               cp /seed/automation-context.ts /home/node/.openclaw/extensions/automation-context.ts
+              cp /seed/diagnostic-policy.ts /home/node/.openclaw/extensions/diagnostic-policy.ts
               cp /seed/automation-guard.index.ts /home/node/.openclaw/extensions/automation-guard/index.ts
               cp /seed/automation-guard.openclaw.plugin.json /home/node/.openclaw/extensions/automation-guard/openclaw.plugin.json
               cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json

@@ -25,6 +25,8 @@ data:
 {{ .Files.Get "files/openclaw-seed/workspace/USER.md" | indent 4 }}
   automation-context.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-context.ts" | indent 4 }}
+  diagnostic-policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/diagnostic-policy.ts" | indent 4 }}
   automation-guard.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-guard/index.ts" | indent 4 }}
   automation-guard.openclaw.plugin.json: |-

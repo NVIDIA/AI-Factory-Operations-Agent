@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { diagnosticExecArgv, isAllowedDiagnosticArgv } from "./diagnostic-policy.ts";
+
 const AUTOMATION_SESSION = /(?:^|:)mosaic-automation-(cluster-monitor|alert)-[a-z0-9][a-z0-9_-]*(?::|$)/i;
 
 const ALWAYS_MUTATING_TOOLS = new Set([
@@ -9,9 +11,7 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "bcm_execute_cmsh_admin",
   "bcm_remove_note",
   "edit",
-  "exec",
   "run_kubectl_admin",
-  "run_remote_ssh",
   "write",
 ]);
 
@@ -26,14 +26,33 @@ export function isReadonlyAutomationSession(sessionKey: unknown) {
 
 export function sessionAccessMode(state: unknown) {
   if (!state || typeof state !== "object" || Array.isArray(state)) return "view";
-  return (state as { mode?: unknown }).mode === "edit" ? "edit" : "view";
+  const mode = (state as { mode?: unknown }).mode;
+  return mode === "edit" || mode === "auto" ? mode : "view";
 }
+
+export const sessionAccessExtension = {
+  namespace: "access",
+  description: "Mosaic per-conversation access mode",
+  project: ({ state }: { state: unknown }) => ({ mode: sessionAccessMode(state) }),
+};
 
 export function sessionAllowsEdit(sessionKey: unknown, state: unknown) {
-  return !isReadonlyAutomationSession(sessionKey) && sessionAccessMode(state) === "edit";
+  return !isReadonlyAutomationSession(sessionKey) && sessionAccessMode(state) !== "view";
 }
 
-export function toolRequiresEdit(toolName: unknown) {
+export function sessionSkipsApproval(sessionKey: unknown, state: unknown) {
+  return !isReadonlyAutomationSession(sessionKey) && sessionAccessMode(state) === "auto";
+}
+
+export function toolRequiresEdit(toolName: unknown, params?: unknown) {
   if (typeof toolName !== "string") return false;
-  return ALWAYS_MUTATING_TOOLS.has(toolName.trim().toLowerCase());
+  const normalized = toolName.trim().toLowerCase();
+  if (normalized === "exec") return diagnosticExecArgv(params) === undefined;
+  if (normalized === "run_remote_ssh") {
+    const argv = params && typeof params === "object" && !Array.isArray(params)
+      ? (params as { argv?: unknown }).argv
+      : undefined;
+    return !isAllowedDiagnosticArgv(argv);
+  }
+  return ALWAYS_MUTATING_TOOLS.has(normalized);
 }

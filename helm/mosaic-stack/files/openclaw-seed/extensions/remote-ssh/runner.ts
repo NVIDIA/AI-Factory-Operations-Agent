@@ -22,7 +22,7 @@ export function buildSshArgs(settings: SshSettings, host: RemoteHost, remoteComm
     "-o", "IdentityAgent=none",
     "-o", "PasswordAuthentication=no",
     "-o", "KbdInteractiveAuthentication=no",
-    "-o", "GSSAPIAuthentication=no",
+    "-o", "PreferredAuthentications=publickey",
     "-o", "StrictHostKeyChecking=yes",
     "-o", `UserKnownHostsFile=${settings.knownHostsPath}`,
     "-o", "GlobalKnownHostsFile=/dev/null",

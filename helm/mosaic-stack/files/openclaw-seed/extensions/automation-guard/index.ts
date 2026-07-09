@@ -4,7 +4,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
   isReadonlyAutomationSession,
-  sessionAccessMode,
+  sessionAccessExtension,
   sessionAllowsEdit,
   toolRequiresEdit,
 } from "../automation-context.ts";
@@ -12,7 +12,7 @@ import {
 export default definePluginEntry({
   id: "automation-guard",
   name: "Automation Guard",
-  description: "Enforces read-only automation and per-conversation view mode.",
+  description: "Enforces read-only automation and per-conversation View, Edit, and Auto modes.",
   register(api) {
     const editEnabled = Boolean(
       api.pluginConfig
@@ -20,18 +20,14 @@ export default definePluginEntry({
       && !Array.isArray(api.pluginConfig)
       && (api.pluginConfig as { editEnabled?: unknown }).editEnabled === true,
     );
-    api.session.state.registerSessionExtension({
-      namespace: "access",
-      description: "Mosaic per-conversation access mode",
-      project: ({ state }) => ({ mode: sessionAccessMode(state) }),
-    });
+    api.session.state.registerSessionExtension(sessionAccessExtension);
     api.registerTrustedToolPolicy({
       id: "session-access",
       description: "Blocks mutating tools in automated and view-mode sessions.",
       evaluate(event, context) {
         let mutating = false;
         try {
-          mutating = toolRequiresEdit(event.toolName);
+          mutating = toolRequiresEdit(event.toolName, event.params);
         } catch {
           mutating = true;
         }
