@@ -4,8 +4,9 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
   isReadonlyAutomationSession,
+  contextSkipsApproval,
+  requestIdentityApproval,
   sessionAccessExtension,
-  sessionSkipsApproval,
 } from "../automation-context.ts";
 import { isAllowedDiagnosticArgv } from "../diagnostic-policy.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
@@ -55,7 +56,7 @@ export default definePluginEntry({
     api.registerTrustedToolPolicy({
       id: "remote-ssh-access",
       description: "Validates remote commands and requires approval for Edit mutations.",
-      evaluate(event, context) {
+      async evaluate(event, context) {
         if (event.toolName !== "run_remote_ssh") return;
         if (isReadonlyAutomationSession(context.sessionKey)) {
           return {
@@ -65,16 +66,22 @@ export default definePluginEntry({
         }
         try {
           const request = classifySshRequest(event.params, settings.hosts);
-          if (isAllowedDiagnosticArgv(request.argv) || !settings.hitl || sessionSkipsApproval(
-            context.sessionKey,
-            context.getSessionExtension?.("access"),
-          )) return;
+          if (isAllowedDiagnosticArgv(request.argv) || !settings.hitl || contextSkipsApproval(context)) return;
+          const approval = {
+            title: `Remote command on ${request.host.alias}`.slice(0, 80),
+            description: `${JSON.stringify(request.argv)} on ${request.host.alias} (${request.host.user}@${request.host.address}:${request.host.port})`.slice(0, 256),
+            severity: "critical" as const,
+            timeoutMs: settings.approvalTimeoutMs,
+          };
+          const identityDecision = await requestIdentityApproval(context, approval);
+          if (identityDecision === "allow") return;
+          if (identityDecision) return {
+            block: true,
+            blockReason: identityDecision === "timeout" ? "Approval timed out." : "Action denied by user.",
+          };
           return {
             requireApproval: {
-              title: `Remote command on ${request.host.alias}`.slice(0, 80),
-              description: `${JSON.stringify(request.argv)} on ${request.host.alias} (${request.host.user}@${request.host.address}:${request.host.port})`.slice(0, 256),
-              severity: "critical",
-              timeoutMs: settings.approvalTimeoutMs,
+              ...approval,
               timeoutBehavior: "deny",
             },
           };

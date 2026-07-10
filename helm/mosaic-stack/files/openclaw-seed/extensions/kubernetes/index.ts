@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { sessionAccessExtension, sessionSkipsApproval } from "../automation-context.ts";
+import {
+  contextSkipsApproval,
+  requestIdentityApproval,
+  sessionAccessExtension,
+} from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 import {
   formatKubectlApproval,
@@ -121,7 +125,7 @@ export default definePluginEntry({
     api.registerTrustedToolPolicy({
       id: "kubernetes-access",
       description: "Validates Kubernetes tools and requires approval for Edit mutations.",
-      evaluate(event, context) {
+      async evaluate(event, context) {
         if (isKubectlExecFallback(event.toolName, event.params)) {
           return {
             block: true,
@@ -135,12 +139,19 @@ export default definePluginEntry({
           }
           if (event.toolName !== "run_kubectl_admin") return;
           const request = validateKubectlAdminRequest(event.params.args, event.params.stdin);
-          if (!settings.hitl || sessionSkipsApproval(
-            context.sessionKey,
-            context.getSessionExtension?.("access"),
-          )) return;
+          if (!settings.hitl || contextSkipsApproval(context)) return;
           const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
           const approval = formatKubectlApproval(request, cluster.name);
+          const identityDecision = await requestIdentityApproval(context, {
+            ...approval,
+            severity: "warning",
+            timeoutMs: settings.approvalTimeoutMs,
+          });
+          if (identityDecision === "allow") return;
+          if (identityDecision) return {
+            block: true,
+            blockReason: identityDecision === "timeout" ? "Approval timed out." : "Action denied by user.",
+          };
           return {
             requireApproval: {
               ...approval,

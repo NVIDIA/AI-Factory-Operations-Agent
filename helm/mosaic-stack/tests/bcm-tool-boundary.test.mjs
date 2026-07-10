@@ -29,7 +29,8 @@ test("requires approval for BCM mutation tools", () => {
 });
 
 test("uses per-session Auto to skip BCM approvals without weakening automation", () => {
-  assert.match(plugin, /sessionSkipsApproval\(/);
+  assert.match(plugin, /contextSkipsApproval\(context\)/);
+  assert.match(plugin, /requestIdentityApproval\(context, approval\)/);
   assert.match(plugin, /isReadonlyAutomationSession\(context\.sessionKey\)/);
 });
 

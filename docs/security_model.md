@@ -16,6 +16,8 @@ When the Edit module is enabled, every new interactive conversation still starts
 
 Automated alert and cluster-health sessions are always View-only. They cannot be changed to Edit or Auto.
 
+For native Slack, `openclaw.slack.allowedUserIds` remains the messaging allowlist for DMs, group DMs, and channel mentions. `openclaw.slack.editUserIds` is narrower: those verified users receive Edit and approve their own mutations through Slack buttons; every other allowed Slack user remains in View.
+
 Setting `modules.edit.hitl=false` also removes approvals from Edit mode. Keep the default `true` unless every user permitted to select Edit is trusted to make changes directly.
 
 ## Kubernetes Boundaries

@@ -258,6 +258,7 @@ openclaw:
     botTokenKey: SLACK_BOT_TOKEN
     appTokenKey: SLACK_APP_TOKEN
     allowedUserIds: []
+    editUserIds: []
     channelMentionsEnabled: false
     groupDmsEnabled: false
     queueMode: followup

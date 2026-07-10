@@ -32,7 +32,7 @@
   },
   "settings": {
     "interactivity": {
-      "is_enabled": false
+      "is_enabled": true
     },
     "event_subscriptions": {
       "bot_events": [

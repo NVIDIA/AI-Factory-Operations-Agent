@@ -3,11 +3,15 @@
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
+  clearRunAccess,
+  configureIdentityApprovalBroker,
+  contextAllowsEdit,
   isReadonlyAutomationSession,
   sessionAccessExtension,
-  sessionAllowsEdit,
+  setRunAccess,
   toolRequiresEdit,
 } from "../automation-context.ts";
+import { installSlackApprovalBroker } from "./slack-approval.ts";
 
 export default definePluginEntry({
   id: "automation-guard",
@@ -20,6 +24,31 @@ export default definePluginEntry({
       && !Array.isArray(api.pluginConfig)
       && (api.pluginConfig as { editEnabled?: unknown }).editEnabled === true,
     );
+    const pluginConfig = api.pluginConfig && typeof api.pluginConfig === "object" && !Array.isArray(api.pluginConfig)
+      ? api.pluginConfig as Record<string, unknown>
+      : {};
+    const slackEnabled = pluginConfig.slackEnabled === true;
+    const slackEditUserIds = Array.isArray(pluginConfig.slackEditUserIds)
+      ? pluginConfig.slackEditUserIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+    if (slackEnabled) {
+      configureIdentityApprovalBroker(installSlackApprovalBroker(api, slackEditUserIds));
+      api.on("before_prompt_build", (_event, context) => {
+        if (context.channel !== "slack" && context.messageProvider !== "slack") return;
+        const mode = editEnabled && context.senderId && slackEditUserIds.includes(context.senderId)
+          ? "edit"
+          : "view";
+        setRunAccess(context.runId, {
+          mode,
+          provider: "slack",
+          ...(context.senderId ? { senderId: context.senderId } : {}),
+        });
+        return {
+          prependContext: `[Mosaic Runtime]\nmosaic_access_mode=${mode}\nThis access mode is authoritative for the current Slack user.`,
+        };
+      });
+      api.on("agent_end", (_event, context) => clearRunAccess(context.runId));
+    }
     api.session.state.registerSessionExtension(sessionAccessExtension);
     api.registerTrustedToolPolicy({
       id: "session-access",
@@ -33,10 +62,7 @@ export default definePluginEntry({
         }
         if (!mutating) return;
         const automated = isReadonlyAutomationSession(context.sessionKey);
-        if (!automated && (!editEnabled || sessionAllowsEdit(
-          context.sessionKey,
-          context.getSessionExtension?.("access"),
-        ))) return;
+        if (!automated && (!editEnabled || contextAllowsEdit(context))) return;
         const reason = automated
           ? "Automated Mosaic sessions are read-only."
           : "This conversation is in View mode. Switch it to Edit before requesting changes.";

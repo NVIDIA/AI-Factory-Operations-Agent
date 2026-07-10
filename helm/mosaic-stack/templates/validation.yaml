@@ -13,6 +13,17 @@
 {{- if and .Values.openclaw.slack.enabled (empty .Values.openclaw.slack.allowedUserIds) -}}
 {{- fail "openclaw.slack.allowedUserIds must contain at least one Slack user ID" -}}
 {{- end -}}
+{{- if and (not .Values.openclaw.slack.enabled) (not (empty .Values.openclaw.slack.editUserIds)) -}}
+{{- fail "openclaw.slack.editUserIds requires openclaw.slack.enabled=true" -}}
+{{- end -}}
+{{- if and (not .Values.modules.edit.enabled) (not (empty .Values.openclaw.slack.editUserIds)) -}}
+{{- fail "openclaw.slack.editUserIds requires modules.edit.enabled=true" -}}
+{{- end -}}
+{{- range .Values.openclaw.slack.editUserIds -}}
+{{- if not (has . $.Values.openclaw.slack.allowedUserIds) -}}
+{{- fail (printf "Slack edit user %q must also appear in openclaw.slack.allowedUserIds" .) -}}
+{{- end -}}
+{{- end -}}
 {{- if and .Values.modules.slurm.enabled (eq .Values.modules.slurm.backend "bcm") (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.slurm.backend=bcm requires an enabled BCM MCP service" -}}
 {{- end -}}
@@ -101,8 +112,8 @@
 {{- if not .Values.modules.execution.enabled -}}
 {{- fail "modules.edit.enabled=true requires modules.execution.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.modules.edit.hitl (not .Values.modules.ui.enabled) -}}
-{{- fail "modules.edit.hitl=true requires modules.ui.enabled=true" -}}
+{{- if and .Values.modules.edit.hitl (not .Values.modules.ui.enabled) (empty .Values.openclaw.slack.editUserIds) -}}
+{{- fail "modules.edit.hitl=true requires modules.ui.enabled=true or at least one openclaw.slack.editUserIds entry" -}}
 {{- end -}}
 {{- if lt (int .Values.modules.edit.approvalTimeoutMs) 1000 -}}
 {{- fail "modules.edit.approvalTimeoutMs must be at least 1000" -}}

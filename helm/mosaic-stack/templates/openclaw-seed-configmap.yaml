@@ -33,6 +33,8 @@ data:
 {{ .Files.Get "files/openclaw-seed/extensions/diagnostic-policy.ts" | indent 4 }}
   automation-guard.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-guard/index.ts" | indent 4 }}
+  automation-guard.slack-approval.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/slack-approval.ts" | indent 4 }}
   automation-guard.openclaw.plugin.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json" | indent 4 }}
   automation-guard.package.json: |-

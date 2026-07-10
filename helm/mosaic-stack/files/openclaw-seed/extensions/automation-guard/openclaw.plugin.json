@@ -12,6 +12,13 @@
     "properties": {
       "editEnabled": {
         "type": "boolean"
+      },
+      "slackEnabled": {
+        "type": "boolean"
+      },
+      "slackEditUserIds": {
+        "type": "array",
+        "items": { "type": "string" }
       }
     }
   }

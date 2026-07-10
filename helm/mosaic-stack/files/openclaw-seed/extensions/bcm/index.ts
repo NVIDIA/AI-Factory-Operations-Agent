@@ -4,8 +4,9 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
   isReadonlyAutomationSession,
+  contextSkipsApproval,
+  requestIdentityApproval,
   sessionAccessExtension,
-  sessionSkipsApproval,
 } from "../automation-context.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
 
@@ -581,7 +582,7 @@ export default definePluginEntry({
     api.registerTrustedToolPolicy({
       id: "bcm-access",
       description: "Blocks automated BCM mutations and requires approval in Edit mode.",
-      evaluate(event, context) {
+      async evaluate(event, context) {
         const automated = isReadonlyAutomationSession(context.sessionKey);
         if (automated && ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName)) {
           return {
@@ -595,17 +596,23 @@ export default definePluginEntry({
           const commands = event.toolName === "bcm_execute_cmsh_admin"
             ? cmshCommands(event.params.commands)
             : undefined;
-          if (!config.hitl || sessionSkipsApproval(
-            context.sessionKey,
-            context.getSessionExtension?.("access"),
-          )) return;
+          if (!config.hitl || contextSkipsApproval(context)) return;
           const noteAction = event.toolName === "bcm_add_note" ? "Add BCM investigation note" : "Remove BCM investigation note";
+          const approval = {
+            title: event.toolName === "bcm_execute_cmsh_admin" ? "BCM CMSH change" : noteAction,
+            description: commands ? `${commands} on BCM head ${config.headHost}`.slice(0, 256) : noteAction,
+            severity: "critical" as const,
+            timeoutMs: config.approvalTimeoutMs,
+          };
+          const identityDecision = await requestIdentityApproval(context, approval);
+          if (identityDecision === "allow") return;
+          if (identityDecision) return {
+            block: true,
+            blockReason: identityDecision === "timeout" ? "Approval timed out." : "Action denied by user.",
+          };
           return {
             requireApproval: {
-              title: event.toolName === "bcm_execute_cmsh_admin" ? "BCM CMSH change" : noteAction,
-              description: commands ? `${commands} on BCM head ${config.headHost}`.slice(0, 256) : noteAction,
-              severity: "critical",
-              timeoutMs: config.approvalTimeoutMs,
+              ...approval,
               timeoutBehavior: "deny",
             },
           };

@@ -5,12 +5,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  clearRunAccess,
+  configureIdentityApprovalBroker,
+  contextAllowsEdit,
+  contextSkipsApproval,
   isReadonlyAutomationSession,
+  requestIdentityApproval,
   readonlyAutomationSource,
+  runAccessIdentity,
+  runAccessMode,
   sessionAccessExtension,
   sessionAccessMode,
   sessionAllowsEdit,
   sessionSkipsApproval,
+  setRunAccess,
   toolRequiresEdit,
 } from "../files/openclaw-seed/extensions/automation-context.ts";
 
@@ -42,6 +50,45 @@ test("defaults conversations to view and never enables automation edits", () => 
   assert.equal(sessionAllowsEdit("agent:default:interactive", undefined), false);
   assert.equal(sessionAllowsEdit("agent:default:mosaic-automation-cluster-monitor-local", { mode: "edit" }), false);
   assert.equal(sessionSkipsApproval("agent:default:mosaic-automation-cluster-monitor-local", { mode: "auto" }), false);
+});
+
+test("uses verified Slack identity access without changing non-Slack sessions", async () => {
+  const slack = { runId: "run-slack", sessionKey: "agent:default:slack" };
+  const web = {
+    sessionKey: "agent:default:web",
+    getSessionExtension: () => ({ mode: "auto" }),
+  };
+  setRunAccess(slack.runId, { mode: "edit", provider: "slack", senderId: "U22222222" });
+  assert.equal(runAccessMode(slack), "edit");
+  assert.deepEqual(runAccessIdentity(slack), {
+    mode: "edit",
+    provider: "slack",
+    senderId: "U22222222",
+  });
+  assert.equal(contextAllowsEdit(slack), true);
+  assert.equal(contextSkipsApproval(slack), false);
+  assert.equal(runAccessMode(web), "auto");
+  assert.equal(contextSkipsApproval(web), true);
+
+  configureIdentityApprovalBroker(async (access) => access.senderId === "U22222222" ? "allow" : "deny");
+  assert.equal(await requestIdentityApproval(slack, { title: "Change", description: "Exact operation" }), "allow");
+  assert.equal(await requestIdentityApproval(web, { title: "Change", description: "Exact operation" }), undefined);
+  configureIdentityApprovalBroker(undefined);
+  clearRunAccess(slack.runId);
+  assert.equal(runAccessMode(slack), "view");
+});
+
+test("fails closed when a Slack Edit run has no identity approval broker", async () => {
+  setRunAccess("run-no-broker", { mode: "edit", provider: "slack", senderId: "U22222222" });
+  configureIdentityApprovalBroker(undefined);
+  assert.equal(
+    await requestIdentityApproval(
+      { runId: "run-no-broker" },
+      { title: "Change", description: "Exact operation" },
+    ),
+    "deny",
+  );
+  clearRunAccess("run-no-broker");
 });
 
 test("projects and registers access state in every approval-owning plugin", () => {

@@ -82,6 +82,13 @@
       "allowBots": false,
       "dmPolicy": "allowlist",
       "allowFrom": {{ .Values.openclaw.slack.allowedUserIds | toJson }},
+      {{- if gt (len .Values.openclaw.slack.editUserIds) 0 }}
+      "execApprovals": {
+        "enabled": true,
+        "approvers": {{ .Values.openclaw.slack.editUserIds | toJson }},
+        "target": "dm"
+      },
+      {{- end }}
       "dm": {
         "groupEnabled": {{ .Values.openclaw.slack.groupDmsEnabled }}
       },
@@ -157,7 +164,9 @@
       "automation-guard": {
         "enabled": true,
         "config": {
-          "editEnabled": {{ .Values.modules.edit.enabled }}
+          "editEnabled": {{ .Values.modules.edit.enabled }},
+          "slackEnabled": {{ .Values.openclaw.slack.enabled }},
+          "slackEditUserIds": {{ .Values.openclaw.slack.editUserIds | toJson }}
         }
       },
       "llm": {

@@ -126,6 +126,8 @@ test("does not render Slack runtime behavior when disabled", () => {
   assert.doesNotMatch(output, /"stuckSessionWarnMs": 60000/);
   assert.doesNotMatch(output, /slack-enterprise-grid-patch\.mjs/);
   assert.doesNotMatch(output, /init-slack-plugin|SLACK_(?:BOT|APP)_TOKEN/);
+  assert.match(output, /"slackEnabled": false/);
+  assert.match(output, /"slackEditUserIds": \[\]/);
 });
 
 test("renders native Slack Socket Mode with isolated execution", () => {
@@ -141,6 +143,8 @@ test("renders native Slack Socket Mode with isolated execution", () => {
   assert.match(output, /"mode": "socket"/);
   assert.match(output, /"dmPolicy": "allowlist"/);
   assert.match(output, /"allowFrom": \["U12345678"\]/);
+  assert.match(output, /"slackEnabled": true/);
+  assert.match(output, /"slackEditUserIds": \[\]/);
   assert.match(output, /"groupEnabled": false/);
   assert.match(output, /"replyToModeByChatType": \{"channel":"off","direct":"off","group":"off"\}/);
   assert.match(output, /"streaming": \{"mode":"partial","nativeTransport":true\}/);
@@ -241,7 +245,52 @@ test("provides a Slack app manifest for approved DMs and mentions", () => {
   assert.equal(manifest.settings.socket_mode_enabled, true);
   assert.equal(manifest.features.app_home.home_tab_enabled, false);
   assert.equal(manifest.oauth_config.redirect_urls, undefined);
-  assert.deepEqual(manifest.settings.interactivity, { is_enabled: false });
+  assert.deepEqual(manifest.settings.interactivity, { is_enabled: true });
+});
+
+test("keeps Slack messaging access broad while granting Edit to explicit identities", () => {
+  const output = render(
+    "--set", "modules.ui.enabled=false",
+    "--set", "modules.edit.enabled=true",
+    "--set", "openclaw.slack.enabled=true",
+    "--set", "openclaw.slack.existingSecret=mosaic-slack",
+    "--set", "openclaw.slack.allowedUserIds[0]=U11111111",
+    "--set", "openclaw.slack.allowedUserIds[1]=U22222222",
+    "--set", "openclaw.slack.editUserIds[0]=U22222222",
+    "--set", "openclaw.slack.channelMentionsEnabled=true",
+    "--set", "openclaw.slack.groupDmsEnabled=true",
+  );
+  assert.match(output, /"allowFrom": \["U11111111","U22222222"\]/);
+  assert.match(output, /"execApprovals":\s*{\s*"enabled": true,\s*"approvers": \["U22222222"\],\s*"target": "dm"/);
+  assert.match(output, /"users": \["U11111111","U22222222"\]/);
+  assert.match(output, /"groupEnabled": true/);
+  assert.match(output, /"slackEditUserIds": \["U22222222"\]/);
+});
+
+test("omits Slack identity and exec approval configuration when Slack is disabled", () => {
+  const output = render();
+  assert.doesNotMatch(output, /"channels":\s*{\s*"slack"/);
+  assert.doesNotMatch(output, /"execApprovals"/);
+  assert.match(output, /"slackEnabled": false/);
+  assert.match(output, /"slackEditUserIds": \[\]/);
+});
+
+test("validates Slack edit identities without weakening the messaging allowlist", () => {
+  for (const settings of [
+    ["openclaw.slack.editUserIds[0]=U22222222"],
+    [
+      "modules.edit.enabled=true",
+      "openclaw.slack.enabled=true",
+      "openclaw.slack.existingSecret=mosaic-slack",
+      "openclaw.slack.allowedUserIds[0]=U11111111",
+      "openclaw.slack.editUserIds[0]=U22222222",
+    ],
+  ]) {
+    const args = ["template", "mosaic", chart, "--namespace", "mosaic-test"];
+    for (const setting of settings) args.push("--set", setting);
+    const result = spawnSync("helm", args, { encoding: "utf8" });
+    assert.notEqual(result.status, 0, settings.join(", "));
+  }
 });
 
 test("patches Slack Enterprise Grid workspace events without weakening app checks", () => {
@@ -434,7 +483,7 @@ test("exposes edit and HITL state to the UI without changing their defaults", ()
 test("validates edit mode dependencies and backend configuration", () => {
   const invalid = [
     ["modules.execution.enabled=false", /requires modules\.execution\.enabled=true/],
-    ["modules.ui.enabled=false", /requires modules\.ui\.enabled=true/],
+    ["modules.ui.enabled=false", /requires modules\.ui\.enabled=true or at least one openclaw\.slack\.editUserIds entry/],
     ["modules.edit.approvalTimeoutMs=999", /must be at least 1000/],
     ["modules.edit.kubernetes.enabled=false", /requires at least one configured edit backend/],
     ["modules.kubernetes.enabled=false", /requires modules\.kubernetes\.enabled=true/],
