@@ -209,3 +209,15 @@ test("instructs the agent to finish after a successful mutation", () => {
   assert.match(source, /immediately provide a brief final answer and stop/);
   assert.match(source, /Do not run a separate verification read/);
 });
+
+test("makes the per-session access mode authoritative", () => {
+  const source = readFileSync(
+    new URL("../files/openclaw-seed/workspace/AGENTS.md", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /mosaic_access_mode.*authoritative/);
+  assert.match(source, /Edit permits mutation tools and pauses each change for approval/);
+  assert.match(source, /Auto permits the same mutation tools and executes explicit user-requested changes without per-tool approval/);
+  assert.match(source, /run_kubectl_admin.*including create, exec, label, patch, scale, delete, and apply/);
+  assert.doesNotMatch(source, /when HITL is enabled, submit the exact tool call and wait/);
+});
