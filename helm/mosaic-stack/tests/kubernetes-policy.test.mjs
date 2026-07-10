@@ -216,8 +216,9 @@ test("makes the per-session access mode authoritative", () => {
     "utf8",
   );
   assert.match(source, /mosaic_access_mode.*authoritative/);
-  assert.match(source, /Edit permits mutation tools and pauses each change for approval/);
-  assert.match(source, /Auto permits the same mutation tools and executes explicit user-requested changes without per-tool approval/);
+  assert.match(source, /In Edit, immediately call the enabled mutation tool/);
+  assert.match(source, /Auto permits the same mutation tools and executes explicit user-requested changes immediately without per-tool approval/);
   assert.match(source, /run_kubectl_admin.*including create, exec, label, patch, scale, delete, and apply/);
+  assert.match(source, /never print a proposed approval command or ask the user to confirm in chat/);
   assert.doesNotMatch(source, /when HITL is enabled, submit the exact tool call and wait/);
 });
