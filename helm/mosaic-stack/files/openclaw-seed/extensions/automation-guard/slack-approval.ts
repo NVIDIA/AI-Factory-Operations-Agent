@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomUUID } from "node:crypto";
+import { recordApprovalDecision } from "../mutation-ledger.ts";
 import type {
   MosaicApprovalDecision,
   MosaicApprovalRequest,
@@ -10,6 +11,7 @@ import type {
 
 type PendingApproval = {
   senderId: string;
+  request: MosaicApprovalRequest;
   resolve: (decision: MosaicApprovalDecision) => void;
   timer: ReturnType<typeof setTimeout>;
 };
@@ -23,7 +25,7 @@ type SlackInteraction = {
   };
 };
 
-export function installSlackApprovalBroker(api: any, editUserIds: string[]) {
+export function installSlackApprovalBroker(api: any, editUserIds: string[], ledgerPath?: string) {
   const editUsers = new Set(editUserIds);
   const pending = new Map<string, PendingApproval>();
 
@@ -40,10 +42,37 @@ export function installSlackApprovalBroker(api: any, editUserIds: string[]) {
       }
       clearTimeout(request.timer);
       pending.delete(id);
+      await recordApprovalDecision({
+        id: request.request.toolCallId ?? id,
+        toolName: request.request.toolName ?? "unknown",
+        senderId: ctx.senderId,
+        decision,
+        ledgerPath,
+      });
       request.resolve(decision);
+      const status = decision === "allow" ? "Approved" : "Denied";
+      const execution = decision === "allow"
+        ? "Authorized."
+        : "Not executed.";
+      const result = decision === "allow" ? "Reported separately by the tool." : "Not run.";
       await ctx.respond?.editMessage?.({
-        text: decision === "allow" ? "Action approved." : "Action denied.",
-        blocks: [],
+        text: `${request.request.title}\n${request.request.description}\nApproval: ${status} by <@${ctx.senderId}>.\nExecution: ${execution}\nResult: ${result}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*${request.request.title}*\n${request.request.description}`,
+            },
+          },
+          {
+            type: "context",
+            elements: [{
+              type: "mrkdwn",
+              text: `*Approval:* ${status} by <@${ctx.senderId}>.\n*Execution:* ${execution}\n*Result:* ${result}`,
+            }],
+          },
+        ],
       });
       return { handled: true };
     },
@@ -56,9 +85,16 @@ export function installSlackApprovalBroker(api: any, editUserIds: string[]) {
     const decision = new Promise<MosaicApprovalDecision>((resolve) => {
       const timer = setTimeout(() => {
         pending.delete(id);
+        void recordApprovalDecision({
+          id: request.toolCallId ?? id,
+          toolName: request.toolName ?? "unknown",
+          senderId: access.senderId!,
+          decision: "timeout",
+          ledgerPath,
+        }).catch(() => undefined);
         resolve("timeout");
       }, timeoutMs);
-      pending.set(id, { senderId: access.senderId!, resolve, timer });
+      pending.set(id, { senderId: access.senderId!, request, resolve, timer });
     });
     const outbound = await api.runtime.channel.outbound.loadAdapter("slack");
     if (!outbound?.sendPayload) {

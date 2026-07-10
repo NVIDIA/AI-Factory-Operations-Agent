@@ -599,6 +599,8 @@ export default definePluginEntry({
           if (!config.hitl || contextSkipsApproval(context)) return;
           const noteAction = event.toolName === "bcm_add_note" ? "Add BCM investigation note" : "Remove BCM investigation note";
           const approval = {
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
             title: event.toolName === "bcm_execute_cmsh_admin" ? "BCM CMSH change" : noteAction,
             description: commands ? `${commands} on BCM head ${config.headHost}`.slice(0, 256) : noteAction,
             severity: "critical" as const,

@@ -68,6 +68,8 @@ export default definePluginEntry({
           const request = classifySshRequest(event.params, settings.hosts);
           if (isAllowedDiagnosticArgv(request.argv) || !settings.hitl || contextSkipsApproval(context)) return;
           const approval = {
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
             title: `Remote command on ${request.host.alias}`.slice(0, 80),
             description: `${JSON.stringify(request.argv)} on ${request.host.alias} (${request.host.user}@${request.host.address}:${request.host.port})`.slice(0, 256),
             severity: "critical" as const,

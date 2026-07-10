@@ -23,6 +23,14 @@ type Input = {
   ledgerPath?: string;
 };
 
+type ApprovalRecord = {
+  id: string;
+  toolName: string;
+  senderId: string;
+  decision: "allow" | "deny" | "timeout";
+  decidedAt: string;
+};
+
 const active = new Set<string>();
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -34,6 +42,39 @@ function serialized<T>(operation: () => Promise<T>) {
 
 function filePath(input: Input) {
   return input.ledgerPath || process.env.MOSAIC_EDIT_LEDGER_PATH || "/home/node/.openclaw/mosaic-edit-ledger.json";
+}
+
+async function readApprovals(file: string) {
+  try {
+    const value = JSON.parse(await fs.readFile(file, "utf8"));
+    return Array.isArray(value) ? value as ApprovalRecord[] : [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+export async function recordApprovalDecision(input: {
+  id: string;
+  toolName: string;
+  senderId: string;
+  decision: ApprovalRecord["decision"];
+  ledgerPath?: string;
+}) {
+  const file = input.ledgerPath
+    || process.env.MOSAIC_APPROVAL_LEDGER_PATH
+    || "/home/node/.openclaw/mosaic-approval-ledger.json";
+  await serialized(async () => {
+    const records = await readApprovals(file);
+    records.push({
+      id: input.id,
+      toolName: input.toolName,
+      senderId: input.senderId,
+      decision: input.decision,
+      decidedAt: new Date().toISOString(),
+    });
+    await write(file, records);
+  });
 }
 
 function fingerprint(input: Input) {
@@ -52,7 +93,7 @@ async function read(file: string) {
   }
 }
 
-async function write(file: string, records: Record[]) {
+async function write<T>(file: string, records: T[]) {
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.${process.pid}.tmp`;
   await fs.writeFile(temporary, JSON.stringify(records.slice(-1000)), { mode: 0o600 });

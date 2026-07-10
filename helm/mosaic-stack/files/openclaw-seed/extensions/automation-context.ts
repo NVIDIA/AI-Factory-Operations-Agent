@@ -30,6 +30,8 @@ export type MosaicToolContext = {
 };
 
 export type MosaicApprovalRequest = {
+  toolCallId?: string;
+  toolName?: string;
   title: string;
   description: string;
   severity?: "info" | "warning" | "critical";

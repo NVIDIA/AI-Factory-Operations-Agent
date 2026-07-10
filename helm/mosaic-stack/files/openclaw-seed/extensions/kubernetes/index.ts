@@ -143,6 +143,8 @@ export default definePluginEntry({
           const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
           const approval = formatKubectlApproval(request, cluster.name);
           const identityDecision = await requestIdentityApproval(context, {
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
             ...approval,
             severity: "warning",
             timeoutMs: settings.approvalTimeoutMs,
