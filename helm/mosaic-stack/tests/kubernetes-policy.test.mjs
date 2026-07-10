@@ -64,49 +64,46 @@ test("rejects malformed argument arrays", () => {
   assert.throws(() => validateKubectlArgs(["get", 1]));
 });
 
-test("validates the separate admin tool's stdin apply and exact-name delete", () => {
-  const manifest = {
+test("validates arbitrary exact admin argv and optional stdin", () => {
+  const stdin = JSON.stringify({
     apiVersion: "v1",
     kind: "ConfigMap",
     metadata: { name: "edit-test", namespace: "mosaic-edit-e2e-test" },
-    data: { result: "approved" },
-  };
-  const apply = validateKubectlAdminRequest(["apply", "-f", "-"], manifest);
-  assert.deepEqual(validateKubectlAdminRequest(["apply", "-f", "-"], JSON.stringify(manifest)), apply);
+  });
+  const apply = validateKubectlAdminRequest(["apply", "-f", "-"], stdin);
   assert.equal(apply.mutating, true);
-  assert.deepEqual(apply.targets, ["ConfigMap/edit-test in namespace mosaic-edit-e2e-test"]);
-  assert.equal(apply.manifestSha256?.length, 64);
-  assert.deepEqual(JSON.parse(apply.manifest), manifest);
+  assert.deepEqual(apply.targets, ["apply"]);
+  assert.equal(apply.stdinSha256?.length, 64);
+  assert.equal(apply.stdin, stdin);
   assert.deepEqual(formatKubectlApproval(apply, "local"), {
-    title: "apply ConfigMap/edit-test in namespace mosaic-edit-e2e-test",
+    title: "kubectl apply",
     description: [
       "Cluster: local",
       "Command: kubectl apply -f -",
       "Standard input:",
-      JSON.stringify(manifest, null, 2),
+      stdin,
     ].join("\n"),
   });
-  assert.deepEqual(validateKubectlAdminRequest(["delete", "configmap", "edit-test", "-n", "mosaic-edit-e2e-test"], undefined), {
-    args: ["delete", "configmap", "edit-test", "-n", "mosaic-edit-e2e-test"],
-    mutating: true,
-    targets: ["configmap/edit-test in namespace mosaic-edit-e2e-test"],
-  });
+  const exec = validateKubectlAdminRequest([
+    "exec", "diagnostic-pod", "-n", "mosaic-edit-e2e-test", "--", "sh", "-c", "touch /tmp/proof && cat /tmp/proof",
+  ], undefined);
+  assert.deepEqual(exec.args.slice(0, 2), ["exec", "diagnostic-pod"]);
+  assert.equal(exec.stdin, undefined);
+  assert.equal(formatKubectlApproval(exec, "local").title, "kubectl exec");
+  assert.match(formatKubectlApproval(exec, "local").description, /touch \/tmp\/proof && cat \/tmp\/proof/);
+  assert.deepEqual(validateKubectlAdminRequest([
+    "create", "configmap", "edit-test", "-n", "mosaic-edit-e2e-test", "--from-literal=demo=approved",
+  ], undefined).targets, ["create"]);
 });
 
-test("keeps mutation out of the read tool and blocks unsafe admin shapes", () => {
-  const configMap = { apiVersion: "v1", kind: "ConfigMap", metadata: { name: "edit-test", namespace: "default" } };
-  const secret = { apiVersion: "v1", kind: "Secret", metadata: { name: "forbidden", namespace: "default" } };
+test("keeps mutation out of the read tool and protects admin credentials", () => {
   assert.throws(() => validateKubectlReadRequest(["apply", "-f", "-"]), /read command/);
-  assert.throws(() => validateKubectlAdminRequest(["get", "pods"], undefined), /admin command/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "file.yaml"], configMap), /stdin/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-"], secret), /not editable/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-", ";", "id"], configMap), /shell syntax/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-", "--prune"], configMap), /stdin form/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-"], { ...configMap, metadata: { name: "edit-test" } }), /namespace/);
-  assert.throws(() => validateKubectlAdminRequest(["apply", "-f", "-"], '{'), /serialized JSON/);
-  assert.throws(() => validateKubectlAdminRequest(["delete", "secret", "api-key"], undefined), /Secret/);
-  assert.throws(() => validateKubectlAdminRequest(["delete", "pods", "--all"], undefined), /bulk/);
-  assert.throws(() => validateKubectlAdminRequest(["delete", "pod", "one", "two"], undefined), /exactly one/);
+  assert.deepEqual(validateKubectlAdminRequest(["get", "secrets", "-A"], undefined).args, ["get", "secrets", "-A"]);
+  assert.deepEqual(validateKubectlAdminRequest(["delete", "pods", "--all"], undefined).args, ["delete", "pods", "--all"]);
+  assert.throws(() => validateKubectlAdminRequest(["get", "pods", "--kubeconfig=/tmp/admin"], undefined), /not allowed/);
+  assert.throws(() => validateKubectlAdminRequest(["get", "pods", "-s=https:\/\/alternate.invalid"], undefined), /not allowed/);
+  assert.throws(() => validateKubectlAdminRequest(["get", "pods"], { unexpected: true }), /stdin must be a string/);
+  assert.throws(() => validateKubectlAdminRequest(["get", "pods"], "x".repeat(1_048_577)), /cannot exceed/);
 });
 
 test("resolves only registered clusters", () => {
@@ -184,13 +181,13 @@ test("registers the exec guard through OpenClaw's trusted tool policy", () => {
   assert.match(source, /requireApproval:/);
   assert.match(source, /timeoutBehavior: "deny"/);
   assert.match(source, /formatKubectlApproval/);
-  assert.match(source, /request\.manifestSha256/);
+  assert.match(source, /request\.stdinSha256/);
   assert.match(source, /if \(settings\.editEnabled\) api\.registerTool/);
   assert.match(source, /name: "run_kubectl_admin"/);
-  assert.match(source, /validateKubectlAdminRequest\(event\.params\.args, event\.params\.manifest\)/);
-  assert.match(source, /oneOf: \[/);
-  assert.match(source, /Accepts an object or its serialized JSON representation/);
-  assert.match(source, /Apply must be exactly \[\\"apply\\", \\"-f\\", \\"-\\"\]/);
+  assert.match(source, /validateKubectlAdminRequest\(event\.params\.args, event\.params\.stdin\)/);
+  assert.match(source, /Run exact kubectl arguments/);
+  assert.match(source, /maxLength: 1048576/);
+  assert.doesNotMatch(source, /Apply must be exactly/);
   assert.doesNotMatch(source, /classifyKubectlRequest/);
   assert.doesNotMatch(source, /instruction:/);
 });

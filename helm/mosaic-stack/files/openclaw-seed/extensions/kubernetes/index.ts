@@ -75,7 +75,7 @@ async function executeRequest(
     cluster.kubeconfig,
     settings.timeoutMs,
     settings.maxOutputBytes,
-    request.manifest,
+    request.stdin,
     cluster.server,
     cluster.tlsServerName,
   );
@@ -84,7 +84,7 @@ async function executeRequest(
         toolCallId,
         toolName,
         target: `${cluster.name}:${request.targets.join(",")}`,
-        args: { args: request.args, manifestSha256: request.manifestSha256 },
+        args: { args: request.args, stdinSha256: request.stdinSha256 },
       }, execute, value => value.code === 0 ? "completed" : "failed")
     : { replayed: false as const, state: "completed" as const, result: await execute() };
   if (attempt.replayed) return toolResult({
@@ -103,7 +103,7 @@ async function executeRequest(
     mutating: request.mutating,
     idempotencyKey: request.mutating ? toolCallId : undefined,
     targets: request.targets,
-    manifestSha256: request.manifestSha256,
+    stdinSha256: request.stdinSha256,
     exitCode: execution.code,
     stdout: execution.stdout,
     stderr: execution.stderr,
@@ -113,7 +113,7 @@ async function executeRequest(
 export default definePluginEntry({
   id: "kubernetes",
   name: "Kubernetes",
-  description: "Read-only kubectl access to registered Kubernetes clusters.",
+  description: "Approval-aware kubectl access to registered Kubernetes clusters.",
   register(api) {
     const settings = config(api.pluginConfig);
     api.session.state.registerSessionExtension(sessionAccessExtension);
@@ -125,7 +125,7 @@ export default definePluginEntry({
         if (isKubectlExecFallback(event.toolName, event.params)) {
           return {
             block: true,
-            blockReason: "Kubernetes commands are available only through run_kubectl. Do not retry with exec.",
+            blockReason: "Kubernetes commands are available only through run_kubectl or run_kubectl_admin. Do not retry with exec.",
           };
         }
         try {
@@ -134,7 +134,7 @@ export default definePluginEntry({
             return;
           }
           if (event.toolName !== "run_kubectl_admin") return;
-          const request = validateKubectlAdminRequest(event.params.args, event.params.manifest);
+          const request = validateKubectlAdminRequest(event.params.args, event.params.stdin);
           if (!settings.hitl || sessionSkipsApproval(
             context.sessionKey,
             context.getSessionExtension?.("access"),
@@ -200,7 +200,7 @@ export default definePluginEntry({
       name: "run_kubectl_admin",
       label: "Kubernetes Admin",
       description:
-        "Apply one structured workload manifest with args exactly [\"apply\", \"-f\", \"-\"], or delete one exact named workload resource. This tool always uses edit capability and may require approval. After success, report this result directly without a verification read unless the user requested one. Use run_kubectl for every requested read.",
+        "Run exact kubectl arguments against a registered cluster when edit capability is required. Edit mode requires approval and Auto mode does not. Pass optional standard input as a string. Use run_kubectl for read-only operations.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -215,18 +215,12 @@ export default definePluginEntry({
             minItems: 1,
             maxItems: 64,
             items: { type: "string" },
-            description: "Exactly one supported operation without the kubectl prefix. Apply must be exactly [\"apply\", \"-f\", \"-\"].",
+            description: "Exact kubectl arguments without the kubectl prefix.",
           },
-          manifest: {
-            oneOf: [
-              {
-                type: "object",
-                additionalProperties: true,
-                required: ["apiVersion", "kind", "metadata"],
-              },
-              { type: "string", minLength: 2 },
-            ],
-            description: "One complete Kubernetes object required by kubectl apply -f -. Accepts an object or its serialized JSON representation.",
+          stdin: {
+            type: "string",
+            maxLength: 1048576,
+            description: "Optional exact standard input for kubectl.",
           },
         },
       },
@@ -237,7 +231,7 @@ export default definePluginEntry({
             toolCallId,
             "run_kubectl_admin",
             rawParams,
-            validateKubectlAdminRequest(rawParams.args, rawParams.manifest),
+            validateKubectlAdminRequest(rawParams.args, rawParams.stdin),
           );
         } catch (error) {
           return rejectedResult(error);

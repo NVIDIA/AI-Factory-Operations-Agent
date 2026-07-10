@@ -48,7 +48,11 @@ for target in local external; do
     marker=external-cluster-marker
   fi
   "$k" create namespace "$NAMESPACE"
-  "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  if [[ $target == local ]]; then
+    "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --set modules.edit.enabled=true --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  else
+    "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  fi
   "$k" -n kube-system create configmap "$marker" --from-literal=cluster="$target"
   "$k" run e2e-log-source --image=busybox:1.37 --restart=Never -- sh -c 'echo kubernetes-plugin-e2e; sleep 300'
   "$k" wait --for=condition=Ready pod/e2e-log-source --timeout=120s

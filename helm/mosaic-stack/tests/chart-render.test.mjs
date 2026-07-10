@@ -133,7 +133,7 @@ test("renders read-only Kubernetes RBAC including metrics without Secrets or pod
   assert.doesNotMatch(output, /verbs: \[[^\]]*"(?:create|delete|patch|update)"/);
 });
 
-test("renders workload-only editor RBAC for OpenClaw when edit mode is enabled", () => {
+test("renders workload editor and pod exec RBAC for OpenClaw when edit mode is enabled", () => {
   const output = render(
     "--set",
     "modules.edit.enabled=true",
@@ -144,9 +144,10 @@ test("renders workload-only editor RBAC for OpenClaw when edit mode is enabled",
   );
   assert.match(output, /name: .*oc-editor/);
   assert.match(output, /resources: \["configmaps", "pods", "services"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
+  assert.match(output, /resources: \["pods\/exec"\]\s+verbs: \["create"\]/);
   assert.match(output, /resources: \["daemonsets", "deployments", "statefulsets"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
   assert.match(output, /resources: \["cronjobs", "jobs"\]\s+verbs: \["create", "delete", "patch", "update"\]/);
-  assert.doesNotMatch(output, /resources: \[[^\]]*"(?:secrets|pods\/exec|clusterroles|customresourcedefinitions|serviceaccounts\/token)"/);
+  assert.doesNotMatch(output, /resources: \[[^\]]*"(?:secrets|clusterroles|customresourcedefinitions|serviceaccounts\/token)"/);
   const editorBinding = output.slice(output.lastIndexOf("kind: ClusterRoleBinding"));
   assert.match(editorBinding, /name: openclaw/);
   assert.doesNotMatch(editorBinding, /name: mosaic-terminal/);

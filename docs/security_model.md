@@ -23,8 +23,8 @@ Setting `modules.edit.hitl=false` also removes approvals from Edit mode. Keep th
 Read and write operations use separate tools and Kubernetes credentials:
 
 - `run_kubectl` uses the chart's read-only ServiceAccount. Its ClusterRole grants `get`, `list`, and `watch` for the supported operational resources. The tool rejects Secrets, interactive access, credential overrides, and shell syntax.
-- `run_kubectl_admin` is installed only when Kubernetes editing is enabled. Its default ClusterRole permits `create`, `delete`, `patch`, and `update` only for ConfigMaps, Pods, Services, Deployments, DaemonSets, StatefulSets, Jobs, and CronJobs. An operator can replace that role through `modules.edit.kubernetes.existingClusterRole`.
-- The admin tool accepts one structured `kubectl apply -f -` manifest or one exact named-resource deletion. It does not expose arbitrary kubectl execution.
+- `run_kubectl_admin` is installed only when Kubernetes editing is enabled. It accepts exact kubectl argv and optional standard input, executes without a local shell, requires approval in Edit, and skips approval in Auto. Credential overrides remain blocked so the installer-selected cluster and identity stay authoritative.
+- Its default ClusterRole permits `create`, `delete`, `patch`, and `update` for ConfigMaps, Pods, Services, Deployments, DaemonSets, StatefulSets, Jobs, and CronJobs, plus `create` on `pods/exec`. An operator can replace that role through `modules.edit.kubernetes.existingClusterRole` to define the actual administrative scope.
 
 Kubernetes RBAC remains authoritative in every mode. Auto bypasses approval, not RBAC or request validation.
 
