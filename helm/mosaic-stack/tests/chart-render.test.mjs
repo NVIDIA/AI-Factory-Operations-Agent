@@ -185,7 +185,7 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
   assert.match(render("--show-only", "templates/openclaw.yaml"), /cp \/seed\/mutation-ledger\.ts \/home\/node\/\.openclaw\/extensions\/mutation-ledger\.ts/);
 });
 
-test("tells the assistant about edit mode only when the module is enabled", () => {
+test("tells the assistant about session access modes only when editing is enabled", () => {
   const readonly = render();
   assert.match(readonly, /Mosaic edit mode is disabled/);
   assert.doesNotMatch(readonly, /Remote commands are permitted only/);
@@ -199,9 +199,10 @@ test("tells the assistant about edit mode only when the module is enabled", () =
     "--set", "modules.edit.ssh.hosts[0].user=root",
     "--set", "modules.edit.ssh.hosts[0].port=22",
   );
-  assert.match(editable, /Mosaic edit mode is enabled/);
+  assert.match(editable, /## Session Access Modes/);
+  assert.match(editable, /`mosaic_access_mode`.*authoritative/);
   assert.match(editable, /call `run_remote_ssh`/);
-  assert.match(editable, /Remote commands are permitted only/);
+  assert.match(editable, /For remote host operations, call `run_remote_ssh` immediately/);
 });
 
 test("renders an authenticated BCM admin path only for BCM edit mode", () => {
