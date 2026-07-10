@@ -27,6 +27,18 @@ data:
   slack-enterprise-grid-patch.mjs: |-
 {{ .Files.Get "files/openclaw-seed/slack-enterprise-grid-patch.mjs" | indent 4 }}
   {{- end }}
+  automation-context.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-context.ts" | indent 4 }}
+  diagnostic-policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/diagnostic-policy.ts" | indent 4 }}
+  automation-guard.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/index.ts" | indent 4 }}
+  automation-guard.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json" | indent 4 }}
+  automation-guard.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/automation-guard/package.json" | indent 4 }}
+  mutation-ledger.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/mutation-ledger.ts" | indent 4 }}
   {{- if .Values.modules.kubernetes.enabled }}
   kubernetes.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/index.ts" | indent 4 }}
@@ -38,6 +50,18 @@ data:
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json" | indent 4 }}
   kubernetes.package.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/package.json" | indent 4 }}
+  {{- end }}
+  {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+  remote-ssh.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/index.ts" | indent 4 }}
+  remote-ssh.policy.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/policy.ts" | indent 4 }}
+  remote-ssh.runner.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/runner.ts" | indent 4 }}
+  remote-ssh.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/openclaw.plugin.json" | indent 4 }}
+  remote-ssh.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/remote-ssh/package.json" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.diagnostics.enabled }}
   diagnostic-agent.SKILL.md: |-

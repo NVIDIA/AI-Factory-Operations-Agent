@@ -20,6 +20,7 @@ case "$3" in
   result) printf 'stdout %s' "$config"; printf 'stderr %s' "$config" >&2; exit 7 ;;
   large) head -c 64 /dev/zero ;;
   sleep) sleep 2 ;;
+  stdin) cat ;;
 esac
 `,
 );
@@ -45,4 +46,12 @@ test("terminates commands after the configured timeout", async () => {
 
 test("reports command launch failures", async () => {
   await assert.rejects(runKubectl(path.join(directory, "missing"), ["result"], kubeconfig, 1_000, 1_024), /ENOENT/);
+});
+
+test("passes an apply manifest only over stdin", async () => {
+  assert.deepEqual(await runKubectl(command, ["stdin"], kubeconfig, 1_000, 1_024, "manifest-data"), {
+    code: 0,
+    stdout: "manifest-data",
+    stderr: "",
+  });
 });

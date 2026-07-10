@@ -26,6 +26,7 @@ spec:
         app: openclaw
       annotations:
         checksum/openclaw-seed: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
+        checksum/bcm-auth-config: {{ printf "%s:%s:%s" .Values.bcmMcp.authTokenSecretName .Values.bcmMcp.authTokenSecretKey .Values.bcmMcp.authToken | sha256sum }}
     spec:
       serviceAccountName: openclaw
       automountServiceAccountToken: {{ and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
@@ -113,18 +114,30 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /home/node/.openclaw/tmp/openclaw
+              mkdir -p /home/node/.openclaw/tmp/openclaw /home/node/.openclaw/workspace/skills
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
-              rm -rf /home/node/.openclaw/extensions/dcgm \
+              rm -rf /home/node/.openclaw/extensions/automation-guard \
+                /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/diagnostic-agent \
                 /home/node/.openclaw/extensions/grafana \
                 /home/node/.openclaw/extensions/iraop \
                 /home/node/.openclaw/extensions/kubernetes \
+                /home/node/.openclaw/extensions/remote-ssh \
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
+              rm -f /home/node/.openclaw/extensions/automation-context.ts \
+                /home/node/.openclaw/extensions/diagnostic-policy.ts \
+                /home/node/.openclaw/extensions/mutation-ledger.ts
+              mkdir -p /home/node/.openclaw/extensions/automation-guard
+              cp /seed/automation-context.ts /home/node/.openclaw/extensions/automation-context.ts
+              cp /seed/diagnostic-policy.ts /home/node/.openclaw/extensions/diagnostic-policy.ts
+              cp /seed/automation-guard.index.ts /home/node/.openclaw/extensions/automation-guard/index.ts
+              cp /seed/automation-guard.openclaw.plugin.json /home/node/.openclaw/extensions/automation-guard/openclaw.plugin.json
+              cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json
+              cp /seed/mutation-ledger.ts /home/node/.openclaw/extensions/mutation-ledger.ts
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
               mkdir -p /home/node/.openclaw/extensions/slurm
@@ -139,6 +152,14 @@ spec:
               cp /seed/kubernetes.runner.ts /home/node/.openclaw/extensions/kubernetes/runner.ts
               cp /seed/kubernetes.openclaw.plugin.json /home/node/.openclaw/extensions/kubernetes/openclaw.plugin.json
               cp /seed/kubernetes.package.json /home/node/.openclaw/extensions/kubernetes/package.json
+              {{- end }}
+              {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/remote-ssh
+              cp /seed/remote-ssh.index.ts /home/node/.openclaw/extensions/remote-ssh/index.ts
+              cp /seed/remote-ssh.policy.ts /home/node/.openclaw/extensions/remote-ssh/policy.ts
+              cp /seed/remote-ssh.runner.ts /home/node/.openclaw/extensions/remote-ssh/runner.ts
+              cp /seed/remote-ssh.openclaw.plugin.json /home/node/.openclaw/extensions/remote-ssh/openclaw.plugin.json
+              cp /seed/remote-ssh.package.json /home/node/.openclaw/extensions/remote-ssh/package.json
               {{- end }}
               {{- if .Values.modules.research.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/iraop
@@ -232,6 +253,33 @@ spec:
             - name: kubernetes-configs
               mountPath: /var/run/mosaic-kubernetes
             {{- end }}
+        {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+        - name: init-remote-ssh-credentials
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cp /source/private-key /credentials/id
+              cp /source/known-hosts /credentials/known_hosts
+              chmod 0400 /credentials/id
+              chmod 0444 /credentials/known_hosts
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: remote-ssh-source
+              mountPath: /source
+              readOnly: true
+            - name: remote-ssh-credentials
+              mountPath: /credentials
+        {{- end }}
         {{- if .Values.openclaw.slack.enabled }}
         - name: init-slack-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
@@ -477,6 +525,13 @@ spec:
             {{- end }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+            {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+            - name: MOSAIC_BCM_MCP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bcmMcp.authTokenSecretName }}
+                  key: {{ .Values.bcmMcp.authTokenSecretKey }}
+            {{- end }}
             {{- if .Values.modules.diagnostics.enabled }}
             - name: DIAGNOSTIC_AGENT_API_KEY
               valueFrom:
@@ -542,6 +597,11 @@ spec:
               readOnly: true
             {{- end }}
             {{- end }}
+            {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+            - name: remote-ssh-credentials
+              mountPath: /var/run/mosaic-ssh
+              readOnly: true
+            {{- end }}
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -553,6 +613,19 @@ spec:
           emptyDir: {}
         - name: openshell-plugin
           emptyDir: {}
+        {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
+        - name: remote-ssh-source
+          secret:
+            secretName: {{ .Values.modules.edit.ssh.existingSecret | quote }}
+            items:
+              - key: {{ .Values.modules.edit.ssh.privateKeyKey | quote }}
+                path: private-key
+              - key: {{ .Values.modules.edit.ssh.knownHostsKey | quote }}
+                path: known-hosts
+        - name: remote-ssh-credentials
+          emptyDir:
+            medium: Memory
+        {{- end }}
         {{- if not .Values.openshell.server.disableTls }}
         - name: openshell-client-tls
           secret:

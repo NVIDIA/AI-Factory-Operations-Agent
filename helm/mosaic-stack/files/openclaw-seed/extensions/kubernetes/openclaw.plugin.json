@@ -2,8 +2,13 @@
   "id": "kubernetes",
   "contracts": {
     "tools": [
-      "run_kubectl"
-    ]
+      "run_kubectl",
+      "run_kubectl_admin"
+    ],
+    "trustedToolPolicies": ["kubernetes-access"]
+  },
+  "activation": {
+    "onStartup": true
   },
   "configSchema": {
     "type": "object",
@@ -18,13 +23,44 @@
       "clusters": {
         "type": "object",
         "additionalProperties": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kubeconfig"
+              ],
+              "properties": {
+                "kubeconfig": {
+                  "type": "string"
+                },
+                "server": {
+                  "type": "string"
+                },
+                "tlsServerName": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
         }
       },
       "maxOutputBytes": {
         "type": "number"
       },
       "timeoutMs": {
+        "type": "number"
+      },
+      "editEnabled": {
+        "type": "boolean"
+      },
+      "hitl": {
+        "type": "boolean"
+      },
+      "approvalTimeoutMs": {
         "type": "number"
       }
     }

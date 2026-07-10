@@ -140,6 +140,7 @@
   },
   "plugins": {
     "allow": [
+      "automation-guard",
       "bcm",
       "diagnostic-agent",
       "grafana",
@@ -147,11 +148,18 @@
       "kubernetes",
       "openshell",
       "observability",
+      "remote-ssh",
       "slurm",
       "llm"{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}
     ],
     "entries": {
+      "automation-guard": {
+        "enabled": true,
+        "config": {
+          "editEnabled": {{ .Values.modules.edit.enabled }}
+        }
+      },
       "llm": {
         "enabled": true
       }{{- if .Values.openclaw.slack.enabled }},
@@ -164,6 +172,9 @@
           "command": {{ .Values.kubernetes.command | quote }},
           "defaultCluster": {{ .Values.kubernetes.defaultCluster | quote }},
           "clusters": {{ include "mosaic-stack.kubernetesClusters" . }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.kubernetes.enabled }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "maxOutputBytes": {{ .Values.kubernetes.maxOutputBytes }},
           "timeoutMs": {{ .Values.kubernetes.timeoutMs }}
         }
@@ -197,8 +208,27 @@
           "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
+          {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+          "authToken": "${MOSAIC_BCM_MCP_TOKEN}",
+          {{- end }}
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
+        }
+      },
+      "remote-ssh": {
+        "enabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }},
+        "config": {
+          "command": "/tools/ssh",
+          "keyPath": "/var/run/mosaic-ssh/id",
+          "knownHostsPath": "/var/run/mosaic-ssh/known_hosts",
+          "hosts": {{ toJson .Values.modules.edit.ssh.hosts }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
+          "timeoutMs": {{ .Values.modules.edit.ssh.timeoutMs }},
+          "maxOutputBytes": {{ .Values.modules.edit.ssh.maxOutputBytes }}
         }
       },
       "grafana": {
