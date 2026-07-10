@@ -163,6 +163,9 @@
     "entries": {
       "automation-guard": {
         "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true
+        },
         "config": {
           "editEnabled": {{ .Values.modules.edit.enabled }},
           "slackEnabled": {{ .Values.openclaw.slack.enabled }},

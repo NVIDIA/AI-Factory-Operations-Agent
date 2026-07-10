@@ -45,7 +45,7 @@ test("startup-loads the automation read-only guard", () => {
   assert.equal(manifest.activation?.onStartup, true);
   assert.deepEqual(manifest.contracts?.trustedToolPolicies, ["session-access"]);
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
-  assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"config":\s*{\s*"editEnabled": false/);
+  assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"hooks":\s*{\s*"allowConversationAccess": true\s*},\s*"config":\s*{\s*"editEnabled": false/);
   assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);
   assert.match(seed, /automation-context\.ts: \|-/);
   const runtime = render("--show-only", "templates/openclaw.yaml");
