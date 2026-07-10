@@ -32,19 +32,24 @@ test("Slack approval buttons bind the decision to the requesting Edit user", asy
   );
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(sent.to, "user:UEDIT");
-  const buttons = sent.payload.presentation.blocks[1].buttons;
-  assert.deepEqual(buttons.map((button) => button.label), ["Approve", "Deny"]);
-  const payload = buttons[0].action.value.replace(/^mosaic-approval:/, "");
+  assert.equal(sent.payload.presentation, undefined);
+  const buttons = sent.payload.channelData.slack.blocks[1].elements;
+  assert.deepEqual(buttons.map((button) => button.text.text), ["Approve", "Deny"]);
+  assert.deepEqual(buttons.map((button) => button.action_id), [
+    "mosaic-approval:allow",
+    "mosaic-approval:deny",
+  ]);
+  const id = buttons[0].value;
 
   await handler({
     senderId: "UVIEW",
-    interaction: { payload },
+    interaction: { payload: `allow:${id}` },
     respond: { async reply(value) { replies.push(value); } },
   });
   assert.match(replies[0].text, /not authorized/);
   await handler({
     senderId: "UEDIT",
-    interaction: { payload },
+    interaction: { payload: `allow:${id}` },
     respond: { async editMessage(value) { edits.push(value); } },
   });
   assert.equal(await decision, "allow");

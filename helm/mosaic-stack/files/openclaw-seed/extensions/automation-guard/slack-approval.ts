@@ -31,7 +31,7 @@ export function installSlackApprovalBroker(api: any, editUserIds: string[]) {
     channel: "slack",
     namespace: "mosaic-approval",
     async handler(ctx: SlackInteraction) {
-      const [id, decision] = ctx.interaction?.payload?.split(":") ?? [];
+      const [decision, id] = ctx.interaction?.payload?.split(":") ?? [];
       const request = pending.get(id);
       if (!request || (decision !== "allow" && decision !== "deny")) return { handled: false };
       if (!ctx.senderId || !editUsers.has(ctx.senderId) || ctx.senderId !== request.senderId) {
@@ -73,26 +73,35 @@ export function installSlackApprovalBroker(api: any, editUserIds: string[]) {
         text: request.title,
         payload: {
           text: `${request.title}\n${request.description}`,
-          presentation: {
-            tone: request.severity === "critical" ? "danger" : request.severity ?? "warning",
-            blocks: [
-              { type: "text", text: `*${request.title}*\n${request.description}` },
-              {
-                type: "buttons",
-                buttons: [
-                  {
-                    label: "Approve",
-                    action: { type: "callback", value: `mosaic-approval:${id}:allow` },
-                    style: "primary",
-                  },
-                  {
-                    label: "Deny",
-                    action: { type: "callback", value: `mosaic-approval:${id}:deny` },
-                    style: "danger",
-                  },
-                ],
-              },
-            ],
+          channelData: {
+            slack: {
+              blocks: [
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: `*${request.title}*\n${request.description}` },
+                },
+                {
+                  type: "actions",
+                  block_id: `mosaic_approval_${id}`,
+                  elements: [
+                    {
+                      type: "button",
+                      action_id: "mosaic-approval:allow",
+                      text: { type: "plain_text", text: "Approve" },
+                      value: id,
+                      style: "primary",
+                    },
+                    {
+                      type: "button",
+                      action_id: "mosaic-approval:deny",
+                      text: { type: "plain_text", text: "Deny" },
+                      value: id,
+                      style: "danger",
+                    },
+                  ],
+                },
+              ],
+            },
           },
         },
       });
