@@ -71,8 +71,8 @@ spec:
       {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       containers:
         - name: label
-          image: {{ include "mosaic-stack.image" .Values.openclaw.kubectlInstallerImage | quote }}
-          imagePullPolicy: {{ .Values.openclaw.kubectlInstallerImage.pullPolicy }}
+          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.kubectlInstallerImage | quote }}
+          imagePullPolicy: {{ .Values.mosaicTerminal.kubectlInstallerImage.pullPolicy }}
           command: ["/bin/kubectl"]
           args:
             - label

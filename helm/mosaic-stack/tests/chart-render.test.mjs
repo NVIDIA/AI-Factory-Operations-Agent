@@ -39,6 +39,17 @@ test("pins every default runtime image", () => {
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
 });
 
+test("renders namespace labeling with the configured kubectl image", () => {
+  const output = render(
+    "--show-only",
+    "templates/namespace-labels.yaml",
+    "--set-json",
+    'namespace.labels={"example.com/managed":"true"}',
+  );
+  assert.match(output, /image: "registry\.k8s\.io\/kubectl:v1\.30\.0"/);
+  assert.match(output, /"example\.com\/managed=true"/);
+});
+
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
   const output = render();
   assert.match(output, /"backend": "openshell"/);
