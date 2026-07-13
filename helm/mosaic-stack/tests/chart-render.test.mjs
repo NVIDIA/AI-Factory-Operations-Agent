@@ -61,6 +61,15 @@ test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
   assert.match(output, /value: "https:\/\/mosaic-openshell:8080"/);
 });
 
+test("exposes only Mosaic-owned skills to OpenClaw agents", () => {
+  const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(
+    output,
+    /"skills": \[\s*"bcm",\s*"diagnostic-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
+  );
+  assert.doesNotMatch(output, /"allowBundled"/);
+});
+
 test("renders named external Kubernetes clusters from Secrets", () => {
   const output = render(
     "--set",

@@ -20,6 +20,13 @@
       "model": {
         "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
       },
+      "skills": [
+        "bcm",
+        "diagnostic-agent",
+        "iraop",
+        "observability",
+        "slurm"
+      ],
       "thinkingDefault": "off",
       "reasoningDefault": "off",
       "sandbox": {
@@ -83,9 +90,6 @@
   },
   "cron": {
     "enabled": false
-  },
-  "skills": {
-    "allowBundled": []
   },
   "plugins": {
     "allow": [
