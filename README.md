@@ -21,8 +21,14 @@ Clone the repository and prepare the Helm dependencies:
 ```bash
 git clone https://github.com/NVIDIA/Mosaic.git
 cd Mosaic
+: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with Mosaic registry access}"
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
+  --username '$oauthtoken' \
+  --password-stdin
 helm dependency build ./helm/mosaic-stack
 ```
+
+The registry login authenticates the local Helm client so it can download the pinned private OCI chart dependencies. The installation separately creates a Kubernetes image-pull Secret for private runtime images.
 
 Follow the [Helm deployment guide](helm/README.md) for the installation command and configuration required by your environment.
 

@@ -20,6 +20,13 @@
       "model": {
         "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
       },
+      "skills": [
+        "bcm",
+        "diagnostic-agent",
+        "iraop",
+        "observability",
+        "slurm"
+      ],
       "thinkingDefault": "off",
       "reasoningDefault": "off",
       {{- if .Values.openclaw.slack.enabled }}
@@ -141,9 +148,6 @@
   },
   "cron": {
     "enabled": false
-  },
-  "skills": {
-    "allowBundled": []
   },
   "plugins": {
     "allow": [

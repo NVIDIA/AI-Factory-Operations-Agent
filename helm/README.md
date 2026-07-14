@@ -1,143 +1,128 @@
 # Mosaic Helm Deployment
 
-Mosaic is installed with Helm. The public chart surface includes the Mosaic UI, OpenClaw/NemoClaw execution, read-only Kubernetes inspection, observability/Grafana helpers, and vanilla Slurm log RCA.
+Mosaic is installed with Helm. This guide documents the shared upgrade, LLM, module, UI, and headless workflows.
 
-## 1. Install Or Upgrade
+## Install Mosaic
 
-```bash
-printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io -u '$oauthtoken' --password-stdin
-helm dependency build ./helm/mosaic-stack
+For a bare Kubernetes cluster, follow the complete [Kind installation guide](../docs/kind_installation.md).
 
-helm upgrade --install mosaic ./helm/mosaic-stack \
-  -n mosaic \
-  --create-namespace \
-  --set global.registryCredentials.create=true \
-  --set-string global.registryCredentials.password="$NGC_API_KEY" \
-  --reset-values \
-  --wait \
-  --timeout 12m
-```
+For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](../docs/nmc_installation.md).
 
-Set `NGC_API_KEY` before running these commands. The registry login authenticates the local Helm client for the private OpenShell chart dependency. The upgrade creates `nvcr-image-pull-secret` in the release namespace and attaches it to Mosaic, OpenShell, and dynamically created sandbox pods.
+## Custom Installation
 
-The chart generates and retains the internal OpenClaw gateway token. Installers do not need to provide that credential.
-
-For an existing pull Secret instead of a Helm-managed credential, set:
-
-```yaml
-global:
-  imagePullSecrets:
-    - name: existing-pull-secret
-```
-
-The chart patches the namespace `default` ServiceAccount through a Helm hook so OpenShell-created sandbox pods can pull the configured image.
-
-## 2. Install On An NMC Admin Cluster
-
-Run this flow from the BCM head node after setting `NGC_API_KEY` and `EXTERNAL_LLM_API_KEY`. It selects the NMC `k8s-admin` cluster, connects Mosaic to the existing `kube-prometheus-stack` services, and installs the AgentSandbox CRD and controller from the Mosaic chart.
+### 1. Create The Namespace And Registry Access
 
 ```bash
-module load kubernetes/k8s-admin
+read -rsp 'NGC API key: ' NGC_API_KEY; echo
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
+  --username '$oauthtoken' \
+  --password-stdin
 
-printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io -u '$oauthtoken' --password-stdin
 helm dependency build ./helm/mosaic-stack
 
 kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create secret docker-registry nvcr-image-pull-secret \
+  --docker-server=nvcr.io \
+  --docker-username='$oauthtoken' \
+  --docker-password="$NGC_API_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+unset NGC_API_KEY
+```
+
+### 2. Choose An LLM
+
+To install Mosaic with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
+
+```bash
+export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
+
 kubectl -n mosaic create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-GRAFANA_USERNAME=$(kubectl -n prometheus get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-user}' | base64 -d)
-GRAFANA_PASSWORD=$(kubectl -n prometheus get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d)
-kubectl -n mosaic create secret generic mosaic-grafana-auth \
-  --from-literal=username="$GRAFANA_USERNAME" \
-  --from-literal=password="$GRAFANA_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
-  --create-namespace \
-  --set global.registryCredentials.create=true \
-  --set-string global.registryCredentials.password="$NGC_API_KEY" \
-  --set-json 'namespace.labels={"zarf.dev/agent":"ignore"}' \
+  --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set llm.mode=external \
-  --set llm.external.baseUrl=https://inference-api.nvidia.com/v1 \
-  --set llm.external.model=aws/anthropic/bedrock-claude-sonnet-4-6 \
+  --set-string llm.external.baseUrl="$EXTERNAL_LLM_BASE_URL" \
+  --set-string llm.external.model="$EXTERNAL_LLM_MODEL" \
   --set llm.external.existingSecret=mosaic-external-llm \
-  --set observability.prometheusUrl=http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090 \
-  --set observability.grafanaUrl=http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana \
-  --set observability.grafanaDatasourceUid=prometheus \
-  --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
+  --set modules.ui.enabled=true \
+  --set modules.execution.enabled=true \
+  --set modules.kubernetes.enabled=false \
+  --set modules.observability.enabled=false \
+  --set modules.grafana.enabled=false \
+  --set modules.bcm.enabled=false \
   --set modules.slurm.enabled=false \
+  --set modules.diagnostics.enabled=false \
+  --set modules.research.enabled=false \
+  --set modules.terminal.enabled=false \
+  --set-string openclaw.pvc.storageClassName='' \
+  --set-string mosaicUi.auditPvc.storageClassName='' \
   --reset-values \
+  --atomic \
+  --wait \
+  --timeout 12m
+
+unset EXTERNAL_LLM_API_KEY
+```
+
+For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
+
+To install Mosaic with Nemotron Super running on 1 GPU in vLLM, run:
+
+```bash
+helm upgrade --install mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  -f helm/mosaic-stack/profiles/vllm-super-1gpu.yaml \
+  --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
+  --set modules.ui.enabled=true \
+  --set modules.execution.enabled=true \
+  --set modules.kubernetes.enabled=false \
+  --set modules.observability.enabled=false \
+  --set modules.grafana.enabled=false \
+  --set modules.bcm.enabled=false \
+  --set modules.slurm.enabled=false \
+  --set modules.diagnostics.enabled=false \
+  --set modules.research.enabled=false \
+  --set modules.terminal.enabled=false \
+  --set-string openclaw.pvc.storageClassName='' \
+  --set-string mosaicUi.auditPvc.storageClassName='' \
+  --reset-values \
+  --atomic \
   --wait \
   --timeout 12m
 ```
 
-## 3. LLM Modes
-
-- `llm.mode=vllm`: deploys chart-managed vLLM. Use `helm/mosaic-stack/profiles/vllm-super-1gpu.yaml` for a small single-GPU profile or `helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml` for a larger distributed profile.
-- `llm.mode=external`: does not deploy vLLM. Set `llm.external.baseUrl`, `llm.external.model`, and optionally `llm.external.existingSecret` plus `llm.external.apiKeySecretKey`.
-
-For an external LLM, create the API key as a Kubernetes Secret outside Helm values, then point the chart at it:
-
-```bash
-kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic mosaic-external-llm \
-  --from-literal=apiKey='<external-llm-api-key>' \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-```yaml
-llm:
-  mode: external
-  external:
-    baseUrl: https://inference-api.nvidia.com/v1
-    model: aws/anthropic/bedrock-claude-sonnet-4-6
-    existingSecret: mosaic-external-llm
-    apiKeySecretKey: apiKey
-```
-
-Do not put external provider keys directly in committed values files. Keep the Secret creation step in an operator-owned bootstrap path, CI secret store, External Secrets Operator, or another cluster-local secret workflow.
-
-For chart-managed vLLM, install with the selected profile:
+To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
 
 ```bash
 helm upgrade --install mosaic ./helm/mosaic-stack \
   -n mosaic \
-  --create-namespace \
-  -f helm/mosaic-stack/profiles/vllm-super-1gpu.yaml
+  -f helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml \
+  --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
+  --set modules.ui.enabled=true \
+  --set modules.execution.enabled=true \
+  --set modules.kubernetes.enabled=false \
+  --set modules.observability.enabled=false \
+  --set modules.grafana.enabled=false \
+  --set modules.bcm.enabled=false \
+  --set modules.slurm.enabled=false \
+  --set modules.diagnostics.enabled=false \
+  --set modules.research.enabled=false \
+  --set modules.terminal.enabled=false \
+  --set-string openclaw.pvc.storageClassName='' \
+  --set-string mosaicUi.auditPvc.storageClassName='' \
+  --reset-values \
+  --atomic \
+  --wait \
+  --timeout 12m
 ```
 
-## 4. Modules
-
-`helm/mosaic-stack/values.yaml` exposes feature modules under `modules.*.enabled`. `modules.bcm.enabled` controls the BCM skill in the OpenClaw seed.
-
-The Research module connects Mosaic to an existing IRA/Sequoia service. It does not deploy IRA or its OpenSearch dependency:
-
-```yaml
-modules:
-  research:
-    enabled: true
-    baseUrl: http://iraop.research.svc.cluster.local:8000/mcp/sse
-    timeoutMs: 240000
-```
-
-`baseUrl` must be the IRA MCP SSE endpoint reachable from the OpenClaw pod.
-
-Observability is connected through explicit endpoints:
-
-```yaml
-observability:
-  prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
-  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy
-```
-
-Those URLs may point at the reference `mosaic-observability` chart or at an existing Prometheus/Grafana deployment.
-
-`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana, `/grafana` for the NMC deployment, or `/api/grafana/proxy` for the bundled reference deployment.
-
-## 5. Open The UI
+After this point you will be able to open up the UI by running this:
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
@@ -145,7 +130,223 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
-## 6. Headless Mode
+### 3. Add Extensions
+
+The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Add only the extensions needed for the target cluster using the commands below.
+
+## Extensions
+
+All module changes below update an existing Mosaic release and preserve its current site configuration.
+
+### Observability
+
+To connect Mosaic to an existing Prometheus service, run:
+
+```bash
+export PROMETHEUS_URL='http://prometheus.mosaic-observability.svc.cluster.local:9090'
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.observability.enabled=true \
+  --set-string observability.prometheusUrl="$PROMETHEUS_URL" \
+  --wait \
+  --timeout 12m
+```
+
+### Grafana
+
+To connect Mosaic to an existing Grafana service, run:
+
+```bash
+export GRAFANA_URL='http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy'
+export GRAFANA_DATASOURCE_UID='mosaic-observability-prometheus'
+export GRAFANA_USERNAME='admin'
+read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
+
+kubectl -n mosaic create secret generic mosaic-grafana-auth \
+  --from-literal=username="$GRAFANA_USERNAME" \
+  --from-literal=password="$GRAFANA_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.grafana.enabled=true \
+  --set-string observability.grafanaUrl="$GRAFANA_URL" \
+  --set-string observability.grafanaDatasourceUid="$GRAFANA_DATASOURCE_UID" \
+  --set observability.grafanaAuth.existingSecret=mosaic-grafana-auth \
+  --wait \
+  --timeout 12m
+
+unset GRAFANA_PASSWORD
+```
+
+`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana, `/grafana` for the NMC deployment, or `/api/grafana/proxy` for the bundled reference deployment.
+
+### Terminal
+
+To enable the optional browser terminal service, run:
+
+```bash
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.terminal.enabled=true \
+  --wait \
+  --timeout 12m
+```
+
+### Access Modes
+
+Enable guarded write operations with the Edit module:
+
+```yaml
+modules:
+  edit:
+    enabled: true
+    hitl: true
+    kubernetes:
+      enabled: true
+```
+
+Every interactive conversation starts in **View**. Users can switch that conversation to **Edit** for approval-gated changes or **Auto** for validated changes without approval. Auto requires confirmation through a warning dialog. Other conversations remain in View, and automated alert and cluster-health sessions are always read-only. When the module is disabled, the access control is not shown.
+
+Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use Mosaic through DMs, group DMs, and channel mentions.
+
+Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, BCM, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
+
+Read [the Mosaic security model](../docs/security_model.md) before enabling Edit or Auto.
+
+### BCM
+
+To enable the BCM extension, provide the BCM head host and SSH key:
+
+```bash
+export BCM_HEAD_HOST='bcm-head.example.com'
+export BCM_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
+test -r "$BCM_SSH_KEY_PATH"
+
+kubectl -n mosaic create secret generic bcm-host-ssh-key \
+  --from-file=id_ecdsa="$BCM_SSH_KEY_PATH" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.bcm.enabled=true \
+  --set bcmMcp.enabled=true \
+  --set bcmMcp.mode=ssh-adapter \
+  --set-string bcmMcp.headHost="$BCM_HEAD_HOST" \
+  --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
+  --wait \
+  --timeout 12m
+```
+
+The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+### Research
+
+To connect the Research module to an existing IRA MCP SSE endpoint, run:
+
+```bash
+export IRA_MCP_URL='http://iraop.research.svc.cluster.local:8000/mcp/sse'
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.research.enabled=true \
+  --set modules.research.managed=false \
+  --set-string modules.research.baseUrl="$IRA_MCP_URL" \
+  --wait \
+  --timeout 12m
+```
+
+To deploy the chart-managed Research Agent and OpenSearch, set the embedding API key, active Mosaic model, and corpus path, then run:
+
+```bash
+read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
+export MOSAIC_CHAT_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
+
+kubectl -n mosaic create secret generic iraop-secrets \
+  --from-literal=NVIDIA_API_KEY="$NVIDIA_API_KEY" \
+  --from-literal=NVIDIA_CHAT_API_KEY=EMPTY \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.research.enabled=true \
+  --set modules.research.managed=true \
+  --set modules.research.secrets.create=false \
+  --set-string researchAgent.iraop.config.NVIDIA_CHAT_MODEL="$MOSAIC_CHAT_MODEL" \
+  --set-string researchAgent.iraop.corpus.hostPath="$IRA_CORPUS_PATH" \
+  --wait \
+  --timeout 12m
+
+unset NVIDIA_API_KEY
+```
+
+### Hardware Agent
+
+Provide its API keys, BCM webhook credentials, BCM SSH key, NVDebug playbook archive, and additional environment variables:
+
+```bash
+export DIAGNOSTIC_API_KEYS='<comma-separated-agent-api-keys>'
+export BCM_WEBHOOK_URL='<bcm-webhook-url>'
+read -rsp 'BCM webhook token: ' BCM_WEBHOOK_TOKEN; echo
+export BCM_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
+export NVDEBUG_PLAYBOOKS_TGZ='/path/to/playbooks.tgz'
+export DIAGNOSTIC_ENV_FILE='/path/to/diagnostic-agent.env'
+
+test -r "$BCM_SSH_KEY_PATH"
+test -r "$NVDEBUG_PLAYBOOKS_TGZ"
+test -r "$DIAGNOSTIC_ENV_FILE"
+kubectl -n mosaic create secret generic diagnostic-agent-api-keys \
+  --from-literal=AGENT_API_KEYS="$DIAGNOSTIC_API_KEYS" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create secret generic bcm-webhook-creds \
+  --from-literal=BCM_WEBHOOK_URL="$BCM_WEBHOOK_URL" \
+  --from-literal=BCM_WEBHOOK_TOKEN="$BCM_WEBHOOK_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create secret generic diagnostic-agent-secrets \
+  --from-env-file="$DIAGNOSTIC_ENV_FILE" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create secret generic bcm-host-ssh-key \
+  --from-file=id_ecdsa="$BCM_SSH_KEY_PATH" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n mosaic create configmap debughub-playbooks-tar \
+  --from-file=playbooks.tgz="$NVDEBUG_PLAYBOOKS_TGZ" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.diagnostics.enabled=true \
+  --wait \
+  --timeout 12m
+
+unset BCM_WEBHOOK_TOKEN
+```
+
+After installation the plugins of your choosing the installation process is done and you can reference the previous mentioned port-forward to open up the UI.
+
+## Upgrade An Existing Installation
+
+After pulling the latest tracked source, retain the working site configuration with:
+
+```bash
+helm dependency build ./helm/mosaic-stack
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --atomic \
+  --wait \
+  --timeout 12m
+```
+
+If Helm is not already authenticated to NVCR, run the registry login command from custom installation step 1 first.
+
+## Headless Mode
 
 The Mosaic UI service also exposes a headless API:
 
@@ -155,13 +356,22 @@ curl -sS http://localhost:3000/api/headless/chat \
   -d '{"prompt":"summarize whether the cluster is healthy","sessionKey":"headless"}'
 ```
 
-Inside the `mosaic-ui` container, the same path is available as a CLI:
+Invoke the packaged CLI inside the `mosaic-ui` pod with:
 
 ```bash
-mosaic "summarize whether the cluster is healthy"
+kubectl -n mosaic exec deploy/mosaic-ui -- \
+  mosaic --session headless "summarize whether the cluster is healthy"
 ```
 
-For agent clients, run `mosaic-mcp` with `MOSAIC_URL` pointing at the Mosaic service. It exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for Codex setup and port-forward options.
+Register the packaged MCP server with Codex by running:
+
+```bash
+codex mcp add mosaic -- \
+  kubectl -n mosaic exec -i deploy/mosaic-ui -- \
+  env MOSAIC_URL=http://127.0.0.1:3000 mosaic-mcp
+```
+
+It exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
 
 ## Vanilla Slurm RCA
 
@@ -179,36 +389,90 @@ Default collector roots:
 - `/run/log/journal`
 - `/var/log/journal`
 
-The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `sacct`/`scontrol` and any mounted evidence available in the sandbox. Missing paths are expected on many clusters; the skill continues with whatever evidence is present. Adjust `slurmEvidenceCollector.roots` only when a site stores Slurm evidence outside the default candidates.
+The Slurm skill first calls `slurm_job_evidence`, then falls back to read-only `sacct`/`scontrol` and any mounted evidence available in the sandbox. Missing paths are expected on many clusters; the skill continues with whatever evidence is present.
+
+To use the vanilla collector with a site-specific evidence root, run:
+
+```bash
+export SLURM_EVIDENCE_ROOT='/shared/slurm'
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.slurm.enabled=true \
+  --set modules.slurm.backend=vanilla \
+  --set-json "slurmEvidenceCollector.roots=[\"$SLURM_EVIDENCE_ROOT\"]" \
+  --wait \
+  --timeout 12m
+```
 
 The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, Mosaic uses BCM WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without BCM, Mosaic uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
 
-On BCM/NMC deployments, enable `bcmMcp` in `ssh-adapter` mode and provide the BCM head host and SSH-key Secret. The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+After enabling the BCM extension, enable BCM-backed Slurm with:
 
-```yaml
-bcmMcp:
-  enabled: true
-  mode: ssh-adapter
-  headHost: bcm-head.example.com
-  hostSshKeySecretName: bcm-host-ssh-key
-modules:
-  slurm:
-    enabled: true
-    backend: auto
+```bash
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.slurm.enabled=true \
+  --set modules.slurm.backend=auto \
+  --wait \
+  --timeout 12m
 ```
+
+## Kubernetes Access
+
+Mosaic exposes one read-only OpenClaw tool, `run_kubectl`. The tool invokes a pinned kubectl binary with an argument array, never a shell command. It rejects mutation, pod execution, port forwarding, Secret reads, impersonation, raw kubeconfig output, and credential or API endpoint overrides before launching kubectl. Kubernetes RBAC independently denies those operations.
+
+The local cluster is registered by default using the `openclaw` ServiceAccount. Its token and kubeconfig are mounted only in the OpenClaw pod; OpenShell sandboxes receive neither Kubernetes credentials nor kubectl.
+
+Enable read-only access to the local cluster with:
+
+```bash
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.kubernetes.enabled=true \
+  --wait \
+  --timeout 12m
+```
+
+To register another cluster, first create a kubeconfig for a read-only identity on that cluster. Store it as a Secret in the Mosaic namespace:
+
+```bash
+kubectl -n mosaic create secret generic production-west-kubeconfig \
+  --from-file=config=/path/to/read-only-kubeconfig
+```
+
+Register that Secret with Mosaic by running:
+
+```bash
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set modules.kubernetes.enabled=true \
+  --set-json 'kubernetes.clusters=[{"name":"production-west","kubeconfigSecretRef":{"name":"production-west-kubeconfig","key":"config"}}]' \
+  --wait \
+  --timeout 12m
+```
+
+The model selects only the registered name. It cannot provide a kubeconfig path, context, token, or server address. Removing the list entry on upgrade removes the corresponding credential mount. A missing Secret leaves the OpenClaw pod unready with the Kubernetes volume error from the kubelet.
 
 ## OpenShell Dependency
 
-The chart declares a pinned OpenShell OCI dependency produced by `mosaic-upstream`. Run `helm dependency build ./helm/mosaic-stack` before installing from source. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is tracked directly in this chart:
+The chart declares the pinned official OpenShell OCI dependency from `ghcr.io/nvidia/openshell`. It uses the official gateway, supervisor, and unprivileged base sandbox images. Run `helm dependency build ./helm/mosaic-stack` before installing from source. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is tracked directly in this chart:
 
 - `CustomResourceDefinition` resources are placed under chart `crds/` so Helm installs them before templates.
 - The controller namespace, RBAC, service, and StatefulSet are rendered as normal templates when `agentSandbox.install=true`.
 
-If a cluster already provides a compatible `agent-sandbox` installation, set:
+If the cluster already provides a compatible `agent-sandbox` installation, run:
 
-```yaml
-agentSandbox:
-  install: false
+```bash
+helm upgrade mosaic ./helm/mosaic-stack \
+  -n mosaic \
+  --reuse-values \
+  --set agentSandbox.install=false \
+  --wait \
+  --timeout 12m
 ```
 
 Source installs from `./helm/mosaic-stack` include the tracked `agent-sandbox` CRD and controller templates.

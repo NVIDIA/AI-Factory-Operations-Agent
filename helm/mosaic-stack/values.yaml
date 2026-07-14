@@ -389,6 +389,10 @@ bcmMcp:
 mosaicTerminal:
   service:
     port: 3002
+  kubectlInstallerImage:
+    repository: registry.k8s.io/kubectl
+    tag: v1.30.0
+    pullPolicy: IfNotPresent
   idleTimeoutMs: 1800000
   auth:
     create: true

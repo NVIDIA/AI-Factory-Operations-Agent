@@ -84,6 +84,17 @@ test("pins every default runtime image", () => {
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
 });
 
+test("renders namespace labeling with the configured kubectl image", () => {
+  const output = render(
+    "--show-only",
+    "templates/namespace-labels.yaml",
+    "--set-json",
+    'namespace.labels={"example.com/managed":"true"}',
+  );
+  assert.match(output, /image: "registry\.k8s\.io\/kubectl:v1\.30\.0"/);
+  assert.match(output, /"example\.com\/managed=true"/);
+});
+
 test("pins the UI to the immutable GitLab short SHA tag", () => {
   const output = render("--show-only", "templates/mosaic-ui.yaml");
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
@@ -309,6 +320,15 @@ test("patches Slack Enterprise Grid workspace events without weakening app check
   assert.match(patched, /incomingEnterpriseId/);
   assert.match(patched, /incomingEnterpriseId !== params\.teamId/);
   assert.match(patched, /incomingApiAppId !== params\.apiAppId/);
+});
+
+test("exposes only Mosaic-owned skills to OpenClaw agents", () => {
+  const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(
+    output,
+    /"skills": \[\s*"bcm",\s*"diagnostic-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
+  );
+  assert.doesNotMatch(output, /"allowBundled"/);
 });
 
 test("renders named external Kubernetes clusters from Secrets", () => {
@@ -677,6 +697,14 @@ test("creates the base workspace when every optional skill module is disabled", 
   );
   assert.match(output, /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace\/skills/);
   assert.match(output, /cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/);
+});
+
+test("initializes a fresh OpenClaw workspace before seeding it", () => {
+  const output = render("--show-only", "templates/openclaw.yaml");
+  assert.match(
+    output,
+    /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace[\s\S]*cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/,
+  );
 });
 
 test("rejects an unregistered default Kubernetes cluster", () => {
