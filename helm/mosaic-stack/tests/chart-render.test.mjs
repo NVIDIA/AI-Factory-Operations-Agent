@@ -109,6 +109,14 @@ test("packages every Kubernetes plugin module into the OpenClaw seed", () => {
   }
 });
 
+test("initializes a fresh OpenClaw workspace before seeding it", () => {
+  const output = render("--show-only", "templates/openclaw.yaml");
+  assert.match(
+    output,
+    /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace[\s\S]*cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/,
+  );
+});
+
 test("rejects an unregistered default Kubernetes cluster", () => {
   const result = spawnSync(
     "helm",

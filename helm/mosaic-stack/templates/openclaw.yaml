@@ -113,7 +113,7 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /home/node/.openclaw/tmp/openclaw
+              mkdir -p /home/node/.openclaw/tmp/openclaw /home/node/.openclaw/workspace
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               rm -rf /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/diagnostic-agent \
