@@ -68,6 +68,33 @@ kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 
 Open `http://localhost:3000`.
 
+Choose the interface that matches the caller:
+
+| Interface | Intended caller | Contract |
+| --- | --- | --- |
+| Browser UI | Cluster operators | Interactive chat, dashboards, and enabled operational workflows. |
+| HTTP API | Services and scripts | `POST /api/headless/chat` with `prompt` and `sessionKey`; returns the completed assistant turn and run metadata. |
+| `mosaic` CLI | Shell and Slurm automation | Sends one prompt to a Mosaic URL and waits for the completed assistant turn. |
+| `mosaic-mcp` | Claude Code, Codex, and other MCP clients | Local stdio bridge to the Mosaic HTTP service; exposes chat, history, commands, and enabled module tools. |
+
+The [Mosaic headless skill](docs/skills/mosaic-headless/SKILL.md) gives coding agents the HTTP, CLI, and MCP contracts. Install it for Codex with:
+
+```bash
+install -d ~/.codex/skills/mosaic-headless
+install -m 0644 docs/skills/mosaic-headless/SKILL.md \
+  ~/.codex/skills/mosaic-headless/SKILL.md
+```
+
+For Claude Code:
+
+```bash
+install -d ~/.claude/skills/mosaic-headless
+install -m 0644 docs/skills/mosaic-headless/SKILL.md \
+  ~/.claude/skills/mosaic-headless/SKILL.md
+```
+
+Invoke the installed skill when an agent needs to discover a Mosaic service, ask an operational question, or configure the MCP bridge.
+
 - More examples and deployment options: [helm/README.md](helm/README.md)
 - Use cases: [docs/use_cases.md](docs/use_cases.md)
 - Slurm RCA reference: [docs/slurm_rca.md](docs/slurm_rca.md)

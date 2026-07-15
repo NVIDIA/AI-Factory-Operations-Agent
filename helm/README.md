@@ -342,15 +342,32 @@ kubectl -n mosaic exec deploy/mosaic-ui -- \
   mosaic --session headless "summarize whether the cluster is healthy"
 ```
 
-Register the packaged MCP server with Codex by running:
+The Mosaic HTTP service is not itself an MCP endpoint. Install the stdio MCP bridge on the client machine (Node.js 18 or newer is required):
 
 ```bash
-codex mcp add mosaic -- \
-  kubectl -n mosaic exec -i deploy/mosaic-ui -- \
-  env MOSAIC_URL=http://127.0.0.1:3000 mosaic-mcp
+git clone https://github.com/NVIDIA/Mosaic.git
+cd Mosaic
+install -d ~/.local/bin
+install -m 0755 utils/mosaic-mcp.mjs ~/.local/bin/mosaic-mcp
 ```
 
-It exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
+Point the bridge at any reachable Mosaic UI URL. For Claude Code:
+
+```bash
+claude mcp add mosaic \
+  -e MOSAIC_URL=http://localhost:3000 \
+  -- ~/.local/bin/mosaic-mcp
+```
+
+For Codex:
+
+```bash
+codex mcp add mosaic \
+  --env MOSAIC_URL=http://localhost:3000 \
+  -- ~/.local/bin/mosaic-mcp
+```
+
+Replace `http://localhost:3000` with the deployed Mosaic URL when it is reachable directly. The bridge exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
 
 ## Vanilla Slurm RCA
 
@@ -358,11 +375,9 @@ The public Slurm workflow is evidence based. By default, the chart deploys a rea
 
 Default collector roots:
 
-- `/var/log/slurm`
 - `/var/log`
 - `/cm/shared`
-- `/slurm/logs`
-- `/slurm/accounting`
+- `/slurm`
 - `/etc/slurm`
 - `/cm/shared/apps/slurm/etc`
 - `/run/log/journal`
