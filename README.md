@@ -4,7 +4,7 @@ Mosaic gives AI infrastructure teams a unified operations interface for cluster 
 
 # Overview
 
-Mosaic runs OpenClaw and OpenShell on Kubernetes and exposes operational workflows through a unified UI and headless API. Its Helm deployment is modular, allowing operators to connect only the capabilities supported by their environment.
+Mosaic runs NemoClaw and OpenShell on Kubernetes and exposes operational workflows through a unified UI and headless API. Its Helm deployment is modular, allowing operators to connect only the capabilities supported by their environment.
 
 Mosaic supports:
 
@@ -14,23 +14,26 @@ Mosaic supports:
 - Optional cluster-management integrations.
 - Sandboxed command execution with an auditable agent workflow.
 
-# Getting Started
+# Architecture
 
-Clone the repository and prepare the Helm dependencies:
-
-```bash
-git clone https://github.com/NVIDIA/Mosaic.git
-cd Mosaic
-: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with Mosaic registry access}"
-printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
-  --username '$oauthtoken' \
-  --password-stdin
-helm dependency build ./helm/mosaic-stack
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#f5f5f5","primaryBorderColor":"#76b900","primaryTextColor":"#1a1a1a","lineColor":"#4d4d4d","secondaryColor":"#ffffff","tertiaryColor":"#ffffff"}}}%%
+flowchart LR
+    operator[Operator] --> ui[Mosaic UI]
+    client[CLI / HTTP / MCP client] --> ui
+    ui --> gateway[NemoClaw]
+    gateway --> sandbox[OpenShell sandbox]
+    gateway --> modules[Enabled Mosaic modules]
+    gateway --> llm[LLM]
+    modules --> k8s[Kubernetes]
+    modules --> obs[Prometheus / Grafana]
+    modules --> slurm[Slurm]
+    modules --> bcm[BCM]
+    modules --> research[Research Agent]
+    modules --> hardware[Hardware Agent]
 ```
 
-The registry login authenticates the local Helm client so it can download the pinned private OCI chart dependencies. The installation separately creates a Kubernetes image-pull Secret for private runtime images.
-
-Follow the [Helm deployment guide](helm/README.md) for the installation command and configuration required by your environment.
+OpenShell isolates general agent command execution. Kubernetes, observability, Slurm, and BCM access use module-specific server-side tools and the credentials explicitly configured for those modules. Browser and MCP clients do not receive cluster credentials. Kubernetes Secrets remain mounted only in the pods that require them.
 
 # Requirements
 
@@ -39,6 +42,21 @@ Follow the [Helm deployment guide](helm/README.md) for the installation command 
 - LLM: an OpenAI-compatible endpoint or a cluster capable of running chart-managed vLLM.
 - GPU/driver: required only when deploying chart-managed vLLM; requirements depend on the selected model profile.
 - Optional services: Prometheus, Grafana, Slurm, or cluster-management endpoints for the corresponding modules.
+
+# Getting Started
+
+Clone the repository:
+
+```bash
+git clone https://github.com/NVIDIA/Mosaic.git
+cd Mosaic
+```
+
+Use the complete command sequence for your environment:
+
+- [NVIDIA Mission Control installation](docs/nmc_installation.md)
+- [Kind installation](docs/kind_installation.md)
+- [Custom installation and module configuration](helm/README.md)
 
 # Usage
 
