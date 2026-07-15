@@ -5,7 +5,7 @@
 {{- $collector := .Values.slurmEvidenceCollector | default dict -}}
 {{- $image := $collector.image | default dict -}}
 {{- $port := default 8080 $collector.port -}}
-{{- $roots := default (list "/var/log" "/cm/shared" "/slurm" "/etc/slurm" "/cm/shared/apps/slurm/etc" "/run/log/journal" "/var/log/journal") $collector.roots -}}
+{{- $roots := default (list "/var/log" "/cm/shared" "/slurm" "/etc/slurm" "/cm/shared/apps/slurm/etc" "/run/log/journal" "/var/log/journal") $collector.roots }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

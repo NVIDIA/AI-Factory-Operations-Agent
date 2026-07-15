@@ -117,6 +117,19 @@ test("initializes a fresh OpenClaw workspace before seeding it", () => {
   );
 });
 
+test("preserves the Slurm evidence apiVersion after its SPDX header", () => {
+  const output = render(
+    "--show-only",
+    "templates/slurm-evidence.yaml",
+    "--set",
+    "modules.slurm.enabled=true",
+    "--set",
+    "modules.bcm.enabled=false",
+  );
+  assert.match(output, /# SPDX-License-Identifier: Apache-2\.0\napiVersion: v1/);
+  assert.doesNotMatch(output, /Apache-2\.0apiVersion/);
+});
+
 test("rejects an unregistered default Kubernetes cluster", () => {
   const result = spawnSync(
     "helm",
