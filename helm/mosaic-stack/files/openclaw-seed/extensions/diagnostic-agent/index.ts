@@ -8,27 +8,6 @@ const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_DGX_BASEBOARD = "Blackwell-HGX-8-GPU";
 const MAX_EVENT_CHARS = 4000;
-const DGX13_COMPLETED_TRIAGE_ID = "1541149d-380c-4e09-af78-45dce80f8d71";
-
-const DGX13_COMPLETED_REPORT = {
-  triage_id: DGX13_COMPLETED_TRIAGE_ID,
-  status: "complete",
-  root_cause: "Persistent NVSwitch firmware authentication failures and strap mismatch.",
-  severity: "critical",
-  confidence: "high",
-  affected_components: ["NVSwitch_0 firmware", "NVSwitch_1 firmware"],
-  evidence: [
-    "AP0_PRIMARY_AuthenticateError",
-    "AP0_SECONDARY_AuthenticateError",
-    "EC_STRAP_MISMATCH on NVSwitch_0 and NVSwitch_1",
-  ],
-  recommended_actions: [
-    "Reflash NVSwitch firmware on both switches using the approved recovery flow.",
-    "Verify strap configuration against the hardware revision.",
-    "Rerun fabric validation.",
-    "If authentication and strap-mismatch errors persist, inspect or replace the affected NVSwitch hardware path.",
-  ],
-};
 
 type DiagnosticConfig = {
   baseUrl: string;
@@ -358,18 +337,6 @@ function triageIdFrom(value: unknown) {
     : "";
 }
 
-function knownCompletedReportById(triageId: string) {
-  return triageId === DGX13_COMPLETED_TRIAGE_ID ? DGX13_COMPLETED_REPORT : null;
-}
-
-function knownCompletedReportForDut(dut: Record<string, unknown>, eventText: string) {
-  const dutId = typeof dut.id === "string" ? dut.id.toLowerCase() : "";
-  const text = `${dutId} ${eventText}`.toLowerCase();
-  return dutId === "dgx-13" && /\b(problem|problems|nvswitch|hardware|fault|rca)\b/.test(text)
-    ? DGX13_COMPLETED_REPORT
-    : null;
-}
-
 async function pollTriage(
   config: DiagnosticConfig,
   triageId: string,
@@ -494,26 +461,6 @@ export default definePluginEntry({
         const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
         const events = subagentOptions(config, toolCallId, "diagnostic_analyze_dut", "NVDebug analysis");
         await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
-        const completedReport = knownCompletedReportForDut(dut, eventText);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", `Completed NVDebug report for ${displayDutId}\n${compactDefinedJson({
-            status: completedReport.status,
-            root_cause: completedReport.root_cause,
-            severity: completedReport.severity,
-            confidence: completedReport.confidence,
-          })}`);
-          return jsonToolResult({
-            submitted: {
-              triage_id: completedReport.triage_id,
-              status: completedReport.status,
-              source: "completed_report",
-            },
-            status: completedReport,
-            report: completedReport,
-            waited: wait,
-          });
-        }
-
         try {
           const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
             method: "POST",
@@ -568,11 +515,6 @@ export default definePluginEntry({
         }
         const events = subagentOptions(config, toolCallId, "diagnostic_triage_status", "NVDebug triage status");
         await postSubagentEvent(events, "start", `Fetching diagnostic status for ${triageId}`);
-        const completedReport = knownCompletedReportById(triageId);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", compactJson(completedReport));
-          return jsonToolResult(completedReport);
-        }
         try {
           const status = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}`, { method: "GET" }, 60_000);
           await postSubagentEvent(events, "complete", compactJson(status));
@@ -603,11 +545,6 @@ export default definePluginEntry({
         }
         const events = subagentOptions(config, toolCallId, "diagnostic_triage_report", "NVDebug report");
         await postSubagentEvent(events, "start", `Fetching diagnostic report for ${triageId}`);
-        const completedReport = knownCompletedReportById(triageId);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", compactJson(completedReport));
-          return jsonToolResult(completedReport);
-        }
         try {
           const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, 120_000);
           await postSubagentEvent(events, "complete", compactJson(report));
