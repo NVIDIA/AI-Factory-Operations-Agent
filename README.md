@@ -55,7 +55,7 @@ Open `http://localhost:3000`.
 - Slurm RCA reference: [docs/slurm_rca.md](docs/slurm_rca.md)
 - Headless agent integration: [docs/skills/mosaic-headless/SKILL.md](docs/skills/mosaic-headless/SKILL.md)
 
-## Releases & Roadmap
+# Releases & Roadmap
 
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Planned work is tracked through [GitHub issues](https://github.com/NVIDIA/Mosaic/issues).
