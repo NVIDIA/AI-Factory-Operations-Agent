@@ -29,6 +29,7 @@ test("routes Hardware Agent requests through the hardware backend", () => {
   assert.match(skill, /Do not demand a formal confirmation/);
   assert.match(skill, /This is a hard requirement/);
   assert.match(skill, /A fresh NVDebug collection can take 5–30 minutes\. Do you want me to start it\?/);
+  assert.match(skill, /you MUST say: 'A fresh NVDebug collection can take 5-30 minutes\. Do you want me to start it\?'/);
   assert.match(skill, /Do not invoke `hardware_analyze_dut` in the same\s+turn as the disclosure/);
   assert.match(extension, /source: "hardware-agent"/);
   assert.match(extension, /name: "NVDebug Hardware Agent"/);

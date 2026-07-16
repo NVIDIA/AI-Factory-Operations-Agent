@@ -1,6 +1,6 @@
 ---
 name: hardware-agent
-description: "Triage hardware faults on NVIDIA GPU compute nodes (DGX, HGX, GB200/300 NVL, B200/300, Vera Rubin) by running NVDebug collection and LLM root-cause analysis through the Hardware Agent service. Use when the user reports an XID event, NVLink/NVSwitch issue, NVMe error, SPDM/RoT attestation failure, CPU IST failure, dmesg fault, PCIe AER, ECC error, or asks \"what's wrong with node X\" about a DGX/HGX DUT. The Hardware Agent backend owns DUT lookup and credentials; do not prompt the user for BMC credentials. Not for ML training debugging, CI pipeline analysis, or application errors unrelated to hardware."
+description: "Triage hardware faults on NVIDIA GPU compute nodes through the Hardware Agent. Before asking to start any fresh NVDebug collection, you MUST say: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Stop and wait for the next user response. An ordinary affirmative such as yes, let's go, do it, or proceed is sufficient; start immediately without demanding formal confirmation or asking twice. Use recent Hardware Agent triages for quick answers when possible. The backend owns DUT lookup and credentials; do not prompt for BMC credentials. Not for ML training, CI, or unrelated application errors."
 metadata:
   {
     "openclaw":
