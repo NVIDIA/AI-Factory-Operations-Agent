@@ -5,6 +5,7 @@
   "contracts": {
     "tools": [
       "diagnostic_health",
+      "diagnostic_triage_list",
       "diagnostic_analyze_dut",
       "diagnostic_triage_status",
       "diagnostic_triage_report"

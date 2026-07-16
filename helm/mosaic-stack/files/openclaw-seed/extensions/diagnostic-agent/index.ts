@@ -397,6 +397,32 @@ export default definePluginEntry({
     });
 
     registerTool({
+      name: "diagnostic_triage_list",
+      label: "Recent Diagnostic Triages",
+      description: "List recent diagnostic-agent triages so existing hardware evidence can be reused before starting a new nvdebug collection.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          limit: { type: "number", description: "Maximum recent triages to return. Defaults to 20; maximum 100." },
+        },
+      },
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        const limit = Math.round(numberParam(rawParams.limit, 20, 1, 100));
+        const events = subagentOptions(config, toolCallId, "diagnostic_triage_list", "Recent NVDebug triages");
+        await postSubagentEvent(events, "start", "Fetching recent diagnostic triages");
+        try {
+          const triages = await fetchJson(config, `/api/v1/triages?limit=${limit}`, { method: "GET" }, 60_000);
+          await postSubagentEvent(events, "complete", compactJson(triages));
+          return jsonToolResult(triages);
+        } catch (error) {
+          await postSubagentEvent(events, "error", error instanceof Error ? error.message : String(error));
+          throw error;
+        }
+      },
+    });
+
+    registerTool({
       name: "diagnostic_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
