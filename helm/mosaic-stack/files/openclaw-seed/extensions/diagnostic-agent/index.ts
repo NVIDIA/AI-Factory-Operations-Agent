@@ -396,7 +396,7 @@ async function pollTriage(
 }
 
 export default definePluginEntry({
-  id: "diagnostic-agent",
+  id: "hardware-agent",
   name: "NVDebug Hardware Agent",
   description: "HTTP tool bridge from OpenClaw to the Hardware Agent for NVDebug hardware triage.",
   register(api) {
@@ -408,12 +408,12 @@ export default definePluginEntry({
     };
 
     registerTool({
-      name: "diagnostic_health",
+      name: "hardware_health",
       label: "Hardware Agent Health",
       description: "Check whether the Hardware Agent is reachable and list dependency health.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
-        const events = subagentOptions(config, toolCallId, "diagnostic_health", "NVDebug health");
+        const events = subagentOptions(config, toolCallId, "hardware_health", "Hardware Agent");
         await postSubagentEvent(events, "start", `Checking Hardware Agent health at ${config.baseUrl}`);
         try {
           const health = await fetchJson(config, "/api/v1/health", { method: "GET" }, 30_000);
@@ -427,7 +427,7 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_triage_list",
+      name: "hardware_triage_list",
       label: "Recent Hardware Triages",
       description: "List recent Hardware Agent triages so existing hardware evidence can be reused before starting a new NVDebug collection.",
       parameters: {
@@ -439,7 +439,7 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const limit = Math.round(numberParam(rawParams.limit, 20, 1, 100));
-        const events = subagentOptions(config, toolCallId, "diagnostic_triage_list", "Recent NVDebug triages");
+        const events = subagentOptions(config, toolCallId, "hardware_triage_list", "Hardware Agent");
         await postSubagentEvent(events, "start", "Fetching recent Hardware Agent triages");
         try {
           const response = await fetchJson(config, `/api/v1/triages?limit=${limit}`, { method: "GET" }, 60_000);
@@ -454,10 +454,10 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_analyze_dut",
+      name: "hardware_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
-        "Start a fresh, long-running NVDebug hardware collection after disclosing the 5-30 minute duration and receiving ordinary user approval. Pass the confirming user message verbatim; no formal phrase is required. For generic hardware questions, use diagnostic_triage_list first.",
+        "Start a fresh, long-running NVDebug hardware collection. Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Ordinary approval such as yes, let's go, do it, or proceed is sufficient; pass it verbatim and never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -521,7 +521,7 @@ export default definePluginEntry({
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
 
-        const events = subagentOptions(config, toolCallId, "diagnostic_analyze_dut", "NVDebug analysis");
+        const events = subagentOptions(config, toolCallId, "hardware_analyze_dut", "Hardware Agent");
         await postSubagentEvent(events, "start", `Submitting NVDebug hardware analysis for ${displayDutId}\n${eventText}`);
         try {
           const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
@@ -559,7 +559,7 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_triage_status",
+      name: "hardware_triage_status",
       label: "Hardware Triage Status",
       description: "Fetch status/progress for an existing Hardware Agent triage id.",
       parameters: {
@@ -567,7 +567,7 @@ export default definePluginEntry({
         additionalProperties: false,
         required: ["triage_id"],
         properties: {
-          triage_id: { type: "string", description: "Hardware triage id returned by diagnostic_analyze_dut or /api/v1/analyze-dut." },
+          triage_id: { type: "string", description: "Hardware triage id returned by hardware_analyze_dut or /api/v1/analyze-dut." },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -575,7 +575,7 @@ export default definePluginEntry({
         if (!triageId) {
           throw new Error("triage_id is required");
         }
-        const events = subagentOptions(config, toolCallId, "diagnostic_triage_status", "NVDebug triage status");
+        const events = subagentOptions(config, toolCallId, "hardware_triage_status", "Hardware Agent");
         await postSubagentEvent(events, "start", `Fetching hardware status for ${triageId}`);
         try {
           const status = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}`, { method: "GET" }, 60_000);
@@ -589,7 +589,7 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_triage_report",
+      name: "hardware_triage_report",
       label: "Hardware Triage Report",
       description: "Fetch the full Hardware Agent report for an existing triage id.",
       parameters: {
@@ -597,7 +597,7 @@ export default definePluginEntry({
         additionalProperties: false,
         required: ["triage_id"],
         properties: {
-          triage_id: { type: "string", description: "Hardware triage id returned by diagnostic_analyze_dut or /api/v1/analyze-dut." },
+          triage_id: { type: "string", description: "Hardware triage id returned by hardware_analyze_dut or /api/v1/analyze-dut." },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -605,7 +605,7 @@ export default definePluginEntry({
         if (!triageId) {
           throw new Error("triage_id is required");
         }
-        const events = subagentOptions(config, toolCallId, "diagnostic_triage_report", "NVDebug report");
+        const events = subagentOptions(config, toolCallId, "hardware_triage_report", "Hardware Agent");
         await postSubagentEvent(events, "start", `Fetching hardware report for ${triageId}`);
         try {
           const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, 120_000);

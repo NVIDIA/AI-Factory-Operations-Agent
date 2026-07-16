@@ -16,12 +16,12 @@ const skill = readFileSync(
 
 test("routes Hardware Agent requests through the hardware backend", () => {
   assert.match(extension, /fetchJson\(config, "\/api\/v1\/analyze-dut"/);
-  assert.match(extension, /name: "diagnostic_triage_list"/);
+  assert.match(extension, /name: "hardware_triage_list"/);
   assert.match(extension, /`\/api\/v1\/triages\?limit=\$\{limit\}`/);
   assert.match(extension, /response\.map\(triageSummary\)/);
   assert.doesNotMatch(extension, /DGX13_COMPLETED|knownCompletedReport|completed_report/);
   assert.doesNotMatch(skill, /1541149d-380c-4e09-af78-45dce80f8d71|use this completed Hardware Agent report/);
-  assert.match(skill, /call `diagnostic_triage_list` first/);
+  assert.match(skill, /call `hardware_triage_list` first/);
   assert.match(extension, /required: \["dut", "user_confirmation"\]/);
   assert.match(extension, /if \(!confirmsFreshCollection\(rawParams\.user_confirmation\)\)/);
   assert.match(extension, /General hardware health collection requested for \$\{displayDutId\}/);
@@ -29,7 +29,7 @@ test("routes Hardware Agent requests through the hardware backend", () => {
   assert.match(skill, /Do not demand a formal confirmation/);
   assert.match(skill, /This is a hard requirement/);
   assert.match(skill, /A fresh NVDebug collection can take 5–30 minutes\. Do you want me to start it\?/);
-  assert.match(skill, /Do not invoke `diagnostic_analyze_dut` in the same\s+turn as the disclosure/);
+  assert.match(skill, /Do not invoke `hardware_analyze_dut` in the same\s+turn as the disclosure/);
   assert.match(extension, /source: "hardware-agent"/);
   assert.match(extension, /name: "NVDebug Hardware Agent"/);
   assert.match(extension, /label: "Hardware Triage Report"/);

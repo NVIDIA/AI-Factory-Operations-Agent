@@ -10,11 +10,11 @@ metadata:
           {
             "tools":
               [
-                "diagnostic_health",
-                "diagnostic_triage_list",
-                "diagnostic_analyze_dut",
-                "diagnostic_triage_status",
-                "diagnostic_triage_report"
+                "hardware_health",
+                "hardware_triage_list",
+                "hardware_analyze_dut",
+                "hardware_triage_status",
+                "hardware_triage_report"
               ],
             "bins": ["curl"]
           }
@@ -54,7 +54,7 @@ NVDebug collection, send this sentence to the user:
 `A fresh NVDebug collection can take 5–30 minutes. Do you want me to start it?`
 
 Every response that offers, proposes, or asks about starting a fresh collection
-must include that duration. Do not invoke `diagnostic_analyze_dut` in the same
+must include that duration. Do not invoke `hardware_analyze_dut` in the same
 turn as the disclosure. Wait for the user's next response.
 
 ## Collection confirmation
@@ -66,31 +66,31 @@ immediately. Do not demand a formal confirmation phrase, repeat the question,
 expose the tool schema, or ask the user to provide `user_confirmation`. Pass
 their affirmative message verbatim to the tool.
 
-For a quick response, call `diagnostic_triage_list` first. If a completed triage
+For a quick response, call `hardware_triage_list` first. If a completed triage
 matches the DUT and fault and its summary contains a root cause, answer from that
-summary and include the triage id. Use `diagnostic_triage_status` for an active
-triage and `diagnostic_triage_report` only when the user asks for detailed
+summary and include the triage id. Use `hardware_triage_status` for an active
+triage and `hardware_triage_report` only when the user asks for detailed
 evidence or the summary is insufficient. These tools do not start a collection.
 If no relevant triage exists, use the exact mandatory duration disclosure and
 stop until the user answers.
 
 ## Invocation
 
-Preferred path: use the OpenClaw `diagnostic_analyze_dut` tool. It submits to
+Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
 `/api/v1/analyze-dut`, polls the triage status, fetches the report, and emits a
 live NVDebug subagent card in Mosaic. The Hardware Agent backend owns NVDebug
 collection, collection validation, retry policy, and RCA generation.
 
-After the user confirms a fresh collection, use only `diagnostic_analyze_dut`
+After the user confirms a fresh collection, use only `hardware_analyze_dut`
 for the turn. Do not call BCM, Kubernetes, Prometheus, Grafana, DCGM,
 observability, or other tools before or after the NVDebug RCA unless the user
 asks for those follow-up checks in a separate message.
 
-For a fresh RCA, call `diagnostic_analyze_dut` once with `wait: true`. Do not
+For a fresh RCA, call `hardware_analyze_dut` once with `wait: true`. Do not
 call `bcm_*`, `bcm_execute_cmsh`, or other BCM tools for prerequisite lookup:
 the Hardware Agent backend performs the DUT lookup and NVDebug orchestration.
-Use `diagnostic_triage_status` and `diagnostic_triage_report` only for a triage
-returned by `diagnostic_triage_list` or an id supplied by the user.
+Use `hardware_triage_status` and `hardware_triage_report` only for a triage
+returned by `hardware_triage_list` or an id supplied by the user.
 
 A specific fault signature improves targeting but is not required. When the
 user requests a general collection for a node, omit `event_text`; the tool will
@@ -116,7 +116,7 @@ create a separate Mosaic alert for the same completed diagnosis.
 If the incoming turn includes a `[Mosaic Runtime]` block with
 `mosaic_chat_session_key="..."`, treat that block as runtime metadata supplied
 by Mosaic. Pass the value as `mosaic_chat_session_key` on
-`diagnostic_analyze_dut`, and do not quote or summarize the runtime block.
+`hardware_analyze_dut`, and do not quote or summarize the runtime block.
 
 If the conversation already contains user-provided or tool-provided hardware
 evidence, include that evidence in `event_text`. Do not fetch additional context
@@ -125,8 +125,8 @@ Hardware Agent status/report returned by the backend; do not synthesize a root
 cause that is not present in the Hardware Agent result.
 
 If the user asks about an existing Hardware Agent triage id, do not submit a
-new triage. Call `diagnostic_triage_status` for that id, then call
-`diagnostic_triage_report` when the status is complete, and summarize the
+new triage. Call `hardware_triage_status` for that id, then call
+`hardware_triage_report` when the status is complete, and summarize the
 existing report.
 
 Tool payload shape:

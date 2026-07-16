@@ -1,14 +1,14 @@
 {
-  "id": "diagnostic-agent",
+  "id": "hardware-agent",
   "name": "NVDebug Hardware Agent",
   "description": "HTTP bridge from OpenClaw to the NVIDIA Hardware Agent for NVDebug hardware fault triage.",
   "contracts": {
     "tools": [
-      "diagnostic_health",
-      "diagnostic_triage_list",
-      "diagnostic_analyze_dut",
-      "diagnostic_triage_status",
-      "diagnostic_triage_report"
+      "hardware_health",
+      "hardware_triage_list",
+      "hardware_analyze_dut",
+      "hardware_triage_status",
+      "hardware_triage_report"
     ]
   },
   "configSchema": {
