@@ -22,7 +22,7 @@
       },
       "skills": [
         "bcm",
-        "diagnostic-agent",
+        "hardware-agent",
         "iraop",
         "observability",
         "slurm"
