@@ -139,7 +139,8 @@ function confirmsFreshCollection(value: unknown) {
   if (!confirmation) {
     return false;
   }
-  return /^(?:yes|y|ok|okay|confirm(?:ed)?|proceed|go ahead|do it)\b/.test(confirmation) ||
+  return /^(?:yes|yeah|yep|sure|ok|okay|confirm(?:ed)?|proceed|go ahead|do it|sounds good)\b/.test(confirmation) ||
+    /^(?:i\s+(?:already\s+)?(?:said\s+)?(?:i\s+)?(?:want|wanted)\s+to|let(?:'|’)s)\b/.test(confirmation) ||
     /\b(?:run|start|launch|begin|perform)\b.*\b(?:nvdebug|hardware diagnostic|diagnostic collection|fresh collection|new collection)\b/.test(confirmation);
 }
 
@@ -455,11 +456,11 @@ export default definePluginEntry({
       name: "diagnostic_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
-        "Start a fresh, long-running NVDebug hardware collection only after the user explicitly confirms it. Pass the user's exact confirmation in user_confirmation. For generic hardware questions, use diagnostic_triage_list instead.",
+        "Start a fresh, long-running NVDebug hardware collection after disclosing the 5-30 minute duration and receiving ordinary user approval. Pass the confirming user message verbatim; no formal phrase is required. For generic hardware questions, use diagnostic_triage_list first.",
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "event_text", "user_confirmation"],
+        required: ["dut", "user_confirmation"],
         properties: {
           dut: {
             type: "object",
@@ -468,7 +469,7 @@ export default definePluginEntry({
           },
           event_text: {
             type: "string",
-            description: "Dmesg/log/free-text fault signature that should drive analysis.",
+            description: "Optional dmesg/log/free-text fault signature. Omit it for a general hardware health collection.",
           },
           user_confirmation: {
             type: "string",
@@ -498,18 +499,17 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const dut = objectParam(rawParams.dut);
-        const eventText = stringParam(rawParams.event_text);
         if (!dut) {
           throw new Error("dut is required");
         }
         applyDutDefaults(dut);
-        if (!eventText) {
-          throw new Error("event_text is required");
-        }
         if (!confirmsFreshCollection(rawParams.user_confirmation)) {
-          throw new Error("Fresh NVDebug collection requires explicit user confirmation. Check recent triages or ask the user before retrying.");
+          throw new Error("Fresh NVDebug collection requires user approval after disclosing the 5-30 minute duration. Check recent triages or ask once before retrying.");
         }
 
+        const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
+        const eventText = stringParam(rawParams.event_text) ||
+          `General hardware health collection requested for ${displayDutId}; no specific fault signature supplied.`;
         const wait = rawParams.wait !== false;
         const body: Record<string, unknown> = {
           dut,
@@ -520,7 +520,6 @@ export default definePluginEntry({
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
 
-        const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
         const events = subagentOptions(config, toolCallId, "diagnostic_analyze_dut", "NVDebug analysis");
         await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
         try {
