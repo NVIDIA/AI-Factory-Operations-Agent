@@ -134,6 +134,15 @@ function stringParam(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
+function confirmsFreshCollection(value: unknown) {
+  const confirmation = stringParam(value).toLowerCase();
+  if (!confirmation) {
+    return false;
+  }
+  return /^(?:yes|y|ok|okay|confirm(?:ed)?|proceed|go ahead|do it)\b/.test(confirmation) ||
+    /\b(?:run|start|launch|begin|perform)\b.*\b(?:nvdebug|hardware diagnostic|diagnostic collection|fresh collection|new collection)\b/.test(confirmation);
+}
+
 function numberParam(value: unknown, fallback: number, min: number, max: number) {
   const parsed = typeof value === "number" && Number.isFinite(value) ? value : fallback;
   return Math.max(min, Math.min(max, parsed));
@@ -446,11 +455,11 @@ export default definePluginEntry({
       name: "diagnostic_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
-        "Submit DUT hardware fault triage through diagnostic-agent. Use for XID, NVLink, NVSwitch, PCIe, ECC, NVMe, SPDM, RoT, CPU, dmesg, or 'what is wrong with node X' investigations.",
+        "Start a fresh, long-running NVDebug hardware collection only after the user explicitly confirms it. Pass the user's exact confirmation in user_confirmation. For generic hardware questions, use diagnostic_triage_list instead.",
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "event_text"],
+        required: ["dut", "event_text", "user_confirmation"],
         properties: {
           dut: {
             type: "object",
@@ -460,6 +469,10 @@ export default definePluginEntry({
           event_text: {
             type: "string",
             description: "Dmesg/log/free-text fault signature that should drive analysis.",
+          },
+          user_confirmation: {
+            type: "string",
+            description: "Exact user message explicitly authorizing a fresh NVDebug collection. Never infer or fabricate confirmation.",
           },
           profile_name: {
             type: "string",
@@ -492,6 +505,9 @@ export default definePluginEntry({
         applyDutDefaults(dut);
         if (!eventText) {
           throw new Error("event_text is required");
+        }
+        if (!confirmsFreshCollection(rawParams.user_confirmation)) {
+          throw new Error("Fresh NVDebug collection requires explicit user confirmation. Check recent triages or ask the user before retrying.");
         }
 
         const wait = rawParams.wait !== false;
