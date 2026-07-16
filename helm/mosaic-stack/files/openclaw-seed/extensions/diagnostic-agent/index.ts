@@ -227,6 +227,25 @@ function triageStatusContent(triageId: string, status: Record<string, unknown>) 
   return [`Triage ${triageId}: ${currentStatus}`, details].filter(Boolean).join("\n");
 }
 
+function triageSummary(value: unknown) {
+  const triage = objectParam(value) || {};
+  const request = objectParam(triage.request) || {};
+  const dut = objectParam(request.dut) || {};
+  const text = (field: unknown, maxChars: number) => typeof field === "string" ? truncate(field, maxChars) : field;
+  return {
+    triage_id: triage.triage_id,
+    status: triage.status,
+    dut_id: dut.id,
+    event_text: text(request.event_text || triage.event_summary, 500),
+    root_cause: text(triage.root_cause, 1000),
+    severity: triage.severity,
+    confidence: triage.confidence,
+    submitted_at: triage.submitted_at,
+    completed_at: triage.completed_at,
+    error: text(triage.error, 500),
+  };
+}
+
 function headers(config: DiagnosticConfig) {
   const result: Record<string, string> = {
     Accept: "application/json",
@@ -412,7 +431,8 @@ export default definePluginEntry({
         const events = subagentOptions(config, toolCallId, "diagnostic_triage_list", "Recent NVDebug triages");
         await postSubagentEvent(events, "start", "Fetching recent diagnostic triages");
         try {
-          const triages = await fetchJson(config, `/api/v1/triages?limit=${limit}`, { method: "GET" }, 60_000);
+          const response = await fetchJson(config, `/api/v1/triages?limit=${limit}`, { method: "GET" }, 60_000);
+          const triages = Array.isArray(response) ? response.map(triageSummary) : response;
           await postSubagentEvent(events, "complete", compactJson(triages));
           return jsonToolResult(triages);
         } catch (error) {
