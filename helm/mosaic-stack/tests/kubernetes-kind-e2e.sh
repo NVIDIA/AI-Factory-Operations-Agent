@@ -29,8 +29,8 @@ external_kubectl() { KUBECONFIG=$EXTERNAL_CONFIG "$KUBECTL" "$@"; }
 
 "$KIND" create cluster --name "$LOCAL_CLUSTER" --kubeconfig "$LOCAL_CONFIG" --wait 120s
 "$KIND" create cluster --name "$EXTERNAL_CLUSTER" --kubeconfig "$EXTERNAL_CONFIG" --wait 120s
-if "$DOCKER" image inspect ghcr.io/openclaw/openclaw:2026.6.6 >/dev/null 2>&1; then
-  "$DOCKER" save ghcr.io/openclaw/openclaw:2026.6.6 -o "$TMP/openclaw.tar"
+if "$DOCKER" image inspect ghcr.io/openclaw/openclaw:2026.6.10 >/dev/null 2>&1; then
+  "$DOCKER" save ghcr.io/openclaw/openclaw:2026.6.10 -o "$TMP/openclaw.tar"
   case $("$DOCKER" exec "$LOCAL_CLUSTER-control-plane" uname -m) in
     x86_64) platform=linux/amd64 ;;
     aarch64|arm64) platform=linux/arm64 ;;
@@ -48,7 +48,11 @@ for target in local external; do
     marker=external-cluster-marker
   fi
   "$k" create namespace "$NAMESPACE"
-  "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  if [[ $target == local ]]; then
+    "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --set modules.edit.enabled=true --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  else
+    "$HELM" template "$target" "$ROOT" --namespace "$NAMESPACE" --show-only templates/rbac.yaml | "$k" apply -n "$NAMESPACE" -f -
+  fi
   "$k" -n kube-system create configmap "$marker" --from-literal=cluster="$target"
   "$k" run e2e-log-source --image=busybox:1.37 --restart=Never -- sh -c 'echo kubernetes-plugin-e2e; sleep 300'
   "$k" wait --for=condition=Ready pod/e2e-log-source --timeout=120s
@@ -122,7 +126,7 @@ spec:
     fsGroup: 1000
   initContainers:
     - name: kubectl
-      image: ghcr.io/openclaw/openclaw:2026.6.6
+      image: ghcr.io/openclaw/openclaw:2026.6.10
       command:
         - sh
         - -c
@@ -144,7 +148,7 @@ spec:
           mountPath: /tools
   containers:
     - name: test
-      image: ghcr.io/openclaw/openclaw:2026.6.6
+      image: ghcr.io/openclaw/openclaw:2026.6.10
       command: ["node", "--experimental-strip-types", "/test/e2e.ts"]
       securityContext:
         allowPrivilegeEscalation: false

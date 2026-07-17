@@ -45,10 +45,54 @@ subjects:
   - kind: ServiceAccount
     name: openclaw
     namespace: {{ .Release.Namespace }}
+  {{- if .Values.modules.terminal.enabled }}
+  - kind: ServiceAccount
+    name: mosaic-terminal
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "mosaic-stack.clusterScopedBase" . }}-oc-reader
+{{- if and .Values.modules.edit.enabled .Values.modules.edit.kubernetes.enabled }}
+{{- if not .Values.modules.edit.kubernetes.existingClusterRole }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mosaic-stack.clusterScopedBase" . }}-oc-editor
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "pods", "services"]
+    verbs: ["create", "delete", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "deployments", "statefulsets"]
+    verbs: ["create", "delete", "patch", "update"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["create", "delete", "patch", "update"]
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mosaic-stack.clusterScopedBase" . }}-oc-editor
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: openclaw
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ default (printf "%s-oc-editor" (include "mosaic-stack.clusterScopedBase" .)) .Values.modules.edit.kubernetes.existingClusterRole }}
+{{- end }}
 {{- end }}
 ---
 {{- end }}

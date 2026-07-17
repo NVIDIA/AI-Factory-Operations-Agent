@@ -29,6 +29,9 @@
       ],
       "thinkingDefault": "off",
       "reasoningDefault": "off",
+      {{- if .Values.openclaw.slack.enabled }}
+      "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
+      {{- end }}
       "sandbox": {
         "mode": "all",
         "backend": "openshell",
@@ -46,6 +49,23 @@
       }
     ]
   },
+  {{- if .Values.openclaw.slack.enabled }}
+  "session": {
+    "dmScope": {{ .Values.openclaw.slack.session.dmScope | quote }}
+  },
+  "diagnostics": {
+    "enabled": true,
+    "stuckSessionWarnMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionWarnMs }},
+    "stuckSessionAbortMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionAbortMs }}
+  },
+  "messages": {
+    "queue": {
+      "byChannel": {
+        "slack": {{ .Values.openclaw.slack.queueMode | quote }}
+      }
+    }
+  },
+  {{- end }}
   "tools": {
     "alsoAllow": [
       "group:plugins"
@@ -58,6 +78,44 @@
       }
     }
   },
+  {{- if .Values.openclaw.slack.enabled }}
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "mode": "socket",
+      "botToken": "${SLACK_BOT_TOKEN}",
+      "appToken": "${SLACK_APP_TOKEN}",
+      "configWrites": false,
+      "allowBots": false,
+      "dmPolicy": "allowlist",
+      "allowFrom": {{ .Values.openclaw.slack.allowedUserIds | toJson }},
+      {{- if gt (len .Values.openclaw.slack.editUserIds) 0 }}
+      "execApprovals": {
+        "enabled": true,
+        "approvers": {{ .Values.openclaw.slack.editUserIds | toJson }},
+        "target": "dm"
+      },
+      {{- end }}
+      "dm": {
+        "groupEnabled": {{ .Values.openclaw.slack.groupDmsEnabled }}
+      },
+      "replyToModeByChatType": {{ .Values.openclaw.slack.replyToModeByChatType | toJson }},
+      "streaming": {{ .Values.openclaw.slack.streaming | toJson }},
+      "groupPolicy": {{ ternary "allowlist" "disabled" .Values.openclaw.slack.channelMentionsEnabled | quote }},
+      {{- if .Values.openclaw.slack.channelMentionsEnabled }}
+      "channels": {
+        "*": {
+          "enabled": true,
+          "requireMention": true,
+          "users": {{ .Values.openclaw.slack.allowedUserIds | toJson }}
+        }
+      },
+      {{- end }}
+      "unfurlLinks": false,
+      "unfurlMedia": false
+    }
+  },
+  {{- end }}
   "models": {
     "providers": {
       "llm": {
@@ -93,6 +151,7 @@
   },
   "plugins": {
     "allow": [
+      "automation-guard",
       "bcm",
       "hardware-agent",
       "grafana",
@@ -100,19 +159,38 @@
       "kubernetes",
       "openshell",
       "observability",
+      "remote-ssh",
       "slurm",
-      "llm"
+      "llm"{{- if .Values.openclaw.slack.enabled }},
+      "slack"{{- end }}
     ],
     "entries": {
+      "automation-guard": {
+        "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true
+        },
+        "config": {
+          "editEnabled": {{ .Values.modules.edit.enabled }},
+          "slackEnabled": {{ .Values.openclaw.slack.enabled }},
+          "slackEditUserIds": {{ .Values.openclaw.slack.editUserIds | toJson }}
+        }
+      },
       "llm": {
         "enabled": true
-      },
+      }{{- if .Values.openclaw.slack.enabled }},
+      "slack": {
+        "enabled": true
+      }{{- end }},
       "kubernetes": {
         "enabled": {{ .Values.modules.kubernetes.enabled }},
         "config": {
           "command": {{ .Values.kubernetes.command | quote }},
           "defaultCluster": {{ .Values.kubernetes.defaultCluster | quote }},
           "clusters": {{ include "mosaic-stack.kubernetesClusters" . }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.kubernetes.enabled }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "maxOutputBytes": {{ .Values.kubernetes.maxOutputBytes }},
           "timeoutMs": {{ .Values.kubernetes.timeoutMs }}
         }
@@ -146,8 +224,27 @@
           "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
+          {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+          "authToken": "${MOSAIC_BCM_MCP_TOKEN}",
+          {{- end }}
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},
+          "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
           "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
+        }
+      },
+      "remote-ssh": {
+        "enabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }},
+        "config": {
+          "command": "/tools/ssh",
+          "keyPath": "/var/run/mosaic-ssh/id",
+          "knownHostsPath": "/var/run/mosaic-ssh/known_hosts",
+          "hosts": {{ toJson .Values.modules.edit.ssh.hosts }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
+          "timeoutMs": {{ .Values.modules.edit.ssh.timeoutMs }},
+          "maxOutputBytes": {{ .Values.modules.edit.ssh.maxOutputBytes }}
         }
       },
       "grafana": {

@@ -2,15 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { isKubectlExecFallback, resolveCluster, validateKubectlArgs } from "./policy.ts";
+import {
+  contextSkipsApproval,
+  requestIdentityApproval,
+  sessionAccessExtension,
+} from "../automation-context.ts";
+import { runMutationOnce } from "../mutation-ledger.ts";
+import {
+  formatKubectlApproval,
+  isKubectlExecFallback,
+  resolveCluster,
+  validateKubectlAdminRequest,
+  validateKubectlReadRequest,
+  type KubectlRequest,
+  type KubernetesClusterConfig,
+} from "./policy.ts";
 import { runKubectl } from "./runner.ts";
 
 type KubernetesConfig = {
   command?: string;
   defaultCluster?: string;
-  clusters?: Record<string, string>;
+  clusters?: Record<string, string | KubernetesClusterConfig>;
   maxOutputBytes?: number;
   timeoutMs?: number;
+  editEnabled?: boolean;
+  hitl?: boolean;
+  approvalTimeoutMs?: number;
 };
 
 function config(value: unknown): Required<KubernetesConfig> {
@@ -21,6 +38,9 @@ function config(value: unknown): Required<KubernetesConfig> {
     clusters: raw.clusters || {},
     maxOutputBytes: raw.maxOutputBytes || 1_048_576,
     timeoutMs: raw.timeoutMs || 60_000,
+    editEnabled: raw.editEnabled === true,
+    hitl: raw.hitl !== false,
+    approvalTimeoutMs: raw.approvalTimeoutMs || 120_000,
   };
 }
 
@@ -32,30 +52,130 @@ function toolResult(payload: { command: string[]; [key: string]: unknown }) {
   };
 }
 
+function rejectedResult(error: unknown) {
+  const reason = error instanceof Error ? error.message : "kubectl request was rejected";
+  return toolResult({
+    command: ["kubectl", "<rejected>"],
+    blocked: true,
+    executed: false,
+    reason,
+    exitCode: null,
+    stdout: "",
+    stderr: reason,
+  });
+}
+
+async function executeRequest(
+  settings: Required<KubernetesConfig>,
+  toolCallId: string,
+  toolName: string,
+  rawParams: Record<string, unknown>,
+  request: KubectlRequest,
+) {
+  const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
+  const execute = () => runKubectl(
+    settings.command,
+    request.args,
+    cluster.kubeconfig,
+    settings.timeoutMs,
+    settings.maxOutputBytes,
+    request.stdin,
+    cluster.server,
+    cluster.tlsServerName,
+  );
+  const attempt = request.mutating
+    ? await runMutationOnce({
+        toolCallId,
+        toolName,
+        target: `${cluster.name}:${request.targets.join(",")}`,
+        args: { args: request.args, stdinSha256: request.stdinSha256 },
+      }, execute, value => value.code === 0 ? "completed" : "failed")
+    : { replayed: false as const, state: "completed" as const, result: await execute() };
+  if (attempt.replayed) return toolResult({
+    cluster: cluster.name,
+    command: ["kubectl", ...request.args],
+    mutating: true,
+    replayed: true,
+    executed: false,
+    idempotencyKey: toolCallId,
+    previousStatus: attempt.state,
+  });
+  const execution = attempt.result;
+  return toolResult({
+    cluster: cluster.name,
+    command: ["kubectl", ...request.args],
+    mutating: request.mutating,
+    idempotencyKey: request.mutating ? toolCallId : undefined,
+    targets: request.targets,
+    stdinSha256: request.stdinSha256,
+    exitCode: execution.code,
+    stdout: execution.stdout,
+    stderr: execution.stderr,
+  });
+}
+
 export default definePluginEntry({
   id: "kubernetes",
   name: "Kubernetes",
-  description: "Read-only kubectl access to registered Kubernetes clusters.",
+  description: "Approval-aware kubectl access to registered Kubernetes clusters.",
   register(api) {
     const settings = config(api.pluginConfig);
+    api.session.state.registerSessionExtension(sessionAccessExtension);
 
-    api.on(
-      "before_tool_call",
-      (event) =>
-        isKubectlExecFallback(event.toolName, event.params)
-          ? {
-              block: true,
-              blockReason:
-                "Kubernetes commands are available only through the read-only run_kubectl tool. Do not retry with exec.",
-            }
-          : undefined,
-    );
+    api.registerTrustedToolPolicy({
+      id: "kubernetes-access",
+      description: "Validates Kubernetes tools and requires approval for Edit mutations.",
+      async evaluate(event, context) {
+        if (isKubectlExecFallback(event.toolName, event.params)) {
+          return {
+            block: true,
+            blockReason: "Kubernetes commands are available only through run_kubectl or run_kubectl_admin. Do not retry with exec.",
+          };
+        }
+        try {
+          if (event.toolName === "run_kubectl") {
+            validateKubectlReadRequest(event.params.args);
+            return;
+          }
+          if (event.toolName !== "run_kubectl_admin") return;
+          const request = validateKubectlAdminRequest(event.params.args, event.params.stdin);
+          if (!settings.hitl || contextSkipsApproval(context)) return;
+          const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
+          const approval = formatKubectlApproval(request, cluster.name);
+          const identityDecision = await requestIdentityApproval(context, {
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            ...approval,
+            severity: "warning",
+            timeoutMs: settings.approvalTimeoutMs,
+          });
+          if (identityDecision === "allow") return;
+          if (identityDecision) return {
+            block: true,
+            blockReason: identityDecision === "timeout" ? "Approval timed out." : "Action denied by user.",
+          };
+          return {
+            requireApproval: {
+              ...approval,
+              severity: "warning",
+              timeoutMs: settings.approvalTimeoutMs,
+              timeoutBehavior: "deny",
+            },
+          };
+        } catch (error) {
+          return {
+            block: true,
+            blockReason: error instanceof Error ? error.message : "kubectl request was rejected",
+          };
+        }
+      },
+    });
 
     api.registerTool({
       name: "run_kubectl",
       label: "Kubernetes Agent",
       description:
-        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. Mutation, interactive access, Secrets, and credential overrides are rejected. If blocked is true, explain the denial and never retry with exec or another tool.",
+        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. The Kubernetes credential enforces read-only access. Mutations use run_kubectl_admin when edit mode is enabled. Interactive access, Secrets, credential overrides, and shell syntax are rejected.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -70,41 +190,65 @@ export default definePluginEntry({
             minItems: 1,
             maxItems: 64,
             items: { type: "string" },
-            description: "kubectl arguments, beginning with a read-only command such as get, describe, or logs.",
+            description: "kubectl arguments beginning with a supported read command.",
           },
         },
       },
-      async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        let args: string[];
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         try {
-          args = validateKubectlArgs(rawParams.args);
+          return await executeRequest(
+            settings,
+            toolCallId,
+            "run_kubectl",
+            rawParams,
+            validateKubectlReadRequest(rawParams.args),
+          );
         } catch (error) {
-          const reason = error instanceof Error ? error.message : "kubectl request was rejected";
-          return toolResult({
-            command: ["kubectl", "<rejected>"],
-            blocked: true,
-            executed: false,
-            reason,
-            exitCode: null,
-            stdout: "",
-            stderr: reason,
-          });
+          return rejectedResult(error);
         }
-        const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
-        const result = await runKubectl(
-          settings.command,
-          args,
-          cluster.kubeconfig,
-          settings.timeoutMs,
-          settings.maxOutputBytes,
-        );
-        return toolResult({
-          cluster: cluster.name,
-          command: ["kubectl", ...args],
-          exitCode: result.code,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        });
+      },
+    });
+
+    if (settings.editEnabled) api.registerTool({
+      name: "run_kubectl_admin",
+      label: "Kubernetes Admin",
+      description:
+        "Run exact kubectl arguments against a registered cluster when edit capability is required. Edit mode requires approval and Auto mode does not. Pass optional standard input as a string. Use run_kubectl for read-only operations.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["args"],
+        properties: {
+          cluster: {
+            type: "string",
+            description: "Registered cluster name. Defaults to " + settings.defaultCluster + ".",
+          },
+          args: {
+            type: "array",
+            minItems: 1,
+            maxItems: 64,
+            items: { type: "string" },
+            description: "Exact kubectl arguments without the kubectl prefix.",
+          },
+          stdin: {
+            type: "string",
+            maxLength: 1048576,
+            description: "Optional exact standard input for kubectl.",
+          },
+        },
+      },
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        try {
+          return await executeRequest(
+            settings,
+            toolCallId,
+            "run_kubectl_admin",
+            rawParams,
+            validateKubectlAdminRequest(rawParams.args, rawParams.stdin),
+          );
+        } catch (error) {
+          return rejectedResult(error);
+        }
       },
     });
   },

@@ -196,6 +196,27 @@ helm upgrade mosaic ./helm/mosaic-stack \
   --timeout 12m
 ```
 
+### Access Modes
+
+Enable guarded write operations with the Edit module:
+
+```yaml
+modules:
+  edit:
+    enabled: true
+    hitl: true
+    kubernetes:
+      enabled: true
+```
+
+Every interactive conversation starts in **View**. Users can switch that conversation to **Edit** for approval-gated changes or **Auto** for validated changes without approval. Auto requires confirmation through a warning dialog. Other conversations remain in View, and automated alert and cluster-health sessions are always read-only. When the module is disabled, the access control is not shown.
+
+Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use Mosaic through DMs, group DMs, and channel mentions.
+
+Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, BCM, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
+
+Read [the Mosaic security model](../docs/security_model.md) before enabling Edit or Auto.
+
 ### BCM
 
 To enable the BCM extension, provide the BCM head host and SSH key:

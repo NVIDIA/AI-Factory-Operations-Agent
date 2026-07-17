@@ -1,7 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-{{- if and .Values.modules.terminal.enabled .Values.mosaicTerminal.enabled }}
+{{- if .Values.modules.terminal.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mosaic-terminal
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,53 +19,67 @@ metadata:
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mosaic-terminal
-  strategy:
-    type: Recreate
   template:
     metadata:
       labels:
         app: mosaic-terminal
+      annotations:
+        checksum/auth: {{ include (print $.Template.BasePath "/mosaic-terminal-secret.yaml") . | sha256sum }}
     spec:
       serviceAccountName: mosaic-terminal
       automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 10
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
       {{- include "mosaic-stack.tolerations" . | nindent 6 }}
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: openclaw
+              topologyKey: kubernetes.io/hostname
       securityContext:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       initContainers:
         - name: install-kubectl
-          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.kubectlInstallerImage | quote }}
-          imagePullPolicy: {{ .Values.mosaicTerminal.kubectlInstallerImage.pullPolicy }}
-          command: ["sh", "-lc", "set -eu; cp \"$(command -v kubectl)\" /tools/kubectl && chmod +x /tools/kubectl"]
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              case "$(uname -m)" in
+                x86_64) architecture=amd64; sha={{ .Values.kubernetes.kubectlSha256.amd64 | quote }} ;;
+                aarch64|arm64) architecture=arm64; sha={{ .Values.kubernetes.kubectlSha256.arm64 | quote }} ;;
+                *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+              esac
+              curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
+                "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
+              printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
+              chmod 0555 /tools/kubectl
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: tools
               mountPath: /tools
         - name: init-workspace
-          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.busyboxImage | quote }}
-          imagePullPolicy: {{ .Values.mosaicTerminal.busyboxImage.pullPolicy }}
-          command: ["sh", "-lc", "mkdir -p /home/node/.openclaw/workspace /home/node/.openclaw/tmp && chown -R 1000:1000 /home/node/.openclaw"]
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-          volumeMounts:
-            - name: openclaw-home
-              mountPath: /home/node/.openclaw
-      containers:
-        - name: terminal
-          image: {{ include "mosaic-stack.image" .Values.mosaicTerminal.image | quote }}
-          imagePullPolicy: {{ .Values.mosaicTerminal.image.pullPolicy }}
-          command: ["bash", "-lc", "set -euo pipefail; export PATH=/tools:$PATH; cd /home/node/.openclaw/workspace; exec sleep infinity"]
-          env:
-            - name: HOME
-              value: /home/node
-            - name: PATH
-              value: /tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
+          command: ["sh", "-c", "mkdir -p /home/node/.openclaw/workspace /home/node/.openclaw/tmp"]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -68,12 +90,81 @@ spec:
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
+      containers:
+        - name: terminal
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
+          command: ["node", "/app/frontend/bin/mosaic-terminal.mjs"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.mosaicTerminal.service.port }}
+          env:
+            - name: HOME
+              value: /home/node
+            - name: PATH
+              value: /tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            - name: MOSAIC_TERMINAL_PORT
+              value: {{ .Values.mosaicTerminal.service.port | quote }}
+            - name: MOSAIC_TERMINAL_IDLE_MS
+              value: {{ .Values.mosaicTerminal.idleTimeoutMs | quote }}
+            - name: MOSAIC_TERMINAL_WORKDIR
+              value: /home/node/.openclaw/workspace
+            - name: MOSAIC_TERMINAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicTerminal.auth.name .Values.mosaicTerminal.auth.existingSecret }}
+                  key: token
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.mosaicTerminal.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
             - name: tools
               mountPath: /tools
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
             claimName: openclaw-home-pvc
         - name: tools
           emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosaic-terminal
+  labels:
+    app: mosaic-terminal
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: mosaic-terminal
+  ports:
+    - name: http
+      port: {{ .Values.mosaicTerminal.service.port }}
+      targetPort: http
+  type: ClusterIP
 {{- end }}

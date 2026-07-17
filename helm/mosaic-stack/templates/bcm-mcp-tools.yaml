@@ -18,6 +18,7 @@ spec:
     metadata:
       annotations:
         checksum/bcm-ssh-adapter-http: {{ .Files.Get "files/bcm-mcp-ssh-adapter-http.py" | sha256sum }}
+        checksum/bcm-auth-config: {{ printf "%s:%s:%s" .Values.bcmMcp.authTokenSecretName .Values.bcmMcp.authTokenSecretKey .Values.bcmMcp.authToken | sha256sum }}
       labels:
         app: {{ .Values.bcmMcp.service.name }}
     spec:
@@ -96,6 +97,13 @@ spec:
               value: "-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/known_hosts"
             - name: MOSAIC_BCM_CMSH_ENABLED
               value: {{ ternary "false" "true" .Values.bcmMcp.config.noCmshUser | quote }}
+            - name: MOSAIC_BCM_CMSH_ADMIN_ENABLED
+              value: {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled | quote }}
+            - name: MOSAIC_BCM_MCP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bcmMcp.authTokenSecretName }}
+                  key: {{ .Values.bcmMcp.authTokenSecretKey }}
             - name: MOSAIC_BCM_CMSH_USERNAME
               value: {{ .Values.bcmMcp.config.cmshUsername | default "aichatbotuser" | quote }}
             - name: MOSAIC_BCM_CMSH_PROFILE

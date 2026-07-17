@@ -12,12 +12,14 @@
       "bcm_search_tools",
       "bcm_execute_tool",
       "bcm_execute_cmsh",
+      "bcm_execute_cmsh_admin",
       "slurm_job_evidence",
       "bcm_list_notes",
       "bcm_search_notes",
       "bcm_add_note",
       "bcm_remove_note"
-    ]
+    ],
+    "trustedToolPolicies": ["bcm-access"]
   },
   "configSchema": {
     "type": "object",
@@ -54,6 +56,19 @@
       "cmshEnabled": {
         "type": "boolean",
         "description": "Expose read-only CMSH tools."
+      },
+      "editEnabled": {
+        "type": "boolean",
+        "description": "Permit validated CMSH mutations through the separate admin MCP tool."
+      },
+      "hitl": {
+        "type": "boolean",
+        "description": "Require one-time approval before each CMSH mutation."
+      },
+      "approvalTimeoutMs": {
+        "type": "number",
+        "minimum": 1000,
+        "description": "Mutation approval timeout in milliseconds."
       },
       "slurmEnabled": {
         "type": "boolean",

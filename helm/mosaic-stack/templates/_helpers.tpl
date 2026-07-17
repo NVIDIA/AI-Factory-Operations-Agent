@@ -132,7 +132,7 @@ tolerations:
 {{- define "mosaic-stack.kubernetesClusters" -}}
 {{- $clusters := dict -}}
 {{- if .Values.kubernetes.local.enabled -}}
-{{- $_ := set $clusters "local" "/var/run/mosaic-kubernetes/local/config" -}}
+{{- $_ := set $clusters "local" (dict "kubeconfig" "/var/run/mosaic-kubernetes/local/config") -}}
 {{- end -}}
 {{- range .Values.kubernetes.clusters -}}
 {{- $name := required "kubernetes.clusters[].name is required" .name -}}
@@ -146,12 +146,33 @@ tolerations:
 {{- $key := required (printf "kubernetes cluster %q requires kubeconfigSecretRef.key" $name) .kubeconfigSecretRef.key -}}
 {{- $_ := $secret -}}
 {{- $_ := $key -}}
-{{- $_ := set $clusters $name (printf "/var/run/mosaic-kubernetes-external/%s/config" $name) -}}
+{{- $config := dict "kubeconfig" (printf "/var/run/mosaic-kubernetes-external/%s/config" $name) -}}
+{{- with .server }}{{- $_ := set $config "server" . -}}{{- end -}}
+{{- with .tlsServerName }}{{- $_ := set $config "tlsServerName" . -}}{{- end -}}
+{{- $_ := set $clusters $name $config -}}
 {{- end -}}
 {{- if and .Values.modules.kubernetes.enabled (not (hasKey $clusters .Values.kubernetes.defaultCluster)) -}}
 {{- fail (printf "kubernetes.defaultCluster %q is not registered" .Values.kubernetes.defaultCluster) -}}
 {{- end -}}
 {{- $clusters | toJson -}}
+{{- end -}}
+
+{{- define "mosaic-stack.clusterMonitorTargets" -}}
+{{- $targets := list -}}
+{{- $monitor := .Values.mosaicClusterMonitor -}}
+{{- if and $monitor.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- $targets = append $targets (dict "kind" "bcm" "id" $monitor.bcm.id "name" $monitor.bcm.name "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- if and $monitor.kubernetes.enabled .Values.modules.kubernetes.enabled -}}
+{{- if .Values.kubernetes.local.enabled -}}
+{{- $targets = append $targets (dict "kind" "kubernetes" "id" "local" "name" $monitor.kubernetes.localName "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- range .Values.kubernetes.clusters -}}
+{{- $name := required "kubernetes.clusters[].name is required" .name -}}
+{{- $targets = append $targets (dict "kind" "kubernetes" "id" $name "name" (default $name .displayName) "intervalHours" $monitor.defaultIntervalHours) -}}
+{{- end -}}
+{{- end -}}
+{{- $targets | toJson -}}
 {{- end -}}
 
 {{- define "mosaic-stack.openshellFullname" -}}

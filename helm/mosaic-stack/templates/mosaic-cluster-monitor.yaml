@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.modules.clusters.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosaic-cluster-monitor
+  labels:
+    app: mosaic-cluster-monitor
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mosaic-cluster-monitor
+  template:
+    metadata:
+      labels:
+        app: mosaic-cluster-monitor
+      annotations:
+        checksum/auth: {{ include (print $.Template.BasePath "/mosaic-cluster-monitor-secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: default
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cluster-monitor
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
+          command: ["node", "/app/frontend/bin/mosaic-cluster-monitor.mjs"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.mosaicClusterMonitor.service.port }}
+          env:
+            - name: MOSAIC_CLUSTER_MONITOR_PORT
+              value: {{ .Values.mosaicClusterMonitor.service.port | quote }}
+            - name: MOSAIC_CLUSTER_STATE_PATH
+              value: /data/clusters.json
+            - name: MOSAIC_CLUSTER_TARGETS
+              value: {{ include "mosaic-stack.clusterMonitorTargets" . | quote }}
+            - name: MOSAIC_CLUSTER_HISTORY_LIMIT
+              value: {{ .Values.mosaicClusterMonitor.historyLimit | quote }}
+            - name: MOSAIC_CLUSTER_TIMEOUT_MS
+              value: {{ .Values.mosaicClusterMonitor.timeoutMs | quote }}
+            - name: MOSAIC_UI_URL
+              value: {{ printf "http://mosaic-ui:%v" .Values.mosaicUi.service.port | quote }}
+            - name: MOSAIC_AUTOMATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicClusterMonitor.auth.name .Values.mosaicClusterMonitor.auth.existingSecret }}
+                  key: token
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.mosaicClusterMonitor.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: state
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: mosaic-cluster-monitor
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosaic-cluster-monitor
+  labels:
+    app: mosaic-cluster-monitor
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: mosaic-cluster-monitor
+  ports:
+    - name: http
+      port: {{ .Values.mosaicClusterMonitor.service.port }}
+      targetPort: http
+  type: ClusterIP
+{{- end }}

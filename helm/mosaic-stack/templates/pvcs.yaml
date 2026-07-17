@@ -19,6 +19,24 @@ spec:
   {{- end }}
 ---
 {{- end }}
+{{- if .Values.modules.clusters.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosaic-cluster-monitor
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mosaicClusterMonitor.persistence.size }}
+  {{- if .Values.mosaicClusterMonitor.persistence.storageClassName }}
+  storageClassName: {{ .Values.mosaicClusterMonitor.persistence.storageClassName | quote }}
+  {{- end }}
+---
+{{- end }}
 {{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim

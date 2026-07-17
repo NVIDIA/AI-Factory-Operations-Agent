@@ -1,6 +1,6 @@
 ---
 name: bcm
-description: Inspect read-only Base Command Manager and cluster inventory evidence for node health, categories, and schedulability context.
+description: Inspect Base Command Manager inventory and health evidence, and make explicitly requested changes when BCM edit mode is enabled.
 ---
 
 <!--
@@ -20,7 +20,9 @@ Some BCM MCP deployments may disable CMSH. If `bcm_execute_cmsh` is absent or re
 
 Never use BCM MCP `slurm.*` tools for failed-job RCA, Slurm job ids, `sacct`, `scontrol`, Slurm logs, or root-cause questions. Those requests belong to the configured Slurm evidence route, not this BCM skill.
 
-Prefer read-only commands and evidence sources. Do not make provisioning, power, category, or scheduler changes. If BCM MCP tools are unavailable, say that the BCM evidence source is unavailable and answer only from Kubernetes, Slurm, or observability evidence that is present.
+Prefer read-only commands and evidence sources. `bcm_execute_cmsh` always uses the readonly BCM identity and never requests approval. Make a provisioning, power, category, or scheduler change only when the user explicitly requests it and `bcm_execute_cmsh_admin` is available. The admin tool always uses edit capability and may require approval; never use another tool or shell command to bypass a rejection. When HITL is enabled, wait for the approval result; after denial or timeout, give a brief plain-text final response that the action was not performed. If BCM MCP tools are unavailable, say that the BCM evidence source is unavailable and answer only from Kubernetes, Slurm, or observability evidence that is present.
+
+Before every CMSH mutation, verify its syntax through the read-only `bcm_execute_cmsh` tool using the relevant mode followed by `help <command>`. Help-only requests do not require approval. Construct the admin request from the returned usage text. Never infer mutation syntax or retry a failed mutation with an unverified variation. If help is unavailable or does not document the requested operation, stop and report that the command could not be verified.
 
 For node questions, separate current state from historical symptoms. Report node name, current schedulability, category or role if known, observed health state, and the exact BCM MCP evidence used.
 

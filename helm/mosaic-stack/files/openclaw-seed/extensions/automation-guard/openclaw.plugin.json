@@ -1,0 +1,25 @@
+{
+  "id": "automation-guard",
+  "contracts": {
+    "trustedToolPolicies": ["session-access"]
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "editEnabled": {
+        "type": "boolean"
+      },
+      "slackEnabled": {
+        "type": "boolean"
+      },
+      "slackEditUserIds": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}

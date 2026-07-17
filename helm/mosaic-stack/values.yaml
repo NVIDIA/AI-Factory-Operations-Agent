@@ -60,6 +60,25 @@ modules:
       chatApiKey: EMPTY
   terminal:
     enabled: false
+  clusters:
+    enabled: false
+  edit:
+    enabled: false
+    hitl: true
+    approvalTimeoutMs: 120000
+    kubernetes:
+      enabled: true
+      existingClusterRole: ""
+    bcm:
+      enabled: false
+    ssh:
+      enabled: false
+      existingSecret: ""
+      privateKeyKey: privateKey
+      knownHostsKey: knownHosts
+      timeoutMs: 60000
+      maxOutputBytes: 65536
+      hosts: []
 
 kubernetes:
   defaultCluster: local
@@ -81,6 +100,7 @@ llm:
     name: llm-openai-compat
     port: 8000
     disableThinking: true
+    vllmUpstream: false
   external:
     baseUrl: ""
     model: ""
@@ -215,7 +235,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: 125a0f9b
+    tag: b7658326
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -226,9 +246,33 @@ mosaicUi:
 openclaw:
   enabled: true
   gatewayProtocol: 4
+  slack:
+    enabled: false
+    maxConcurrent: 8
+    session:
+      dmScope: per-channel-peer
+    diagnostics:
+      stuckSessionWarnMs: 60000
+      stuckSessionAbortMs: 150000
+    existingSecret: ""
+    botTokenKey: SLACK_BOT_TOKEN
+    appTokenKey: SLACK_APP_TOKEN
+    allowedUserIds: []
+    editUserIds: []
+    channelMentionsEnabled: false
+    groupDmsEnabled: false
+    queueMode: followup
+    replyToModeByChatType:
+      direct: "off"
+      group: "off"
+      channel: "off"
+    streaming:
+      mode: partial
+      nativeTransport: true
+    pluginVersion: 2026.6.6
   image:
     repository: ghcr.io/openclaw/openclaw
-    tag: 2026.6.6
+    tag: 2026.6.10
     pullPolicy: IfNotPresent
   opensshInstallerImage: alpine/git@sha256:e043be20669db13cbcfb6190192babee4cf2dca98709bb0c2d08ca2d35a0a06a
   pvc:
@@ -305,8 +349,10 @@ bcmMcp:
   mode: direct
   mcpUrl: http://bcm-mcp-tools:3001/mcp
   headHost: ""
-  authTokenSecretName: ""
+  authTokenCreate: true
+  authTokenSecretName: bcm-mcp-auth
   authTokenSecretKey: BCM_MCP_TOKEN
+  authToken: ""
   hostSshKeySecretName: ""
   service:
     name: bcm-mcp-tools
@@ -341,19 +387,54 @@ bcmMcp:
       memory: 512Mi
 
 mosaicTerminal:
-  enabled: true
-  image:
-    repository: node
-    tag: 20-bookworm
-    pullPolicy: IfNotPresent
+  service:
+    port: 3002
   kubectlInstallerImage:
     repository: registry.k8s.io/kubectl
     tag: v1.30.0
     pullPolicy: IfNotPresent
-  busyboxImage:
-    repository: busybox
-    tag: "1.37"
-    pullPolicy: IfNotPresent
+  idleTimeoutMs: 1800000
+  auth:
+    create: true
+    name: mosaic-terminal-auth
+    existingSecret: ""
+    token: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+mosaicClusterMonitor:
+  service:
+    port: 3003
+  auth:
+    create: true
+    name: mosaic-cluster-monitor-auth
+    existingSecret: ""
+    token: ""
+  persistence:
+    size: 1Gi
+    storageClassName: ""
+  historyLimit: 10
+  timeoutMs: 600000
+  defaultIntervalHours: 24
+  bcm:
+    enabled: true
+    id: bcm
+    name: BCM Cluster
+  kubernetes:
+    enabled: true
+    localName: Local Kubernetes
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 
 diagnosticAgent:
   enabled: true

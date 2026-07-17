@@ -1,9 +1,9 @@
 {
-  "name": "@mosaic/kubernetes-plugin",
+  "name": "@mosaic/remote-ssh-plugin",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Policy-controlled kubectl plugin for registered Kubernetes clusters",
+  "description": "Approval-controlled remote SSH argv execution",
   "type": "module",
   "openclaw": {
     "extensions": [

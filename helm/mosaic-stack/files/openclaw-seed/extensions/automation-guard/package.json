@@ -1,9 +1,9 @@
 {
-  "name": "@mosaic/kubernetes-plugin",
+  "name": "@mosaic/automation-guard-plugin",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Policy-controlled kubectl plugin for registered Kubernetes clusters",
+  "description": "Read-only guard for Mosaic automation sessions",
   "type": "module",
   "openclaw": {
     "extensions": [

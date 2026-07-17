@@ -7,6 +7,23 @@
 {{- if not (has .Values.modules.slurm.backend (list "auto" "vanilla" "bcm")) -}}
 {{- fail "modules.slurm.backend must be one of: auto, vanilla, bcm" -}}
 {{- end -}}
+{{- if and .Values.openclaw.slack.enabled (not .Values.openclaw.slack.existingSecret) -}}
+{{- fail "openclaw.slack.existingSecret is required when native Slack is enabled" -}}
+{{- end -}}
+{{- if and .Values.openclaw.slack.enabled (empty .Values.openclaw.slack.allowedUserIds) -}}
+{{- fail "openclaw.slack.allowedUserIds must contain at least one Slack user ID" -}}
+{{- end -}}
+{{- if and (not .Values.openclaw.slack.enabled) (not (empty .Values.openclaw.slack.editUserIds)) -}}
+{{- fail "openclaw.slack.editUserIds requires openclaw.slack.enabled=true" -}}
+{{- end -}}
+{{- if and (not .Values.modules.edit.enabled) (not (empty .Values.openclaw.slack.editUserIds)) -}}
+{{- fail "openclaw.slack.editUserIds requires modules.edit.enabled=true" -}}
+{{- end -}}
+{{- range .Values.openclaw.slack.editUserIds -}}
+{{- if not (has . $.Values.openclaw.slack.allowedUserIds) -}}
+{{- fail (printf "Slack edit user %q must also appear in openclaw.slack.allowedUserIds" .) -}}
+{{- end -}}
+{{- end -}}
 {{- if and .Values.modules.slurm.enabled (eq .Values.modules.slurm.backend "bcm") (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.slurm.backend=bcm requires an enabled BCM MCP service" -}}
 {{- end -}}
@@ -18,6 +35,11 @@
 {{- end -}}
 {{- if and .Values.modules.slurm.enabled (ne (include "mosaic-stack.slurmBcmEnabled" .) "true") (not .Values.modules.slurm.evidenceCollector.enabled) -}}
 {{- fail "vanilla Slurm requires modules.slurm.evidenceCollector.enabled=true" -}}
+{{- end -}}
+{{- range .Values.kubernetes.clusters -}}
+{{- if and .server (not (regexMatch "^https://[^[:space:]]+$" .server)) -}}
+{{- fail (printf "kubernetes cluster %q server must be an https URL" .name) -}}
+{{- end -}}
 {{- end -}}
 {{- if eq .Values.llm.mode "external" -}}
 {{- if not .Values.llm.external.baseUrl -}}
@@ -44,11 +66,120 @@
 {{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
 {{- fail "global.registryCredentials.password is required when global.registryCredentials.create=true" -}}
 {{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.ui.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.ui.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.execution.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.modules.kubernetes.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires modules.kubernetes.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.kubernetes.local.enabled) -}}
+{{- fail "modules.terminal.enabled=true requires kubernetes.local.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.terminal.enabled (not .Values.mosaicTerminal.auth.create) (not .Values.mosaicTerminal.auth.existingSecret) -}}
+{{- fail "terminal auth requires mosaicTerminal.auth.create=true or mosaicTerminal.auth.existingSecret" -}}
+{{- end -}}
+{{- if .Values.modules.clusters.enabled -}}
+{{- if not .Values.modules.ui.enabled -}}
+{{- fail "modules.clusters.enabled=true requires modules.ui.enabled=true" -}}
+{{- end -}}
+{{- if not .Values.modules.execution.enabled -}}
+{{- fail "modules.clusters.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and (not .Values.mosaicClusterMonitor.auth.create) (not .Values.mosaicClusterMonitor.auth.existingSecret) -}}
+{{- fail "cluster monitor auth requires mosaicClusterMonitor.auth.create=true or mosaicClusterMonitor.auth.existingSecret" -}}
+{{- end -}}
+{{- if lt (int .Values.mosaicClusterMonitor.historyLimit) 1 -}}
+{{- fail "mosaicClusterMonitor.historyLimit must be at least 1" -}}
+{{- end -}}
+{{- $timeout := int .Values.mosaicClusterMonitor.timeoutMs -}}
+{{- if or (lt $timeout 5000) (gt $timeout 600000) -}}
+{{- fail "mosaicClusterMonitor.timeoutMs must be between 5000 and 600000" -}}
+{{- end -}}
+{{- $interval := int .Values.mosaicClusterMonitor.defaultIntervalHours -}}
+{{- if or (lt $interval 1) (gt $interval 8760) -}}
+{{- fail "mosaicClusterMonitor.defaultIntervalHours must be between 1 and 8760" -}}
+{{- end -}}
+{{- $hasBcm := and .Values.mosaicClusterMonitor.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- $hasKubernetes := and .Values.mosaicClusterMonitor.kubernetes.enabled .Values.modules.kubernetes.enabled (or .Values.kubernetes.local.enabled (gt (len .Values.kubernetes.clusters) 0)) -}}
+{{- if not (or $hasBcm $hasKubernetes) -}}
+{{- fail "modules.clusters.enabled=true requires at least one configured BCM or Kubernetes target" -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.modules.edit.enabled -}}
+{{- if not .Values.modules.execution.enabled -}}
+{{- fail "modules.edit.enabled=true requires modules.execution.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.hitl (not .Values.modules.ui.enabled) (empty .Values.openclaw.slack.editUserIds) -}}
+{{- fail "modules.edit.hitl=true requires modules.ui.enabled=true or at least one openclaw.slack.editUserIds entry" -}}
+{{- end -}}
+{{- if lt (int .Values.modules.edit.approvalTimeoutMs) 1000 -}}
+{{- fail "modules.edit.approvalTimeoutMs must be at least 1000" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.kubernetes.enabled (not .Values.modules.kubernetes.enabled) -}}
+{{- fail "modules.edit.kubernetes.enabled=true requires modules.kubernetes.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.kubernetes.enabled (not (or .Values.kubernetes.local.enabled (gt (len .Values.kubernetes.clusters) 0))) -}}
+{{- fail "modules.edit.kubernetes.enabled=true requires a registered Kubernetes cluster" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.bcm.enabled (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
+{{- fail "modules.edit.bcm.enabled=true requires an enabled BCM MCP service" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.bcm.enabled (ne .Values.bcmMcp.mode "ssh-adapter") -}}
+{{- fail "modules.edit.bcm.enabled=true requires bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.existingSecret) -}}
+{{- fail "modules.edit.ssh.existingSecret is required when edit SSH is enabled" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (eq (len .Values.modules.edit.ssh.hosts) 0) -}}
+{{- fail "modules.edit.ssh.hosts must contain at least one host when edit SSH is enabled" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.privateKeyKey) -}}
+{{- fail "modules.edit.ssh.privateKeyKey is required when edit SSH is enabled" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.knownHostsKey) -}}
+{{- fail "modules.edit.ssh.knownHostsKey is required when edit SSH is enabled" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (lt (int .Values.modules.edit.ssh.timeoutMs) 1000) -}}
+{{- fail "modules.edit.ssh.timeoutMs must be at least 1000" -}}
+{{- end -}}
+{{- if and .Values.modules.edit.ssh.enabled (lt (int .Values.modules.edit.ssh.maxOutputBytes) 1024) -}}
+{{- fail "modules.edit.ssh.maxOutputBytes must be at least 1024" -}}
+{{- end -}}
+{{- if .Values.modules.edit.ssh.enabled -}}
+{{- range $index, $host := .Values.modules.edit.ssh.hosts -}}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$" (default "" $host.alias)) -}}
+{{- fail (printf "modules.edit.ssh.hosts[%d].alias is invalid" $index) -}}
+{{- end -}}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$" (default "" $host.address)) -}}
+{{- fail (printf "modules.edit.ssh.hosts[%d].address is invalid" $index) -}}
+{{- end -}}
+{{- if not (regexMatch "^[A-Za-z_][A-Za-z0-9_-]{0,31}$" (default "" $host.user)) -}}
+{{- fail (printf "modules.edit.ssh.hosts[%d].user is invalid" $index) -}}
+{{- end -}}
+{{- $port := int (default 22 $host.port) -}}
+{{- if or (lt $port 1) (gt $port 65535) -}}
+{{- fail (printf "modules.edit.ssh.hosts[%d].port must be between 1 and 65535" $index) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if not (or .Values.modules.edit.kubernetes.enabled .Values.modules.edit.bcm.enabled .Values.modules.edit.ssh.enabled) -}}
+{{- fail "modules.edit.enabled=true requires at least one configured edit backend" -}}
+{{- end -}}
+{{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.headHost) -}}
 {{- fail "bcmMcp.headHost is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.hostSshKeySecretName) -}}
 {{- fail "bcmMcp.hostSshKeySecretName is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.authTokenSecretName) -}}
+{{- fail "bcmMcp.authTokenSecretName is required when bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.authTokenSecretKey) -}}
+{{- fail "bcmMcp.authTokenSecretKey is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
 {{- if and .Values.modules.research.managed (not .Values.modules.research.enabled) -}}
 {{- fail "modules.research.managed=true requires modules.research.enabled=true" -}}
