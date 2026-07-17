@@ -36,8 +36,8 @@ data:
 {{ .Files.Get "files/openclaw-seed/extensions/kubernetes/package.json" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.diagnostics.enabled }}
-  diagnostic-agent.SKILL.md: |-
-{{ .Files.Get "files/openclaw-seed/skills/diagnostic-agent/SKILL.md" | indent 4 }}
+  hardware-agent.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/hardware-agent/SKILL.md" | indent 4 }}
   {{- end }}
   {{- if .Values.modules.research.enabled }}
   iraop.SKILL.md: |-

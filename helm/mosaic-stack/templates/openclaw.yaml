@@ -123,6 +123,7 @@ spec:
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/grafana \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
+                /home/node/.openclaw/workspace/skills/hardware-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
                 /home/node/.openclaw/workspace/skills/slurm
               {{- if .Values.modules.slurm.enabled }}
@@ -145,7 +146,7 @@ spec:
               mkdir -p /home/node/.openclaw/extensions/iraop
               {{- end }}
               {{- if .Values.modules.diagnostics.enabled }}
-              mkdir -p /home/node/.openclaw/workspace/skills/diagnostic-agent
+              mkdir -p /home/node/.openclaw/workspace/skills/hardware-agent
               mkdir -p /home/node/.openclaw/extensions/diagnostic-agent
               {{- end }}
               {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
@@ -208,7 +209,7 @@ spec:
               cp /seed/iraop.package.json /home/node/.openclaw/extensions/iraop/package.json
               {{- end }}
               {{- if .Values.modules.diagnostics.enabled }}
-              cp /seed/diagnostic-agent.SKILL.md /home/node/.openclaw/workspace/skills/diagnostic-agent/SKILL.md
+              cp /seed/hardware-agent.SKILL.md /home/node/.openclaw/workspace/skills/hardware-agent/SKILL.md
               cp /seed/diagnostic-agent.index.ts /home/node/.openclaw/extensions/diagnostic-agent/index.ts
               cp /seed/diagnostic-agent.openclaw.plugin.json /home/node/.openclaw/extensions/diagnostic-agent/openclaw.plugin.json
               cp /seed/diagnostic-agent.package.json /home/node/.openclaw/extensions/diagnostic-agent/package.json

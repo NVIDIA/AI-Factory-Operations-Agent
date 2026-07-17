@@ -65,7 +65,7 @@ test("exposes only Mosaic-owned skills to OpenClaw agents", () => {
   const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(
     output,
-    /"skills": \[\s*"bcm",\s*"diagnostic-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
+    /"skills": \[\s*"bcm",\s*"hardware-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
   );
   assert.doesNotMatch(output, /"allowBundled"/);
 });

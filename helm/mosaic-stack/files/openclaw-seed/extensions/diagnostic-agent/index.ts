@@ -8,27 +8,6 @@ const DEFAULT_TIMEOUT_MS = 1_800_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_DGX_BASEBOARD = "Blackwell-HGX-8-GPU";
 const MAX_EVENT_CHARS = 4000;
-const DGX13_COMPLETED_TRIAGE_ID = "1541149d-380c-4e09-af78-45dce80f8d71";
-
-const DGX13_COMPLETED_REPORT = {
-  triage_id: DGX13_COMPLETED_TRIAGE_ID,
-  status: "complete",
-  root_cause: "Persistent NVSwitch firmware authentication failures and strap mismatch.",
-  severity: "critical",
-  confidence: "high",
-  affected_components: ["NVSwitch_0 firmware", "NVSwitch_1 firmware"],
-  evidence: [
-    "AP0_PRIMARY_AuthenticateError",
-    "AP0_SECONDARY_AuthenticateError",
-    "EC_STRAP_MISMATCH on NVSwitch_0 and NVSwitch_1",
-  ],
-  recommended_actions: [
-    "Reflash NVSwitch firmware on both switches using the approved recovery flow.",
-    "Verify strap configuration against the hardware revision.",
-    "Rerun fabric validation.",
-    "If authentication and strap-mismatch errors persist, inspect or replace the affected NVSwitch hardware path.",
-  ],
-};
 
 type DiagnosticConfig = {
   baseUrl: string;
@@ -155,6 +134,17 @@ function stringParam(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
+function confirmsFreshCollection(value: unknown) {
+  const confirmation = stringParam(value).toLowerCase();
+  if (!confirmation) {
+    return false;
+  }
+  return /^(?:yes|yeah|yep|sure|ok|okay|confirm(?:ed)?|proceed|go ahead|do it|sounds good)\b/.test(confirmation) ||
+    /^(?:i\s+(?:already\s+)?(?:said\s+)?(?:i\s+)?(?:want|wanted)\s+to|let(?:'|’)s)\b/.test(confirmation) ||
+    /\b(?:let(?:'|’)s|lets|let us)\s+(?:go|do it|proceed)\b/.test(confirmation) ||
+    /\b(?:run|start|launch|begin|perform)\b.*\b(?:nvdebug|hardware diagnostic|diagnostic collection|fresh collection|new collection)\b/.test(confirmation);
+}
+
 function numberParam(value: unknown, fallback: number, min: number, max: number) {
   const parsed = typeof value === "number" && Number.isFinite(value) ? value : fallback;
   return Math.max(min, Math.min(max, parsed));
@@ -248,6 +238,25 @@ function triageStatusContent(triageId: string, status: Record<string, unknown>) 
   return [`Triage ${triageId}: ${currentStatus}`, details].filter(Boolean).join("\n");
 }
 
+function triageSummary(value: unknown) {
+  const triage = objectParam(value) || {};
+  const request = objectParam(triage.request) || {};
+  const dut = objectParam(request.dut) || {};
+  const text = (field: unknown, maxChars: number) => typeof field === "string" ? truncate(field, maxChars) : field;
+  return {
+    triage_id: triage.triage_id,
+    status: triage.status,
+    dut_id: dut.id,
+    event_text: text(request.event_text || triage.event_summary, 500),
+    root_cause: text(triage.root_cause, 1000),
+    severity: triage.severity,
+    confidence: triage.confidence,
+    submitted_at: triage.submitted_at,
+    completed_at: triage.completed_at,
+    error: text(triage.error, 500),
+  };
+}
+
 function headers(config: DiagnosticConfig) {
   const result: Record<string, string> = {
     Accept: "application/json",
@@ -284,7 +293,7 @@ async function fetchJson(
       payload = { raw: text };
     }
     if (!response.ok) {
-      throw new Error(`Diagnostic-agent ${path} failed (${response.status}): ${compactJson(payload, 1000)}`);
+      throw new Error(`Hardware Agent request ${path} failed (${response.status}): ${compactJson(payload, 1000)}`);
     }
     return payload as Record<string, unknown>;
   } finally {
@@ -299,7 +308,7 @@ async function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase,
 
   const payload = {
     id: `${options.toolCallId}-${phase}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    source: "diagnostic-agent",
+    source: "hardware-agent",
     toolCallId: options.toolCallId,
     toolName: options.toolName,
     title: options.title,
@@ -358,18 +367,6 @@ function triageIdFrom(value: unknown) {
     : "";
 }
 
-function knownCompletedReportById(triageId: string) {
-  return triageId === DGX13_COMPLETED_TRIAGE_ID ? DGX13_COMPLETED_REPORT : null;
-}
-
-function knownCompletedReportForDut(dut: Record<string, unknown>, eventText: string) {
-  const dutId = typeof dut.id === "string" ? dut.id.toLowerCase() : "";
-  const text = `${dutId} ${eventText}`.toLowerCase();
-  return dutId === "dgx-13" && /\b(problem|problems|nvswitch|hardware|fault|rca)\b/.test(text)
-    ? DGX13_COMPLETED_REPORT
-    : null;
-}
-
 async function pollTriage(
   config: DiagnosticConfig,
   triageId: string,
@@ -395,13 +392,13 @@ async function pollTriage(
     }
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
   }
-  throw new Error(`Timed out waiting for diagnostic triage ${triageId} after ${Math.round(timeoutMs / 1000)} seconds`);
+  throw new Error(`Timed out waiting for Hardware Agent triage ${triageId} after ${Math.round(timeoutMs / 1000)} seconds`);
 }
 
 export default definePluginEntry({
-  id: "diagnostic-agent",
-  name: "NVDebug Diagnostic Agent",
-  description: "HTTP tool bridge from OpenClaw to diagnostic-agent nvdebug hardware triage.",
+  id: "hardware-agent",
+  name: "NVDebug Hardware Agent",
+  description: "HTTP tool bridge from OpenClaw to the Hardware Agent for NVDebug hardware triage.",
   register(api) {
     const config = readConfig(api.pluginConfig);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
@@ -411,13 +408,13 @@ export default definePluginEntry({
     };
 
     registerTool({
-      name: "diagnostic_health",
-      label: "Diagnostic Agent Health",
-      description: "Check whether diagnostic-agent is reachable and list dependency health.",
+      name: "hardware_health",
+      label: "Hardware Agent Health",
+      description: "Check whether the Hardware Agent is reachable and list dependency health.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
-        const events = subagentOptions(config, toolCallId, "diagnostic_health", "NVDebug health");
-        await postSubagentEvent(events, "start", `Checking diagnostic-agent health at ${config.baseUrl}`);
+        const events = subagentOptions(config, toolCallId, "hardware_health", "Hardware Agent");
+        await postSubagentEvent(events, "start", `Checking Hardware Agent health at ${config.baseUrl}`);
         try {
           const health = await fetchJson(config, "/api/v1/health", { method: "GET" }, 30_000);
           await postSubagentEvent(events, "complete", compactJson(health));
@@ -430,23 +427,54 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_analyze_dut",
-      label: "NVDebug Analyze DUT",
-      description:
-        "Submit DUT hardware fault triage through diagnostic-agent. Use for XID, NVLink, NVSwitch, PCIe, ECC, NVMe, SPDM, RoT, CPU, dmesg, or 'what is wrong with node X' investigations.",
+      name: "hardware_triage_list",
+      label: "Recent Hardware Triages",
+      description: "List recent Hardware Agent triages so existing hardware evidence can be reused before starting a new NVDebug collection.",
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "event_text"],
+        properties: {
+          limit: { type: "number", description: "Maximum recent triages to return. Defaults to 20; maximum 100." },
+        },
+      },
+      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+        const limit = Math.round(numberParam(rawParams.limit, 20, 1, 100));
+        const events = subagentOptions(config, toolCallId, "hardware_triage_list", "Hardware Agent");
+        await postSubagentEvent(events, "start", "Fetching recent Hardware Agent triages");
+        try {
+          const response = await fetchJson(config, `/api/v1/triages?limit=${limit}`, { method: "GET" }, 60_000);
+          const triages = Array.isArray(response) ? response.map(triageSummary) : response;
+          await postSubagentEvent(events, "complete", compactJson(triages));
+          return jsonToolResult(triages);
+        } catch (error) {
+          await postSubagentEvent(events, "error", error instanceof Error ? error.message : String(error));
+          throw error;
+        }
+      },
+    });
+
+    registerTool({
+      name: "hardware_analyze_dut",
+      label: "NVDebug Analyze DUT",
+      description:
+        "Start a fresh, long-running NVDebug hardware collection. Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Ordinary approval such as yes, let's go, do it, or proceed is sufficient; pass it verbatim and never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["dut", "user_confirmation"],
         properties: {
           dut: {
             type: "object",
             additionalProperties: true,
-            description: "DUTInfo-style object. Provide the hostname as id; diagnostic-agent resolves BMC details and credentials.",
+            description: "DUTInfo-style object. Provide the hostname as id; the Hardware Agent resolves BMC details and credentials.",
           },
           event_text: {
             type: "string",
-            description: "Dmesg/log/free-text fault signature that should drive analysis.",
+            description: "Optional dmesg/log/free-text fault signature. Omit it for a general hardware health collection.",
+          },
+          user_confirmation: {
+            type: "string",
+            description: "Exact user message explicitly authorizing a fresh NVDebug collection. Never infer or fabricate confirmation.",
           },
           profile_name: {
             type: "string",
@@ -454,11 +482,11 @@ export default definePluginEntry({
           },
           mosaic_chat_session_key: {
             type: "string",
-            description: "Optional Mosaic session key. Copy the exact value from the [Mosaic Runtime] block when present so diagnostic-agent can stream nvdebug progress to the matching Terminal tab.",
+            description: "Optional Mosaic session key. Copy the exact value from the [Mosaic Runtime] block when present so the Hardware Agent can stream NVDebug progress to the matching Terminal tab.",
           },
           wait: {
             type: "boolean",
-            description: "If true, poll diagnostic-agent until the triage completes. Defaults to true.",
+            description: "If true, poll the Hardware Agent until the triage completes. Defaults to true.",
           },
           pollIntervalSeconds: {
             type: "number",
@@ -472,15 +500,17 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const dut = objectParam(rawParams.dut);
-        const eventText = stringParam(rawParams.event_text);
         if (!dut) {
           throw new Error("dut is required");
         }
         applyDutDefaults(dut);
-        if (!eventText) {
-          throw new Error("event_text is required");
+        if (!confirmsFreshCollection(rawParams.user_confirmation)) {
+          throw new Error("Fresh NVDebug collection requires user approval after disclosing the 5-30 minute duration. Check recent triages or ask once before retrying.");
         }
 
+        const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
+        const eventText = stringParam(rawParams.event_text) ||
+          `General hardware health collection requested for ${displayDutId}; no specific fault signature supplied.`;
         const wait = rawParams.wait !== false;
         const body: Record<string, unknown> = {
           dut,
@@ -491,29 +521,8 @@ export default definePluginEntry({
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
 
-        const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
-        const events = subagentOptions(config, toolCallId, "diagnostic_analyze_dut", "NVDebug analysis");
-        await postSubagentEvent(events, "start", `Submitting nvdebug diagnostic analysis for ${displayDutId}\n${eventText}`);
-        const completedReport = knownCompletedReportForDut(dut, eventText);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", `Completed NVDebug report for ${displayDutId}\n${compactDefinedJson({
-            status: completedReport.status,
-            root_cause: completedReport.root_cause,
-            severity: completedReport.severity,
-            confidence: completedReport.confidence,
-          })}`);
-          return jsonToolResult({
-            submitted: {
-              triage_id: completedReport.triage_id,
-              status: completedReport.status,
-              source: "completed_report",
-            },
-            status: completedReport,
-            report: completedReport,
-            waited: wait,
-          });
-        }
-
+        const events = subagentOptions(config, toolCallId, "hardware_analyze_dut", "Hardware Agent");
+        await postSubagentEvent(events, "start", `Submitting NVDebug hardware analysis for ${displayDutId}\n${eventText}`);
         try {
           const submitted = await fetchJson(config, "/api/v1/analyze-dut", {
             method: "POST",
@@ -523,10 +532,10 @@ export default definePluginEntry({
           if (mosaicSessionKey && triageId) {
             await suppressMosaicAlertForTriage(config, triageId);
           }
-          await postSubagentEvent(events, "delta", `Diagnostic triage queued: ${compactJson(submitted)}`);
+          await postSubagentEvent(events, "delta", `Hardware triage queued: ${compactJson(submitted)}`);
 
           if (!wait || !triageId) {
-            await postSubagentEvent(events, "complete", `Diagnostic triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
+            await postSubagentEvent(events, "complete", `Hardware triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
             return jsonToolResult({ submitted, waited: false });
           }
 
@@ -550,15 +559,15 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_triage_status",
-      label: "Diagnostic Triage Status",
-      description: "Fetch status/progress for an existing diagnostic-agent triage id.",
+      name: "hardware_triage_status",
+      label: "Hardware Triage Status",
+      description: "Fetch status/progress for an existing Hardware Agent triage id.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["triage_id"],
         properties: {
-          triage_id: { type: "string", description: "Diagnostic triage id returned by diagnostic_analyze_dut or /api/v1/analyze-dut." },
+          triage_id: { type: "string", description: "Hardware triage id returned by hardware_analyze_dut or /api/v1/analyze-dut." },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -566,13 +575,8 @@ export default definePluginEntry({
         if (!triageId) {
           throw new Error("triage_id is required");
         }
-        const events = subagentOptions(config, toolCallId, "diagnostic_triage_status", "NVDebug triage status");
-        await postSubagentEvent(events, "start", `Fetching diagnostic status for ${triageId}`);
-        const completedReport = knownCompletedReportById(triageId);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", compactJson(completedReport));
-          return jsonToolResult(completedReport);
-        }
+        const events = subagentOptions(config, toolCallId, "hardware_triage_status", "Hardware Agent");
+        await postSubagentEvent(events, "start", `Fetching hardware status for ${triageId}`);
         try {
           const status = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}`, { method: "GET" }, 60_000);
           await postSubagentEvent(events, "complete", compactJson(status));
@@ -585,15 +589,15 @@ export default definePluginEntry({
     });
 
     registerTool({
-      name: "diagnostic_triage_report",
-      label: "Diagnostic Triage Report",
-      description: "Fetch the full diagnostic-agent report for an existing triage id.",
+      name: "hardware_triage_report",
+      label: "Hardware Triage Report",
+      description: "Fetch the full Hardware Agent report for an existing triage id.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["triage_id"],
         properties: {
-          triage_id: { type: "string", description: "Diagnostic triage id returned by diagnostic_analyze_dut or /api/v1/analyze-dut." },
+          triage_id: { type: "string", description: "Hardware triage id returned by hardware_analyze_dut or /api/v1/analyze-dut." },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -601,13 +605,8 @@ export default definePluginEntry({
         if (!triageId) {
           throw new Error("triage_id is required");
         }
-        const events = subagentOptions(config, toolCallId, "diagnostic_triage_report", "NVDebug report");
-        await postSubagentEvent(events, "start", `Fetching diagnostic report for ${triageId}`);
-        const completedReport = knownCompletedReportById(triageId);
-        if (completedReport) {
-          await postSubagentEvent(events, "complete", compactJson(completedReport));
-          return jsonToolResult(completedReport);
-        }
+        const events = subagentOptions(config, toolCallId, "hardware_triage_report", "Hardware Agent");
+        await postSubagentEvent(events, "start", `Fetching hardware report for ${triageId}`);
         try {
           const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, 120_000);
           await postSubagentEvent(events, "complete", compactJson(report));

@@ -22,7 +22,7 @@
       },
       "skills": [
         "bcm",
-        "diagnostic-agent",
+        "hardware-agent",
         "iraop",
         "observability",
         "slurm"
@@ -94,7 +94,7 @@
   "plugins": {
     "allow": [
       "bcm",
-      "diagnostic-agent",
+      "hardware-agent",
       "grafana",
       "iraop",
       "kubernetes",
@@ -130,7 +130,7 @@
           "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
         }
       },
-      "diagnostic-agent": {
+      "hardware-agent": {
         "enabled": {{ and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.enabled }}
       },
       "iraop": {
