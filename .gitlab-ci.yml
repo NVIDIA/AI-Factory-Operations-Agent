@@ -10,10 +10,54 @@
 # See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 stages:
   - test
+  - publish
   - mirror
 
 sast:
   stage: test
+
+publish-helm-chart:
+  stage: publish
+  image:
+    name: alpine/helm:3.18.4
+    entrypoint: [""]
+  variables:
+    CHART_DIR: helm/mosaic-stack
+  before_script:
+    - apk add --no-cache git
+  script:
+    - test -n "$NGC_API_KEY"
+    - registry="${NGC_REGISTRY:-nvcr.io/0948643769302270}"
+    - base_version="$(helm show chart "$CHART_DIR" | awk '/^version:/ { print $2; exit }')"
+    - printf '%s' "$NGC_API_KEY" | helm registry login "${registry%%/*}" --username '$oauthtoken' --password-stdin
+    - helm dependency build "$CHART_DIR"
+    - helm lint "$CHART_DIR"
+    - mkdir -p dist
+    - |
+      publish() {
+        version="$1"
+        helm package "$CHART_DIR" --version "$version" --app-version "$CI_COMMIT_SHA" --destination dist
+        helm push "dist/mosaic-stack-$version.tgz" "oci://$registry"
+      }
+
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        release_version="${CI_COMMIT_TAG#v}"
+        test "$base_version" = "$release_version"
+        publish "$release_version"
+      else
+        publish "$base_version-sha-$CI_COMMIT_SHORT_SHA"
+        if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+          latest_sha="$(git ls-remote origin "refs/heads/$CI_DEFAULT_BRANCH" | cut -f1)"
+          if [ "$latest_sha" = "$CI_COMMIT_SHA" ]; then
+            publish "$base_version-main"
+          else
+            echo "Skipping main channel for superseded commit $CI_COMMIT_SHA; main is $latest_sha."
+          fi
+        fi
+      fi
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH
 
 github-main-mirror:
   stage: mirror
