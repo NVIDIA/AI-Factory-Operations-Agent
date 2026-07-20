@@ -134,17 +134,6 @@ function stringParam(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-function confirmsFreshCollection(value: unknown) {
-  const confirmation = stringParam(value).toLowerCase();
-  if (!confirmation) {
-    return false;
-  }
-  return /^(?:yes|yeah|yep|sure|ok|okay|confirm(?:ed)?|proceed|go ahead|do it|sounds good)\b/.test(confirmation) ||
-    /^(?:i\s+(?:already\s+)?(?:said\s+)?(?:i\s+)?(?:want|wanted)\s+to|let(?:'|’)s)\b/.test(confirmation) ||
-    /\b(?:let(?:'|’)s|lets|let us)\s+(?:go|do it|proceed)\b/.test(confirmation) ||
-    /\b(?:run|start|launch|begin|perform)\b.*\b(?:nvdebug|hardware diagnostic|diagnostic collection|fresh collection|new collection)\b/.test(confirmation);
-}
-
 function numberParam(value: unknown, fallback: number, min: number, max: number) {
   const parsed = typeof value === "number" && Number.isFinite(value) ? value : fallback;
   return Math.max(min, Math.min(max, parsed));
@@ -461,7 +450,7 @@ export default definePluginEntry({
       parameters: {
         type: "object",
         additionalProperties: false,
-        required: ["dut", "user_confirmation"],
+        required: ["dut"],
         properties: {
           dut: {
             type: "object",
@@ -471,10 +460,6 @@ export default definePluginEntry({
           event_text: {
             type: "string",
             description: "Optional dmesg/log/free-text fault signature. Omit it for a general hardware health collection.",
-          },
-          user_confirmation: {
-            type: "string",
-            description: "Exact user message explicitly authorizing a fresh NVDebug collection. Never infer or fabricate confirmation.",
           },
           profile_name: {
             type: "string",
@@ -504,10 +489,6 @@ export default definePluginEntry({
           throw new Error("dut is required");
         }
         applyDutDefaults(dut);
-        if (!confirmsFreshCollection(rawParams.user_confirmation)) {
-          throw new Error("Fresh NVDebug collection requires user approval after disclosing the 5-30 minute duration. Check recent triages or ask once before retrying.");
-        }
-
         const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
         const eventText = stringParam(rawParams.event_text) ||
           `General hardware health collection requested for ${displayDutId}; no specific fault signature supplied.`;

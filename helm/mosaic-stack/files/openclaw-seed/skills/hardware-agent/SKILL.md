@@ -63,8 +63,8 @@ After the mandatory duration disclosure, the user's next ordinary affirmative
 response is sufficient, including `yes`, `yeah, I want to do the collection`,
 `let's go for dgx-07`, `let's do it`, or `proceed`. Start the collection
 immediately. Do not demand a formal confirmation phrase, repeat the question,
-expose the tool schema, or ask the user to provide `user_confirmation`. Pass
-their affirmative message verbatim to the tool.
+or expose the tool schema. Interpret the user's response in conversation and
+invoke the tool without encoding their wording into its arguments.
 
 For a quick response, call `hardware_triage_list` first. If a completed triage
 matches the DUT and fault and its summary contains a root cause, answer from that
@@ -138,7 +138,6 @@ Tool payload shape:
     "baseboard": "Blackwell-HGX-8-GPU"
   },
   "event_text": "NVRM: Xid (PCI:0000:c1:00): 149 NETIR_LINK_EVT",
-  "user_confirmation": "run a fresh hardware diagnostic for dgx-01",
   "mosaic_chat_session_key": "agent:default:session-...",
   "wait": true
 }
