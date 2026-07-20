@@ -13,12 +13,13 @@ For an NVIDIA Mission Control managed cluster, follow the complete [NMC installa
 ### 1. Create The Namespace And Registry Access
 
 ```bash
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
+
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
-
-helm dependency build ./helm/mosaic-stack
 
 kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create secret docker-registry nvcr-image-pull-secret \
@@ -43,7 +44,8 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set llm.mode=external \
@@ -72,12 +74,23 @@ unset EXTERNAL_LLM_API_KEY
 
 For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
+For chart-managed vLLM profiles, unpack the published chart once:
+
+```bash
+MOSAIC_CHART_WORKDIR=$(mktemp -d)
+helm pull "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
+  --untar \
+  --untardir "$MOSAIC_CHART_WORKDIR"
+MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
+```
+
 To install Mosaic with Nemotron Super running on 1 GPU in vLLM, run:
 
 ```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   -n mosaic \
-  -f helm/mosaic-stack/profiles/vllm-super-1gpu.yaml \
+  -f "$MOSAIC_CHART_PATH/profiles/vllm-super-1gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set modules.ui.enabled=true \
   --set modules.execution.enabled=true \
@@ -100,9 +113,9 @@ helm upgrade --install mosaic ./helm/mosaic-stack \
 To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
 
 ```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   -n mosaic \
-  -f helm/mosaic-stack/profiles/vllm-ultra-16gpu.yaml \
+  -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-16gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set modules.ui.enabled=true \
   --set modules.execution.enabled=true \
@@ -144,7 +157,8 @@ To connect Mosaic to an existing Prometheus service, run:
 
 ```bash
 export PROMETHEUS_URL='http://prometheus.mosaic-observability.svc.cluster.local:9090'
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.observability.enabled=true \
@@ -168,7 +182,8 @@ kubectl -n mosaic create secret generic mosaic-grafana-auth \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.grafana.enabled=true \
@@ -188,7 +203,8 @@ unset GRAFANA_PASSWORD
 To enable the optional browser terminal service, run:
 
 ```bash
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.terminal.enabled=true \
@@ -230,7 +246,8 @@ kubectl -n mosaic create secret generic bcm-host-ssh-key \
   --from-file=id_ecdsa="$BCM_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.bcm.enabled=true \
@@ -250,7 +267,8 @@ To connect the Research module to an existing IRA MCP SSE endpoint, run:
 
 ```bash
 export IRA_MCP_URL='http://iraop.research.svc.cluster.local:8000/mcp/sse'
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
@@ -272,7 +290,8 @@ kubectl -n mosaic create secret generic iraop-secrets \
   --from-literal=NVIDIA_CHAT_API_KEY=EMPTY \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
@@ -318,7 +337,8 @@ kubectl -n mosaic create configmap debughub-playbooks-tar \
   --from-file=playbooks.tgz="$NVDEBUG_PLAYBOOKS_TGZ" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.diagnostics.enabled=true \
@@ -332,11 +352,13 @@ After installation the plugins of your choosing the installation process is done
 
 ## Upgrade An Existing Installation
 
-After pulling the latest tracked source, retain the working site configuration with:
+Select the desired published chart version and retain the working site configuration with:
 
 ```bash
-helm dependency build ./helm/mosaic-stack
-helm upgrade mosaic ./helm/mosaic-stack \
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --atomic \
@@ -410,7 +432,8 @@ To use the vanilla collector with a site-specific evidence root, run:
 
 ```bash
 export SLURM_EVIDENCE_ROOT='/shared/slurm'
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -425,7 +448,8 @@ The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, Mosai
 After enabling the BCM extension, enable BCM-backed Slurm with:
 
 ```bash
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -443,7 +467,8 @@ The local cluster is registered by default using the `openclaw` ServiceAccount. 
 Enable read-only access to the local cluster with:
 
 ```bash
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -461,7 +486,8 @@ kubectl -n mosaic create secret generic production-west-kubeconfig \
 Register that Secret with Mosaic by running:
 
 ```bash
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -474,7 +500,7 @@ The model selects only the registered name. It cannot provide a kubeconfig path,
 
 ## OpenShell Dependency
 
-The chart declares the pinned official OpenShell OCI dependency from `ghcr.io/nvidia/openshell`. It uses the official gateway, supervisor, and unprivileged base sandbox images. Run `helm dependency build ./helm/mosaic-stack` before installing from source. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is tracked directly in this chart:
+The published chart includes the pinned official OpenShell OCI dependency from `ghcr.io/nvidia/openshell`. It uses the official gateway, supervisor, and unprivileged base sandbox images. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is included as well:
 
 - `CustomResourceDefinition` resources are placed under chart `crds/` so Helm installs them before templates.
 - The controller namespace, RBAC, service, and StatefulSet are rendered as normal templates when `agentSandbox.install=true`.
@@ -482,7 +508,8 @@ The chart declares the pinned official OpenShell OCI dependency from `ghcr.io/nv
 If the cluster already provides a compatible `agent-sandbox` installation, run:
 
 ```bash
-helm upgrade mosaic ./helm/mosaic-stack \
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set agentSandbox.install=false \
@@ -490,4 +517,4 @@ helm upgrade mosaic ./helm/mosaic-stack \
   --timeout 12m
 ```
 
-Source installs from `./helm/mosaic-stack` include the tracked `agent-sandbox` CRD and controller templates.
+The packaged chart includes the tracked `agent-sandbox` CRD and controller templates.

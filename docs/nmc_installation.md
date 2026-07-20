@@ -4,7 +4,7 @@ This guide installs Mosaic on an NVIDIA Mission Control admin cluster. For upgra
 
 Run this flow from the BCM head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
 
-Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the Mosaic registry. NGC displays a newly generated key only once. Run the command from the repository root in a login shell where `module load` is available.
+Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the Mosaic registry. NGC displays a newly generated key only once. Run the command in a login shell where `module load` is available.
 
 The command selects the NMC `k8s-admin` cluster, connects Mosaic to the existing `kube-prometheus-stack` services, enables BCM-backed Slurm, and installs the AgentSandbox CRD and controller from the Mosaic chart.
 
@@ -17,6 +17,8 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
 MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
 BCM_HEAD_HOST=${BCM_HEAD_HOST:-$(hostname -s)}
 BCM_SSH_KEY_PATH=${BCM_SSH_KEY_PATH:-/root/.ssh/id_ecdsa}
 
@@ -29,8 +31,6 @@ cmsh -c 'wlm; list' | grep -qi slurm
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
-
-helm dependency build ./helm/mosaic-stack
 
 kubectl create namespace "$MOSAIC_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-external-llm \
@@ -47,7 +47,8 @@ kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-grafana-auth \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n "$MOSAIC_NAMESPACE" \
   --create-namespace \
   --set global.registryCredentials.create=true \

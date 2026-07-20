@@ -29,19 +29,19 @@ Kind creates the default `standard` storage class used by Mosaic.
 
 ## 3. Configure Credentials And Dependencies
 
-Run from the Mosaic repository root. Replace the endpoint and model together when using OpenAI or another provider.
+Replace the endpoint and model together when using OpenAI or another provider.
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
 export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
-
-helm dependency build ./helm/mosaic-stack
 
 kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create secret generic mosaic-external-llm \
@@ -52,7 +52,8 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
 ## 4. Install Mosaic
 
 ```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install mosaic "$MOSAIC_CHART" \
+  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --create-namespace \
   --set global.registryCredentials.create=true \

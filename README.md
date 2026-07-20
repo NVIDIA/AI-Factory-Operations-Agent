@@ -45,14 +45,7 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 
 # Getting Started
 
-Clone the repository:
-
-```bash
-git clone https://github.com/NVIDIA/Mosaic.git
-cd Mosaic
-```
-
-Use the complete command sequence for your environment:
+Install the packaged OCI chart directly from NGC. A source checkout and `helm dependency build` are not required. Use the complete command sequence for your environment:
 
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
 - [Kind installation](docs/kind_installation.md)
