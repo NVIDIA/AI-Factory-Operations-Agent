@@ -446,7 +446,7 @@ export default definePluginEntry({
       name: "hardware_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
-        "Start a fresh, long-running NVDebug hardware collection. Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Ordinary approval such as yes, let's go, do it, or proceed is sufficient; pass it verbatim and never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
+        "Start a fresh, long-running NVDebug hardware collection. Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Interpret an ordinary affirmative response in conversation, then invoke this tool without encoding the user's wording into its arguments. Never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
       parameters: {
         type: "object",
         additionalProperties: false,

@@ -24,6 +24,7 @@ test("routes Hardware Agent requests through the hardware backend", () => {
   assert.match(skill, /call `hardware_triage_list` first/);
   assert.match(extension, /required: \["dut"\]/);
   assert.doesNotMatch(extension, /user_confirmation|confirmsFreshCollection/);
+  assert.doesNotMatch(extension, /pass it verbatim/);
   assert.match(extension, /General hardware health collection requested for \$\{displayDutId\}/);
   assert.match(skill, /After the mandatory duration disclosure, the user's next ordinary affirmative\s+response is sufficient/);
   assert.match(skill, /Do not demand a formal confirmation/);

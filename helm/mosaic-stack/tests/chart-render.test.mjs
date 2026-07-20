@@ -73,6 +73,13 @@ test("generates one internal Hardware Agent credential for the service and OpenC
   assert.doesNotMatch(output, /name: diagnostic-agent-api-keys|name: diagnostic-agent-secrets/);
 });
 
+test("wires BCM lookup through the collection library environment contract", () => {
+  const output = render("--set", "modules.diagnostics.enabled=true");
+  assert.match(output, /name: BCM_WEBHOOK_URL\s+valueFrom:/);
+  assert.match(output, /name: BCM_WEBHOOK_TOKEN\s+valueFrom:/);
+  assert.doesNotMatch(output, /name: DEBUGHUB_BCM__WEBHOOK_(?:URL|TOKEN)/);
+});
+
 test("renders only official OpenClaw and OpenShell runtime images", () => {
   const output = render();
   for (const image of [

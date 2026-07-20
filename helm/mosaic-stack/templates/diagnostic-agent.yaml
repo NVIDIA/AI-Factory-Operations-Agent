@@ -103,12 +103,12 @@ spec:
               value: /opt/debuggability/playbooks
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
-            - name: DEBUGHUB_BCM__WEBHOOK_URL
+            - name: BCM_WEBHOOK_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.diagnosticAgent.bcmWebhookSecretName }}
                   key: BCM_WEBHOOK_URL
-            - name: DEBUGHUB_BCM__WEBHOOK_TOKEN
+            - name: BCM_WEBHOOK_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.diagnosticAgent.bcmWebhookSecretName }}
