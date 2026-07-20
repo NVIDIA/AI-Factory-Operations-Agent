@@ -5,7 +5,6 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_BASE_URL = "http://diagnostic-agent";
 const DEFAULT_TIMEOUT_MS = 1_800_000;
-const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_DGX_BASEBOARD = "Blackwell-HGX-8-GPU";
 const MAX_EVENT_CHARS = 4000;
 
@@ -69,15 +68,6 @@ function resolveSubagentEventsUrl(pluginConfig: unknown): string {
     return configured;
   }
   return "http://mosaic-ui:3000/api/subagents/events";
-}
-
-function mosaicUiBaseUrlFromEventsUrl(eventsUrl: string) {
-  try {
-    const url = new URL(eventsUrl);
-    return `${url.protocol}//${url.host}`;
-  } catch {
-    return "";
-  }
 }
 
 function firstApiKey(value: string) {
@@ -208,25 +198,6 @@ function compactJson(value: unknown, maxChars = MAX_EVENT_CHARS) {
   return truncate(text || "", maxChars);
 }
 
-function compactDefinedJson(value: Record<string, unknown>, maxChars = MAX_EVENT_CHARS) {
-  const defined = Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined && entry !== ""),
-  );
-  return Object.keys(defined).length > 0 ? compactJson(defined, maxChars) : "";
-}
-
-function triageStatusContent(triageId: string, status: Record<string, unknown>) {
-  const currentStatus = typeof status.status === "string" ? status.status : "unknown";
-  const details = compactDefinedJson({
-    root_cause: status.root_cause,
-    severity: status.severity,
-    confidence: status.confidence,
-    error: status.error,
-    next_action: status.next_action,
-  });
-  return [`Triage ${triageId}: ${currentStatus}`, details].filter(Boolean).join("\n");
-}
-
 function triageSummary(value: unknown) {
   const triage = objectParam(value) || {};
   const request = objectParam(triage.request) || {};
@@ -316,21 +287,6 @@ async function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase,
   });
 }
 
-async function suppressMosaicAlertForTriage(config: DiagnosticConfig, triageId: string) {
-  const baseUrl = mosaicUiBaseUrlFromEventsUrl(config.subagentEventsUrl);
-  if (!baseUrl || !triageId) {
-    return;
-  }
-
-  await fetch(`${baseUrl}/api/alerts/suppress`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ triageId }),
-  }).catch(() => {
-    // Alert suppression is best-effort; diagnosis and terminal streaming should continue.
-  });
-}
-
 function subagentOptions(
   config: DiagnosticConfig,
   toolCallId: string,
@@ -345,43 +301,10 @@ function subagentOptions(
   };
 }
 
-function terminalStatus(status: unknown) {
-  const normalized = typeof status === "string" ? status.toLowerCase() : "";
-  return ["complete", "completed", "failed", "error", "rejected"].includes(normalized);
-}
-
 function triageIdFrom(value: unknown) {
   return value && typeof value === "object" && typeof (value as Record<string, unknown>).triage_id === "string"
     ? ((value as Record<string, unknown>).triage_id as string)
     : "";
-}
-
-async function pollTriage(
-  config: DiagnosticConfig,
-  triageId: string,
-  options: SubagentOptions,
-  pollIntervalMs: number,
-  timeoutMs: number,
-) {
-  const started = Date.now();
-  let lastStatus = "";
-  while (Date.now() - started < timeoutMs) {
-    const status = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}`, { method: "GET" }, Math.min(config.timeoutMs, 60_000));
-    const currentStatus = typeof status.status === "string" ? status.status : "unknown";
-    if (currentStatus !== lastStatus || status.root_cause || status.error) {
-      lastStatus = currentStatus;
-      await postSubagentEvent(
-        options,
-        terminalStatus(currentStatus) ? (currentStatus === "failed" || currentStatus === "error" ? "error" : "complete") : "delta",
-        triageStatusContent(triageId, status),
-      );
-    }
-    if (terminalStatus(currentStatus)) {
-      return status;
-    }
-    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-  }
-  throw new Error(`Timed out waiting for Hardware Agent triage ${triageId} after ${Math.round(timeoutMs / 1000)} seconds`);
 }
 
 export default definePluginEntry({
@@ -469,18 +392,6 @@ export default definePluginEntry({
             type: "string",
             description: "Optional Mosaic session key. Copy the exact value from the [Mosaic Runtime] block when present so the Hardware Agent can stream NVDebug progress to the matching Terminal tab.",
           },
-          wait: {
-            type: "boolean",
-            description: "If true, poll the Hardware Agent until the triage completes. Defaults to true.",
-          },
-          pollIntervalSeconds: {
-            type: "number",
-            description: "Polling interval while waiting for completion. Defaults to 5 seconds.",
-          },
-          pollTimeoutSeconds: {
-            type: "number",
-            description: "Maximum time to wait for completion. Defaults to 1800 seconds.",
-          },
         },
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
@@ -492,7 +403,6 @@ export default definePluginEntry({
         const displayDutId = typeof dut.id === "string" ? dut.id : "DUT";
         const eventText = stringParam(rawParams.event_text) ||
           `General hardware health collection requested for ${displayDutId}; no specific fault signature supplied.`;
-        const wait = rawParams.wait !== false;
         const body: Record<string, unknown> = {
           dut,
           event_text: eventText,
@@ -510,28 +420,8 @@ export default definePluginEntry({
             body: JSON.stringify(body),
           });
           const triageId = triageIdFrom(submitted);
-          if (mosaicSessionKey && triageId) {
-            await suppressMosaicAlertForTriage(config, triageId);
-          }
-          await postSubagentEvent(events, "delta", `Hardware triage queued: ${compactJson(submitted)}`);
-
-          if (!wait || !triageId) {
-            await postSubagentEvent(events, "complete", `Hardware triage submitted. Poll ${submitted.poll_url || `/api/v1/triage/${triageId}`}.`);
-            return jsonToolResult({ submitted, waited: false });
-          }
-
-          const pollIntervalMs = Math.round(numberParam(rawParams.pollIntervalSeconds, DEFAULT_POLL_INTERVAL_MS / 1000, 1, 120) * 1000);
-          const pollTimeoutMs = Math.round(numberParam(rawParams.pollTimeoutSeconds, config.timeoutMs / 1000, 10, 3600) * 1000);
-          const status = await pollTriage(config, triageId, events, pollIntervalMs, pollTimeoutMs);
-          const report = await fetchJson(config, `/api/v1/triage/${encodeURIComponent(triageId)}/report`, { method: "GET" }, Math.min(config.timeoutMs, 120_000))
-            .catch(error => ({ reportFetchError: error instanceof Error ? error.message : String(error) }));
-          await postSubagentEvent(events, "complete", `NVDebug analysis complete for ${displayDutId}\n${compactDefinedJson({
-            status: status.status,
-            root_cause: status.root_cause,
-            severity: status.severity,
-            confidence: status.confidence,
-          })}`);
-          return jsonToolResult({ submitted, status, report });
+          await postSubagentEvent(events, "complete", `Hardware triage submitted: ${compactJson(submitted)}`);
+          return jsonToolResult({ submitted, triage_id: triageId });
         } catch (error) {
           await postSubagentEvent(events, "error", error instanceof Error ? error.message : String(error));
           throw error;

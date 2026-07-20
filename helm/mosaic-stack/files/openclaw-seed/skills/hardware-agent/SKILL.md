@@ -42,9 +42,7 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 
 1. POST returns `202 Accepted` with a `triage_id`.
 2. Backend runs BCM lookup, nvdebug collection, and diagnosis.
-3. Poll `/api/v1/triage/<id>` until status is `complete` or `failed`.
-
-Set tool-call timeout to 1800 seconds when the user confirms a fresh collection.
+3. The tool returns the `triage_id` immediately. Do not wait or poll in the same turn.
 
 ## Mandatory duration disclosure
 
@@ -77,16 +75,16 @@ stop until the user answers.
 ## Invocation
 
 Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
-`/api/v1/analyze-dut`, polls the triage status, fetches the report, and emits a
-live NVDebug subagent card in Mosaic. The Hardware Agent backend owns NVDebug
-collection, collection validation, retry policy, and RCA generation.
+`/api/v1/analyze-dut`, returns the queued triage id, and emits a live NVDebug
+subagent card in Mosaic. The Hardware Agent backend owns NVDebug collection,
+collection validation, retry policy, RCA generation, and completion notification.
 
 After the user confirms a fresh collection, use only `hardware_analyze_dut`
 for the turn. Do not call BCM, Kubernetes, Prometheus, Grafana, DCGM,
 observability, or other tools before or after the NVDebug RCA unless the user
 asks for those follow-up checks in a separate message.
 
-For a fresh RCA, call `hardware_analyze_dut` once with `wait: true`. Do not
+For a fresh RCA, call `hardware_analyze_dut` once and return the queued triage id. Do not
 call `bcm_*`, `bcm_execute_cmsh`, or other BCM tools for prerequisite lookup:
 the Hardware Agent backend performs the DUT lookup and NVDebug orchestration.
 Use `hardware_triage_status` and `hardware_triage_report` only for a triage
@@ -110,8 +108,8 @@ Pass `mosaic_chat_session_key` when Mosaic has explicitly supplied the current
 chat session key so the Hardware Agent backend can stream NVDebug collection
 activity to the matching Terminal tab. If Mosaic does not supply one, still call
 the tool; the plugin will infer the current session when possible. For
-chat-initiated triages, the final answer is the user-facing notification; do not
-create a separate Mosaic alert for the same completed diagnosis.
+chat-initiated triages, the Hardware Agent completion notification is the
+user-facing result. Do not hold the chat turn open while collection runs.
 
 If the incoming turn includes a `[Mosaic Runtime]` block with
 `mosaic_chat_session_key="..."`, treat that block as runtime metadata supplied
@@ -138,8 +136,7 @@ Tool payload shape:
     "baseboard": "Blackwell-HGX-8-GPU"
   },
   "event_text": "NVRM: Xid (PCI:0000:c1:00): 149 NETIR_LINK_EVT",
-  "mosaic_chat_session_key": "agent:default:session-...",
-  "wait": true
+  "mosaic_chat_session_key": "agent:default:session-..."
 }
 ```
 
@@ -173,18 +170,12 @@ Payload:
 
 Never include BMC passwords in the payload. The backend resolves them from BCM.
 
-Poll until complete:
+Check status later when requested:
 
 ```bash
 TID="<uuid from submit response>"
-while :; do
-  R=$(curl -sS -H "X-API-Key: $DIAGNOSTIC_AGENT_API_KEY" \
-    http://diagnostic-agent/api/v1/triage/$TID)
-  case "$R" in
-    *'"status":"queued"'*|*'"status":"analyzing"'*) sleep 5 ;;
-    *) echo "$R"; break ;;
-  esac
-done
+curl -sS -H "X-API-Key: $DIAGNOSTIC_AGENT_API_KEY" \
+  http://diagnostic-agent/api/v1/triage/$TID
 ```
 
 Fetch full report:
