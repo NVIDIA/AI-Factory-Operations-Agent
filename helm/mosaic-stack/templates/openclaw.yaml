@@ -543,7 +543,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.diagnosticAgent.apiKeySecretName }}
-                  key: AGENT_API_KEYS
+                  key: API_KEY
             {{- end }}
             {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
