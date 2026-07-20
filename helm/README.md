@@ -156,7 +156,7 @@ All module changes below update an existing Mosaic release and preserve its curr
 To connect Mosaic to an existing Prometheus service, run:
 
 ```bash
-export PROMETHEUS_URL='http://prometheus.monitoring.svc.cluster.local:9090'
+export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
@@ -172,7 +172,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 To connect Mosaic to an existing Grafana service, run:
 
 ```bash
-export GRAFANA_URL='http://grafana.monitoring.svc.cluster.local:3000'
+export GRAFANA_URL='http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana'
 export GRAFANA_DATASOURCE_UID='prometheus'
 export GRAFANA_USERNAME='admin'
 read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
