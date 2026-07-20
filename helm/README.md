@@ -307,31 +307,17 @@ unset NVIDIA_API_KEY
 
 ### Hardware Agent
 
-Provide its API keys, BCM webhook credentials, BCM SSH key, NVDebug playbook archive, and additional environment variables:
+The Hardware Agent reuses the `bcm-host-ssh-key` created by the BCM setup above. If that Secret does not exist, create it with the BCM SSH credential command first. Then provide the BCM webhook credentials and NVDebug playbook archive. The chart generates the internal credential shared by OpenClaw and the Hardware Agent.
 
 ```bash
-export DIAGNOSTIC_API_KEYS='<comma-separated-agent-api-keys>'
 export BCM_WEBHOOK_URL='<bcm-webhook-url>'
 read -rsp 'BCM webhook token: ' BCM_WEBHOOK_TOKEN; echo
-export BCM_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
 export NVDEBUG_PLAYBOOKS_TGZ='/path/to/playbooks.tgz'
-export DIAGNOSTIC_ENV_FILE='/path/to/diagnostic-agent.env'
 
-test -r "$BCM_SSH_KEY_PATH"
 test -r "$NVDEBUG_PLAYBOOKS_TGZ"
-test -r "$DIAGNOSTIC_ENV_FILE"
-kubectl -n mosaic create secret generic diagnostic-agent-api-keys \
-  --from-literal=AGENT_API_KEYS="$DIAGNOSTIC_API_KEYS" \
-  --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create secret generic bcm-webhook-creds \
   --from-literal=BCM_WEBHOOK_URL="$BCM_WEBHOOK_URL" \
   --from-literal=BCM_WEBHOOK_TOKEN="$BCM_WEBHOOK_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic diagnostic-agent-secrets \
-  --from-env-file="$DIAGNOSTIC_ENV_FILE" \
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic bcm-host-ssh-key \
-  --from-file=id_ecdsa="$BCM_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create configmap debughub-playbooks-tar \
   --from-file=playbooks.tgz="$NVDEBUG_PLAYBOOKS_TGZ" \

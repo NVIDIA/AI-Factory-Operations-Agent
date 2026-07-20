@@ -59,6 +59,13 @@ function render(...args) {
   });
 }
 
+test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
+  const output = render("--set", "modules.diagnostics.enabled=true");
+  assert.match(output, /kind: Secret[\s\S]*name: diagnostic-agent-auth[\s\S]*AGENT_API_KEYS: "[A-Za-z0-9]{48}"/);
+  assert.equal((output.match(/name: diagnostic-agent-auth/g) || []).length, 3);
+  assert.doesNotMatch(output, /name: diagnostic-agent-api-keys|name: diagnostic-agent-secrets/);
+});
+
 test("renders only official OpenClaw and OpenShell runtime images", () => {
   const output = render();
   for (const image of [

@@ -190,18 +190,3 @@
 {{- if and .Values.modules.diagnostics.enabled (not .Values.diagnosticAgent.enabled) -}}
 {{- fail "modules.diagnostics.enabled=true requires diagnosticAgent.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.apiKeys) -}}
-{{- fail "diagnosticAgent.secrets.apiKeys is required when Hardware Agent Secrets are created" -}}
-{{- end -}}
-{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.hostSshPrivateKey) -}}
-{{- fail "diagnosticAgent.secrets.hostSshPrivateKey is required when Hardware Agent Secrets are created" -}}
-{{- end -}}
-{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.playbooksTgzBase64) -}}
-{{- fail "diagnosticAgent.secrets.playbooksTgzBase64 is required when Hardware Agent Secrets are created" -}}
-{{- end -}}
-{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.bcmWebhookUrl) -}}
-{{- fail "diagnosticAgent.secrets.bcmWebhookUrl is required when Hardware Agent Secrets are created" -}}
-{{- end -}}
-{{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.secrets.create (not .Values.diagnosticAgent.secrets.bcmWebhookToken) -}}
-{{- fail "diagnosticAgent.secrets.bcmWebhookToken is required when Hardware Agent Secrets are created" -}}
-{{- end -}}
