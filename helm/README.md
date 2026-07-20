@@ -14,7 +14,7 @@ For an NVIDIA Mission Control managed cluster, follow the complete [NMC installa
 
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
+# Add --version 0.0.1 to a Helm command to pin that release.
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
@@ -45,7 +45,6 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set llm.mode=external \
@@ -79,7 +78,6 @@ For chart-managed vLLM profiles, unpack the published chart once:
 ```bash
 MOSAIC_CHART_WORKDIR=$(mktemp -d)
 helm pull "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   --untar \
   --untardir "$MOSAIC_CHART_WORKDIR"
 MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
@@ -158,7 +156,6 @@ To connect Mosaic to an existing Prometheus service, run:
 ```bash
 export PROMETHEUS_URL='http://prometheus.mosaic-observability.svc.cluster.local:9090'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.observability.enabled=true \
@@ -183,7 +180,6 @@ kubectl -n mosaic create secret generic mosaic-grafana-auth \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.grafana.enabled=true \
@@ -204,7 +200,6 @@ To enable the optional browser terminal service, run:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.terminal.enabled=true \
@@ -247,7 +242,6 @@ kubectl -n mosaic create secret generic bcm-host-ssh-key \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.bcm.enabled=true \
@@ -268,7 +262,6 @@ To connect the Research module to an existing IRA MCP SSE endpoint, run:
 ```bash
 export IRA_MCP_URL='http://iraop.research.svc.cluster.local:8000/mcp/sse'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
@@ -291,7 +284,6 @@ kubectl -n mosaic create secret generic iraop-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
@@ -338,7 +330,6 @@ kubectl -n mosaic create configmap debughub-playbooks-tar \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.diagnostics.enabled=true \
@@ -352,13 +343,12 @@ After installation the plugins of your choosing the installation process is done
 
 ## Upgrade An Existing Installation
 
-Select the desired published chart version and retain the working site configuration with:
+Retain the working site configuration with:
 
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-MOSAIC_CHART_VERSION=${MOSAIC_CHART_VERSION:-0.0.1}
+# Add --version 0.0.1 to pin that release.
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --atomic \
@@ -433,7 +423,6 @@ To use the vanilla collector with a site-specific evidence root, run:
 ```bash
 export SLURM_EVIDENCE_ROOT='/shared/slurm'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -449,7 +438,6 @@ After enabling the BCM extension, enable BCM-backed Slurm with:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -468,7 +456,6 @@ Enable read-only access to the local cluster with:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -487,7 +474,6 @@ Register that Secret with Mosaic by running:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -509,7 +495,6 @@ If the cluster already provides a compatible `agent-sandbox` installation, run:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --version "$MOSAIC_CHART_VERSION" \
   -n mosaic \
   --reuse-values \
   --set agentSandbox.install=false \

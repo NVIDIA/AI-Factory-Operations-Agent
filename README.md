@@ -45,7 +45,7 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 
 # Getting Started
 
-Install the packaged OCI chart directly from NGC. A source checkout and `helm dependency build` are not required. Use the complete command sequence for your environment:
+Use the complete installation guide for your environment:
 
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
 - [Kind installation](docs/kind_installation.md)
