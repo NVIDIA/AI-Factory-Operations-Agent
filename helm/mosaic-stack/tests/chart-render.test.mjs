@@ -69,7 +69,7 @@ function render(...args) {
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
   const output = render("--set", "modules.diagnostics.enabled=true");
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);
-  const apiKeys = output.match(/AGENT_API_KEYS: "\[\\"([A-Za-z0-9]{48})\\"\]"/);
+  const apiKeys = output.match(/AGENT_API_KEYS: "\{\\"openclaw\\":\\"([A-Za-z0-9]{48})\\"\}"/);
   assert.equal(apiKeys?.[1], apiKey?.[1]);
   assert.equal((output.match(/name: diagnostic-agent-auth/g) || []).length, 3);
   assert.match(output, /name: DIAGNOSTIC_AGENT_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: diagnostic-agent-auth\s+key: API_KEY/);
