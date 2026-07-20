@@ -73,6 +73,7 @@ test("generates one internal Hardware Agent credential for the service and OpenC
   assert.equal(apiKeys?.[1], apiKey?.[1]);
   assert.equal((output.match(/name: diagnostic-agent-auth/g) || []).length, 3);
   assert.match(output, /name: DIAGNOSTIC_AGENT_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: diagnostic-agent-auth\s+key: API_KEY/);
+  assert.match(output, /name: DIAGNOSTIC_AGENT_AUTH_MODE\s+value: required/);
   assert.doesNotMatch(output, /name: diagnostic-agent-api-keys|name: diagnostic-agent-secrets/);
 });
 

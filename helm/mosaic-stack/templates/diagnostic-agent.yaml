@@ -97,6 +97,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.diagnosticAgent.apiKeySecretName }}
                   key: AGENT_API_KEYS
+            - name: DIAGNOSTIC_AGENT_AUTH_MODE
+              value: required
             - name: DEBUGHUB_PLAYBOOK__PATH
               value: /opt/debuggability/playbooks
             - name: DEBUGHUB_PLAYBOOK_PATH
