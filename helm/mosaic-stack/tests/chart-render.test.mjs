@@ -30,6 +30,13 @@ test("startup-loads one shared diagnostic policy", () => {
   assert.match(runtime, /cp \/seed\/diagnostic-policy\.ts \/home\/node\/\.openclaw\/extensions\/diagnostic-policy\.ts/);
 });
 
+test("startup removes managed plugins before applying the enabled module set", () => {
+  const runtime = render("--show-only", "templates/openclaw.yaml");
+  for (const name of ["bcm", "diagnostic-agent", "grafana", "iraop", "kubernetes", "observability", "remote-ssh", "slurm"]) {
+    assert.match(runtime, new RegExp(`/home/node/\\.openclaw/extensions/${name}`));
+  }
+});
+
 test("startup-loads the remote SSH approval hook", () => {
   const manifest = JSON.parse(
     readFileSync(new URL("../files/openclaw-seed/extensions/remote-ssh/openclaw.plugin.json", import.meta.url)),

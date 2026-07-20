@@ -117,17 +117,21 @@ spec:
               mkdir -p /home/node/.openclaw/tmp/openclaw /home/node/.openclaw/workspace/skills
               chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
               rm -rf /home/node/.openclaw/extensions/automation-guard \
+                /home/node/.openclaw/extensions/bcm \
                 /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/diagnostic-agent \
                 /home/node/.openclaw/extensions/grafana \
                 /home/node/.openclaw/extensions/iraop \
                 /home/node/.openclaw/extensions/kubernetes \
+                /home/node/.openclaw/extensions/observability \
                 /home/node/.openclaw/extensions/remote-ssh \
                 /home/node/.openclaw/extensions/slurm \
+                /home/node/.openclaw/workspace/skills/bcm \
                 /home/node/.openclaw/workspace/skills/grafana \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/hardware-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
+                /home/node/.openclaw/workspace/skills/observability \
                 /home/node/.openclaw/workspace/skills/slurm
               rm -f /home/node/.openclaw/extensions/automation-context.ts \
                 /home/node/.openclaw/extensions/diagnostic-policy.ts \
