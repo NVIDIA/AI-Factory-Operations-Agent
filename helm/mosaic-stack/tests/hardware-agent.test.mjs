@@ -26,6 +26,7 @@ test("routes Hardware Agent requests through the hardware backend", () => {
   assert.doesNotMatch(extension, /user_confirmation|confirmsFreshCollection/);
   assert.doesNotMatch(extension, /pass it verbatim/);
   assert.match(extension, /General hardware health collection requested for \$\{displayDutId\}/);
+  assert.match(extension, /`dgx-\$\{id\.padStart\(2, "0"\)\}`/);
   assert.match(skill, /After the mandatory duration disclosure, the user's next ordinary affirmative\s+response is sufficient/);
   assert.match(skill, /Do not demand a formal confirmation/);
   assert.match(skill, /Interpret the user's response in conversation/);

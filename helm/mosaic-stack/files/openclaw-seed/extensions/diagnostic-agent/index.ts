@@ -193,7 +193,7 @@ function normalizeDutId(value: unknown) {
   if (typeof value !== "string") {
     return value;
   }
-  return value.trim().replace(/^dgx[\s_-]*(\d+)$/i, (_match, id) => `dgx-${id}`);
+  return value.trim().replace(/^dgx[\s_-]*(\d+)$/i, (_match, id) => `dgx-${id.padStart(2, "0")}`);
 }
 
 function applyDutDefaults(dut: Record<string, unknown>) {
