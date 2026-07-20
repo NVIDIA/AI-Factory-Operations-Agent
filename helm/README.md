@@ -14,7 +14,7 @@ For an NVIDIA Mission Control managed cluster, follow the complete [NMC installa
 
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Replace --devel with --version 0.0.1 to pin that release.
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
@@ -356,7 +356,7 @@ Retain the working site configuration with:
 
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Replace --devel with --version 0.0.1 to pin that release.
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
