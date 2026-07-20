@@ -23,8 +23,6 @@ publish-helm-chart:
     entrypoint: [""]
   variables:
     CHART_DIR: helm/mosaic-stack
-  before_script:
-    - apk add --no-cache git
   script:
     - test -n "$NGC_API_KEY"
     - registry="${NGC_REGISTRY:-nvcr.io/0948643769302270}"
@@ -45,14 +43,13 @@ publish-helm-chart:
         test "$base_version" = "$release_version"
         publish "$release_version"
       else
-        publish "$base_version-sha-$CI_COMMIT_SHORT_SHA"
+        publish "$base_version-sha.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA"
         if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-          latest_sha="$(git ls-remote origin "refs/heads/$CI_DEFAULT_BRANCH" | cut -f1)"
-          if [ "$latest_sha" = "$CI_COMMIT_SHA" ]; then
-            publish "$base_version-main"
-          else
-            echo "Skipping main channel for superseded commit $CI_COMMIT_SHA; main is $latest_sha."
-          fi
+          major="${base_version%%.*}"
+          remainder="${base_version#*.}"
+          minor="${remainder%%.*}"
+          patch="${base_version##*.}"
+          publish "$major.$minor.$((patch + 1))-main.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA"
         fi
       fi
   rules:
