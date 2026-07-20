@@ -47,22 +47,6 @@ data:
         .filter(Boolean);
     }
 
-    function scrubVisibleThinking(text) {
-      const drop = /^\s*(we\s+(need|should|can|have|see|also|will|must|found|checked|know)|we'll|i\s+(need|will|can)|let'?s|now\b|thus\b|the user asks|look at)\b/i;
-      const embedded = /\b(we\s+(need|should|can|could|have|see|also|will|must|found|checked|know)|we'll|let'?s)\b/i;
-      const paragraphDrop = /\b(the user\b|as an ai\b|hmm\b|i\s+(need|should|can|can't|cannot|will|would)\b|we\s+(need|should|can|could|have|see|also|will|must|found|checked|know)\b|we'll|let'?s)\b/i;
-      return text
-        .split(/\n{2,}/)
-        .filter(paragraph => !paragraphDrop.test(paragraph))
-        .map(paragraph => paragraph
-          .split(/(?<=[.!?])\s+/)
-          .filter(sentence => !drop.test(sentence) && !embedded.test(sentence))
-          .join(' ')
-          .trim())
-        .filter(Boolean)
-        .join('\n\n');
-    }
-
     function sseData(chunk) {
       return `data: ${JSON.stringify(chunk)}\n\n`;
     }
@@ -97,7 +81,7 @@ data:
       }
       const first = parsed[0] || { id: `chatcmpl-${Date.now()}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: 'unknown' };
       const last = parsed[parsed.length - 1] || first;
-      const content = scrubVisibleThinking(parsed.flatMap(chunk => chunk.choices || []).map(choice => choice.delta?.content || '').join(''));
+      const content = parsed.flatMap(chunk => chunk.choices || []).map(choice => choice.delta?.content || '').join('');
       if (content) {
         res.write(sseData({ ...first, choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }] }));
       }

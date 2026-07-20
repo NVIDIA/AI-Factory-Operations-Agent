@@ -125,6 +125,8 @@ test("can disable thinking for an external vLLM endpoint", () => {
   assert.match(output, /name: VLLM_UPSTREAM\s+value: "true"/);
   assert.match(output, /const vllmUpstream = process\.env\.VLLM_UPSTREAM === 'true'/);
   assert.match(output, /llmMode !== 'vllm' && !vllmUpstream/);
+  assert.match(output, /const content = parsed\.flatMap/);
+  assert.doesNotMatch(output, /scrubVisibleThinking|paragraphDrop/);
 });
 
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
