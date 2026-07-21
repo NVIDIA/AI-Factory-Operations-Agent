@@ -18,7 +18,6 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
 MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 BCM_HEAD_HOST=${BCM_HEAD_HOST:-$(hostname -s)}
 BCM_SSH_KEY_PATH=${BCM_SSH_KEY_PATH:-/root/.ssh/id_ecdsa}
 
@@ -47,6 +46,7 @@ kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-grafana-auth \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
   --devel \
   -n "$MOSAIC_NAMESPACE" \

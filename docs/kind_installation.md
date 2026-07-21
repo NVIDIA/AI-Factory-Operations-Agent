@@ -35,7 +35,6 @@ Replace the endpoint and model together when using OpenAI or another provider.
 export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
 export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
@@ -51,7 +50,9 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
 
 ## 4. Install Mosaic
 
+
 ```bash
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
