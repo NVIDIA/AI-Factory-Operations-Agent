@@ -102,7 +102,7 @@ spec:
             - name: HOME
               value: /home/node
             - name: PATH
-              value: /tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+              value: /opt/node/bin:/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
             - name: MOSAIC_TERMINAL_PORT
               value: {{ .Values.mosaicTerminal.service.port | quote }}
             - name: MOSAIC_TERMINAL_IDLE_MS

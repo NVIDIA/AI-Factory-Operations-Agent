@@ -591,6 +591,7 @@ test("renders the terminal service from the UI image with isolated read-only acc
   assert.match(output, /kind: Service[\s\S]*name: mosaic-terminal/);
   assert.match(output, /kind: Secret[\s\S]*name: mosaic-terminal-auth/);
   assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-terminal\.mjs"\]/);
+  assert.match(output, /name: PATH\s+value: \/opt\/node\/bin:\/tools:/);
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[^"]+"/);
   assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
   assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);
