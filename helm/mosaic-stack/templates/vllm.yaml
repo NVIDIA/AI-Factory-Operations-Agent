@@ -65,6 +65,9 @@ spec:
                   raise SystemExit(f"Ray cluster never reached {target} GPUs")
               PY
               args=(serve {{ $v.model | quote }} --host=0.0.0.0 --port={{ $v.port }} --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }} --distributed-executor-backend=ray --served-model-name={{ $v.servedModelName | quote }})
+              {{- if .Values.llm.requestCompatibility.disableThinking }}
+              args+=({{ "--default-chat-template-kwargs={\"enable_thinking\":false}" | quote }})
+              {{- end }}
               {{- range $v.extraArgs }}
               args+=({{ . | quote }})
               {{- end }}
@@ -78,6 +81,9 @@ spec:
             - --port={{ $v.port }}
             - --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }}
             - --served-model-name={{ $v.servedModelName }}
+            {{- if .Values.llm.requestCompatibility.disableThinking }}
+            - {{ "--default-chat-template-kwargs={\"enable_thinking\":false}" | quote }}
+            {{- end }}
             {{- range $v.extraArgs }}
             - {{ . | quote }}
             {{- end }}

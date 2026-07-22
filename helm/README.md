@@ -74,6 +74,12 @@ unset EXTERNAL_LLM_API_KEY
 
 For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
+Mosaic requests `reasoning_effort: none` when `llm.requestCompatibility.disableThinking=true`, which is the default. External endpoints must honor that OpenAI-compatible request and return only the final answer in `message.content`. For an independently managed vLLM server, set its server default:
+
+```bash
+vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
+```
+
 For chart-managed vLLM profiles, unpack the published chart once:
 
 ```bash

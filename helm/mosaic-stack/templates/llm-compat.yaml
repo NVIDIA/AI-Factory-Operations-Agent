@@ -17,8 +17,6 @@ data:
     const upstream = new URL(process.env.UPSTREAM_BASE_URL);
     const port = Number(process.env.PORT || {{ $c.port }});
     const disableThinking = process.env.DISABLE_THINKING === 'true';
-    const llmMode = process.env.LLM_MODE || 'vllm';
-    const vllmUpstream = process.env.VLLM_UPSTREAM === 'true';
 
     function readBody(req) {
       return new Promise((resolve, reject) => {
@@ -30,80 +28,14 @@ data:
     }
 
     function patchBody(req, body) {
-      if ((llmMode !== 'vllm' && !vllmUpstream) || !disableThinking || req.method !== 'POST' || !req.url.endsWith('/chat/completions')) return body;
+      if (!disableThinking || req.method !== 'POST' || !req.url.endsWith('/chat/completions')) return body;
       try {
         const json = JSON.parse(body.toString('utf8'));
-        json.chat_template_kwargs = { ...(json.chat_template_kwargs || {}), enable_thinking: false };
+        json.reasoning_effort = 'none';
         return Buffer.from(JSON.stringify(json));
       } catch {
         return body;
       }
-    }
-
-    function parseSse(payload) {
-      return payload
-        .split(/\n\n+/)
-        .flatMap(event => event.split(/\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()))
-        .filter(Boolean);
-    }
-
-    function scrubVisibleThinking(text) {
-      const drop = /^\s*(we\s+(need|should|can|have|see|also|will|must|found|checked|know)|we'll|i\s+(need|will|can)|let'?s|now\b|thus\b|the user asks|look at)\b/i;
-      const embedded = /\b(we\s+(need|should|can|could|have|see|also|will|must|found|checked|know)|we'll|let'?s)\b/i;
-      const paragraphDrop = /\b(the user\b|as an ai\b|hmm\b|i\s+(need|should|can|can't|cannot|will|would)\b|we\s+(need|should|can|could|have|see|also|will|must|found|checked|know)\b|we'll|let'?s)\b/i;
-      return text
-        .split(/\n{2,}/)
-        .filter(paragraph => !paragraphDrop.test(paragraph))
-        .map(paragraph => paragraph
-          .split(/(?<=[.!?])\s+/)
-          .filter(sentence => !drop.test(sentence) && !embedded.test(sentence))
-          .join(' ')
-          .trim())
-        .filter(Boolean)
-        .join('\n\n');
-    }
-
-    function sseData(chunk) {
-      return `data: ${JSON.stringify(chunk)}\n\n`;
-    }
-
-    async function pipeOpenAiStream(upstreamRes, res) {
-      const chunks = [];
-      for await (const chunk of upstreamRes) chunks.push(chunk);
-      const events = parseSse(Buffer.concat(chunks).toString('utf8'));
-      const parsed = [];
-      let sawDone = false;
-      for (const event of events) {
-        if (event === '[DONE]') {
-          sawDone = true;
-          continue;
-        }
-        try {
-          parsed.push(JSON.parse(event));
-        } catch {
-          res.write(`data: ${event}\n\n`);
-        }
-      }
-      const hasToolCall = parsed.some(chunk => chunk.choices?.some(choice => choice.delta?.tool_calls));
-      if (hasToolCall) {
-        for (const chunk of parsed) {
-          for (const choice of chunk.choices || []) {
-            if (choice.delta?.content) delete choice.delta.content;
-          }
-          res.write(sseData(chunk));
-        }
-        if (sawDone) res.write('data: [DONE]\n\n');
-        return res.end();
-      }
-      const first = parsed[0] || { id: `chatcmpl-${Date.now()}`, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: 'unknown' };
-      const last = parsed[parsed.length - 1] || first;
-      const content = scrubVisibleThinking(parsed.flatMap(chunk => chunk.choices || []).map(choice => choice.delta?.content || '').join(''));
-      if (content) {
-        res.write(sseData({ ...first, choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }] }));
-      }
-      res.write(sseData({ ...last, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: last.usage }));
-      if (sawDone) res.write('data: [DONE]\n\n');
-      res.end();
     }
 
     http.createServer(async (req, res) => {
@@ -114,11 +46,7 @@ data:
       const client = target.protocol === 'https:' ? https : http;
       const out = client.request(target, { method: req.method, headers }, upstreamRes => {
         res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
-        if (disableThinking && req.url.endsWith('/chat/completions') && /^text\/event-stream/i.test(String(upstreamRes.headers['content-type'] || ''))) {
-          void pipeOpenAiStream(upstreamRes, res);
-        } else {
-          upstreamRes.pipe(res);
-        }
+        upstreamRes.pipe(res);
       });
       out.on('error', error => {
         res.writeHead(502, { 'content-type': 'application/json' });
@@ -144,7 +72,7 @@ spec:
       labels:
         app: {{ $c.name }}
       annotations:
-        checksum/config: {{ printf "%s-%s-%v-%v-%s-%s" .Chart.Version $c.name $c.disableThinking $c.vllmUpstream .Values.llm.mode (include "mosaic-stack.llmUpstreamBaseUrl" .) | sha256sum }}
+        checksum/config: {{ printf "%s-%s-%v-%s" .Chart.Version $c.name $c.disableThinking (include "mosaic-stack.llmUpstreamBaseUrl" .) | sha256sum }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
@@ -161,10 +89,6 @@ spec:
               value: {{ include "mosaic-stack.llmUpstreamBaseUrl" . | quote }}
             - name: DISABLE_THINKING
               value: {{ ternary "true" "false" $c.disableThinking | quote }}
-            - name: LLM_MODE
-              value: {{ .Values.llm.mode | quote }}
-            - name: VLLM_UPSTREAM
-              value: {{ ternary "true" "false" $c.vllmUpstream | quote }}
           ports:
             - name: http
               containerPort: {{ $c.port }}
