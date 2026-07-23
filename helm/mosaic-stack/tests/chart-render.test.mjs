@@ -66,22 +66,52 @@ function render(...args) {
   });
 }
 
+function renderDiagnostics(...args) {
+  return render(
+    "--set", "modules.diagnostics.enabled=true",
+    "--set", "bcmMcp.enabled=true",
+    "--set", "bcmMcp.mode=ssh-adapter",
+    "--set", "bcmMcp.headHost=bcm-head.example.com",
+    "--set", "bcmMcp.hostSshKeySecretName=bcm-host-ssh-key",
+    ...args,
+  );
+}
+
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
-  const output = render("--set", "modules.diagnostics.enabled=true");
+  const output = renderDiagnostics();
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);
   const apiKeys = output.match(/AGENT_API_KEYS: "\{\\"openclaw\\":\\"([A-Za-z0-9]{48})\\"\}"/);
+  const bcmKey = output.match(/BCM_WEBHOOK_TOKEN: "([A-Za-z0-9]{48})"/);
   assert.equal(apiKeys?.[1], apiKey?.[1]);
-  assert.equal((output.match(/name: diagnostic-agent-auth/g) || []).length, 3);
+  assert.ok(bcmKey?.[1]);
+  assert.equal((output.match(/kind: Secret\s+metadata:\s+name: diagnostic-agent-auth/g) || []).length, 1);
   assert.match(output, /name: DIAGNOSTIC_AGENT_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: diagnostic-agent-auth\s+key: API_KEY/);
   assert.match(output, /name: DIAGNOSTIC_AGENT_AUTH_MODE\s+value: required/);
   assert.doesNotMatch(output, /name: diagnostic-agent-api-keys|name: diagnostic-agent-secrets/);
 });
 
-test("wires BCM lookup through the collection library environment contract", () => {
-  const output = render("--set", "modules.diagnostics.enabled=true");
-  assert.match(output, /name: BCM_WEBHOOK_URL\s+valueFrom:/);
-  assert.match(output, /name: BCM_WEBHOOK_TOKEN\s+valueFrom:/);
+test("wires Hardware Agent BCM lookup through the internal SSH adapter", () => {
+  const output = renderDiagnostics();
+  assert.match(output, /name: MOSAIC_BCM_HEAD_HOST\s+value: "bcm-head\.example\.com"/);
+  assert.match(output, /name: MOSAIC_BCM_HARDWARE_COMPAT_ENABLED\s+value: "true"/);
+  assert.match(output, /name: MOSAIC_BCM_HARDWARE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: diagnostic-agent-auth\s+key: BCM_WEBHOOK_TOKEN/);
+  assert.match(output, /name: BCM_WEBHOOK_URL\s+value: "http:\/\/bcm-mcp-tools:3001"/);
+  assert.match(output, /name: BCM_WEBHOOK_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: diagnostic-agent-auth\s+key: BCM_WEBHOOK_TOKEN/);
+  assert.doesNotMatch(output, /bcm-webhook-creds/);
   assert.doesNotMatch(output, /name: DEBUGHUB_BCM__WEBHOOK_(?:URL|TOKEN)/);
+});
+
+test("requires the BCM SSH adapter for Hardware Agent installs", () => {
+  for (const [settings, expected] of [
+    [[], /requires bcmMcp\.enabled=true/],
+    [["bcmMcp.enabled=true"], /requires bcmMcp\.mode=ssh-adapter/],
+  ]) {
+    const args = ["template", "mosaic", chart, "--namespace", "mosaic-test", "--set", "modules.diagnostics.enabled=true"];
+    for (const setting of settings) args.push("--set", setting);
+    const result = spawnSync("helm", args, { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+  }
 });
 
 test("renders only official OpenClaw and OpenShell runtime images", () => {

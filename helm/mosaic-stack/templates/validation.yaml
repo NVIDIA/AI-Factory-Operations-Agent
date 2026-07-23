@@ -190,3 +190,12 @@
 {{- if and .Values.modules.diagnostics.enabled (not .Values.diagnosticAgent.enabled) -}}
 {{- fail "modules.diagnostics.enabled=true requires diagnosticAgent.enabled=true" -}}
 {{- end -}}
+{{- if and .Values.modules.diagnostics.enabled (not .Values.modules.bcm.enabled) -}}
+{{- fail "modules.diagnostics.enabled=true requires modules.bcm.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled (not .Values.bcmMcp.enabled) -}}
+{{- fail "modules.diagnostics.enabled=true requires bcmMcp.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.modules.diagnostics.enabled (ne .Values.bcmMcp.mode "ssh-adapter") -}}
+{{- fail "modules.diagnostics.enabled=true requires bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}

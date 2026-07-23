@@ -307,18 +307,12 @@ unset NVIDIA_API_KEY
 
 ### Hardware Agent
 
-The Hardware Agent reuses the `bcm-host-ssh-key` created by the BCM setup above. If that Secret does not exist, create it with the BCM SSH credential command first. Then provide the BCM webhook credentials and NVDebug playbook archive. The chart generates the internal credential shared by OpenClaw and the Hardware Agent.
+The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. Provide only the NVDebug playbook archive.
 
 ```bash
-export BCM_WEBHOOK_URL='<bcm-webhook-url>'
-read -rsp 'BCM webhook token: ' BCM_WEBHOOK_TOKEN; echo
 export NVDEBUG_PLAYBOOKS_TGZ='/path/to/playbooks.tgz'
 
 test -r "$NVDEBUG_PLAYBOOKS_TGZ"
-kubectl -n mosaic create secret generic bcm-webhook-creds \
-  --from-literal=BCM_WEBHOOK_URL="$BCM_WEBHOOK_URL" \
-  --from-literal=BCM_WEBHOOK_TOKEN="$BCM_WEBHOOK_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n mosaic create configmap debughub-playbooks-tar \
   --from-file=playbooks.tgz="$NVDEBUG_PLAYBOOKS_TGZ" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -331,7 +325,6 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --wait \
   --timeout 12m
 
-unset BCM_WEBHOOK_TOKEN
 ```
 
 After installation the plugins of your choosing the installation process is done and you can reference the previous mentioned port-forward to open up the UI.

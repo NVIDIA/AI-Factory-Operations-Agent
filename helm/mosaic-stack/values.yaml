@@ -448,7 +448,6 @@ diagnosticAgent:
   apiKeySecretName: diagnostic-agent-auth
   hostSshKeySecretName: bcm-host-ssh-key
   playbooksConfigMapName: debughub-playbooks-tar
-  bcmWebhookSecretName: bcm-webhook-creds
   config:
     nvdebugTimeoutSeconds: "1800"
     bcmWebhookTimeoutSeconds: "60"

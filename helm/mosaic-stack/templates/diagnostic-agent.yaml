@@ -106,14 +106,11 @@ spec:
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
             - name: BCM_WEBHOOK_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.diagnosticAgent.bcmWebhookSecretName }}
-                  key: BCM_WEBHOOK_URL
+              value: {{ printf "http://%s:%v" .Values.bcmMcp.service.name .Values.bcmMcp.service.port | quote }}
             - name: BCM_WEBHOOK_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.diagnosticAgent.bcmWebhookSecretName }}
+                  name: {{ .Values.diagnosticAgent.apiKeySecretName }}
                   key: BCM_WEBHOOK_TOKEN
             - name: DEBUGHUB_REASONING__REQUIRE_FINDINGS_MATCH
               value: {{ .Values.diagnosticAgent.config.reasoningRequireFindingsMatch | quote }}

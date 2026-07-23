@@ -104,6 +104,17 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.bcmMcp.authTokenSecretName }}
                   key: {{ .Values.bcmMcp.authTokenSecretKey }}
+            - name: MOSAIC_BCM_HEAD_HOST
+              value: {{ .Values.bcmMcp.headHost | quote }}
+            - name: MOSAIC_BCM_HARDWARE_COMPAT_ENABLED
+              value: {{ .Values.modules.diagnostics.enabled | quote }}
+            {{- if .Values.modules.diagnostics.enabled }}
+            - name: MOSAIC_BCM_HARDWARE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.diagnosticAgent.apiKeySecretName }}
+                  key: BCM_WEBHOOK_TOKEN
+            {{- end }}
             - name: MOSAIC_BCM_CMSH_USERNAME
               value: {{ .Values.bcmMcp.config.cmshUsername | default "aichatbotuser" | quote }}
             - name: MOSAIC_BCM_CMSH_PROFILE
