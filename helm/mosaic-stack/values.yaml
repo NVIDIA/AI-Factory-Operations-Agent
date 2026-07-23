@@ -18,9 +18,9 @@ namespace:
   labels: {}
 
 observability:
-  prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
-  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy
-  grafanaDatasourceUid: mosaic-observability-prometheus
+  prometheusUrl: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
+  grafanaUrl: http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana
+  grafanaDatasourceUid: prometheus
   grafanaAuth:
     existingSecret: ""
     usernameKey: username

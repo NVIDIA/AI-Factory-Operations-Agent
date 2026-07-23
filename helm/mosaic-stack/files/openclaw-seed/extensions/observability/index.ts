@@ -20,7 +20,7 @@ type PrometheusResponse = {
   error?: string;
 };
 
-const DEFAULT_BASE_URL = "http://prometheus.mosaic-observability.svc.cluster.local:9090";
+const DEFAULT_BASE_URL = "http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090";
 
 function resolveBaseUrl(pluginConfig: unknown): string {
   if (

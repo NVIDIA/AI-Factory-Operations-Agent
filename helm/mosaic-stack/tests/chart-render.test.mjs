@@ -100,6 +100,14 @@ test("pins the UI to the immutable GitLab short SHA tag", () => {
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
+test("uses NMC observability services by default", () => {
+  const output = render();
+  assert.match(output, /http:\/\/kube-prometheus-stack-prometheus\.prometheus\.svc\.cluster\.local:9090/);
+  assert.match(output, /http:\/\/kube-prometheus-stack-grafana\.prometheus\.svc\.cluster\.local\/grafana/);
+  assert.match(output, /"datasourceUid": "prometheus"/);
+  assert.doesNotMatch(output, /mosaic-observability/);
+});
+
 test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",

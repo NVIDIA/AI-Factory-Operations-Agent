@@ -20,10 +20,10 @@ type ValidationIssue = {
   message: string;
 };
 
-const DEFAULT_GRAFANA_URL = "http://grafana.mosaic-observability.svc.cluster.local:3000";
-const DEFAULT_PROMETHEUS_URL = "http://prometheus.mosaic-observability.svc.cluster.local:9090";
+const DEFAULT_GRAFANA_URL = "http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana";
+const DEFAULT_PROMETHEUS_URL = "http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090";
 const DEFAULT_UI_URL = "http://mosaic-ui:3000";
-const DEFAULT_DATASOURCE_UID = "mosaic-observability-prometheus";
+const DEFAULT_DATASOURCE_UID = "prometheus";
 const GRAFANA_PROXY_PREFIX = "/api/grafana/proxy";
 
 function resolveString(pluginConfig: unknown, key: string, fallback: string) {

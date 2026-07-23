@@ -202,7 +202,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 unset GRAFANA_PASSWORD
 ```
 
-`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana, `/grafana` for the NMC deployment, or `/api/grafana/proxy` for the bundled reference deployment.
+`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
 
 ### Terminal
 
