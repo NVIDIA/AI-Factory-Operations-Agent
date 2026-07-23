@@ -113,7 +113,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
@@ -138,7 +138,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 After this point you will be able to open up the UI by running this:
