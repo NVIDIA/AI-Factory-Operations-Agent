@@ -100,17 +100,25 @@ test("pins the UI to the immutable GitLab short SHA tag", () => {
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
-test("can disable thinking for an external vLLM endpoint", () => {
+test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
-    "--set", "llm.external.baseUrl=http://vllm.example/v1",
-    "--set", "llm.external.model=nemotron-super-120b",
-    "--set", "llm.requestCompatibility.vllmUpstream=true",
+    "--set", "llm.external.baseUrl=https://inference.example/v1",
+    "--set", "llm.external.model=example-model",
     "--show-only", "templates/llm-compat.yaml",
   );
-  assert.match(output, /name: VLLM_UPSTREAM\s+value: "true"/);
-  assert.match(output, /const vllmUpstream = process\.env\.VLLM_UPSTREAM === 'true'/);
-  assert.match(output, /llmMode !== 'vllm' && !vllmUpstream/);
+  assert.match(output, /json\.reasoning_effort = 'none'/);
+  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
+});
+
+test("configures chart-managed vLLM for non-thinking generation", () => {
+  for (const args of [
+    [],
+    ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
+  ]) {
+    const output = render(...args, "--show-only", "templates/vllm.yaml");
+    assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
+  }
 });
 
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {

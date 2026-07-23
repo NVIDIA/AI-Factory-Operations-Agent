@@ -74,6 +74,12 @@ unset EXTERNAL_LLM_API_KEY
 
 For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
+Mosaic requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
+
+```bash
+vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
+```
+
 For chart-managed vLLM profiles, unpack the published chart once:
 
 ```bash
@@ -107,7 +113,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
@@ -132,7 +138,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 After this point you will be able to open up the UI by running this:

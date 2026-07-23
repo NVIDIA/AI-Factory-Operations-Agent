@@ -99,8 +99,6 @@ llm:
     enabled: true
     name: llm-openai-compat
     port: 8000
-    disableThinking: true
-    vllmUpstream: false
   external:
     baseUrl: ""
     model: ""
