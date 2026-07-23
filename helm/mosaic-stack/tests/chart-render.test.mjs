@@ -101,6 +101,16 @@ test("wires Hardware Agent BCM lookup through the internal SSH adapter", () => {
   assert.doesNotMatch(output, /name: DEBUGHUB_BCM__WEBHOOK_(?:URL|TOKEN)/);
 });
 
+test("applies global scheduling controls to the Hardware Agent", () => {
+  const output = renderDiagnostics(
+    "--set-json", 'global.nodeSelector={"kubernetes.io/hostname":"dgx-02"}',
+    "--set-json", 'global.tolerations=[{"key":"dedicated","operator":"Exists"}]',
+    "--show-only", "templates/diagnostic-agent.yaml",
+  );
+  assert.match(output, /nodeSelector:\s+kubernetes\.io\/hostname: dgx-02/);
+  assert.match(output, /tolerations:\s+- key: dedicated\s+operator: Exists/);
+});
+
 test("requires the BCM SSH adapter for Hardware Agent installs", () => {
   for (const [settings, expected] of [
     [[], /requires bcmMcp\.enabled=true/],
