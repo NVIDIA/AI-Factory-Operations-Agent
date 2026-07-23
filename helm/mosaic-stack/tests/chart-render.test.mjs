@@ -108,10 +108,10 @@ test("uses one no-reasoning request contract for external endpoints", () => {
     "--show-only", "templates/llm-compat.yaml",
   );
   assert.match(output, /json\.reasoning_effort = 'none'/);
-  assert.doesNotMatch(output, /VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
+  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
 });
 
-test("defaults chart-managed vLLM to non-thinking generation", () => {
+test("configures chart-managed vLLM for non-thinking generation", () => {
   for (const args of [
     [],
     ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
@@ -119,11 +119,6 @@ test("defaults chart-managed vLLM to non-thinking generation", () => {
     const output = render(...args, "--show-only", "templates/vllm.yaml");
     assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
   }
-  const output = render(
-    "--set", "llm.requestCompatibility.disableThinking=false",
-    "--show-only", "templates/vllm.yaml",
-  );
-  assert.doesNotMatch(output, /--default-chat-template-kwargs/);
 });
 
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {

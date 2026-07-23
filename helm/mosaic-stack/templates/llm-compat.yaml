@@ -16,7 +16,6 @@ data:
     const https = require('https');
     const upstream = new URL(process.env.UPSTREAM_BASE_URL);
     const port = Number(process.env.PORT || {{ $c.port }});
-    const disableThinking = process.env.DISABLE_THINKING === 'true';
 
     function readBody(req) {
       return new Promise((resolve, reject) => {
@@ -28,7 +27,7 @@ data:
     }
 
     function patchBody(req, body) {
-      if (!disableThinking || req.method !== 'POST' || !req.url.endsWith('/chat/completions')) return body;
+      if (req.method !== 'POST' || !req.url.endsWith('/chat/completions')) return body;
       try {
         const json = JSON.parse(body.toString('utf8'));
         json.reasoning_effort = 'none';
@@ -72,7 +71,7 @@ spec:
       labels:
         app: {{ $c.name }}
       annotations:
-        checksum/config: {{ printf "%s-%s-%v-%s" .Chart.Version $c.name $c.disableThinking (include "mosaic-stack.llmUpstreamBaseUrl" .) | sha256sum }}
+        checksum/config: {{ printf "%s-%s-%s" .Chart.Version $c.name (include "mosaic-stack.llmUpstreamBaseUrl" .) | sha256sum }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
@@ -87,8 +86,6 @@ spec:
               value: {{ $c.port | quote }}
             - name: UPSTREAM_BASE_URL
               value: {{ include "mosaic-stack.llmUpstreamBaseUrl" . | quote }}
-            - name: DISABLE_THINKING
-              value: {{ ternary "true" "false" $c.disableThinking | quote }}
           ports:
             - name: http
               containerPort: {{ $c.port }}
