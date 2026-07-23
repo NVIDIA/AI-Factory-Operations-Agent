@@ -248,7 +248,12 @@
         }
       },
       "grafana": {
-        "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
+        "enabled": {{ and .Values.modules.observability.enabled .Values.modules.grafana.enabled }},
+        "config": {
+          "grafanaUrl": {{ .Values.observability.grafanaUrl | quote }},
+          "prometheusUrl": {{ .Values.observability.prometheusUrl | quote }},
+          "datasourceUid": {{ .Values.observability.grafanaDatasourceUid | quote }}
+        }
       },
       "observability": {
         "enabled": {{ .Values.modules.observability.enabled }},

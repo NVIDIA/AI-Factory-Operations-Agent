@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-declare const process: { env?: Record<string, string | undefined> } | undefined;
 declare const Buffer: { from(value: string): { toString(encoding: string): string } };
 
 type PanelSpec = {
@@ -20,26 +19,21 @@ type ValidationIssue = {
   message: string;
 };
 
-const DEFAULT_GRAFANA_URL = "http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana";
-const DEFAULT_PROMETHEUS_URL = "http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090";
 const DEFAULT_UI_URL = "http://mosaic-ui:3000";
-const DEFAULT_DATASOURCE_UID = "prometheus";
 const GRAFANA_PROXY_PREFIX = "/api/grafana/proxy";
 
-function resolveString(pluginConfig: unknown, key: string, fallback: string) {
+function resolveString(pluginConfig: unknown, key: string, fallback?: string) {
   if (
     pluginConfig &&
     typeof pluginConfig === "object" &&
     key in pluginConfig &&
     typeof (pluginConfig as Record<string, unknown>)[key] === "string"
   ) {
-    return String((pluginConfig as Record<string, unknown>)[key] || fallback).replace(/\/+$/, "");
+    const value = String((pluginConfig as Record<string, unknown>)[key] || "").trim();
+    if (value) return value.replace(/\/+$/, "");
   }
-  const envKey = `MOSAIC_${key.replace(/[A-Z]/g, (match) => `_${match}`).toUpperCase()}`;
-  if (typeof process !== "undefined" && process.env?.[envKey]) {
-    return process.env[envKey]!.replace(/\/+$/, "");
-  }
-  return fallback;
+  if (fallback) return fallback;
+  throw new Error(`observability.${key} is required`);
 }
 
 function jsonToolResult(payload: unknown) {
@@ -336,11 +330,10 @@ type PluginApi = { pluginConfig: unknown; registerTool(tool: any): void };
 
 export function registerGrafanaTools(api: PluginApi) {
     if (!boolConfig(api.pluginConfig, "grafanaEnabled", true)) return;
-    const grafanaUrl = resolveString(api.pluginConfig, "grafanaUrl", DEFAULT_GRAFANA_URL);
-    const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl", DEFAULT_PROMETHEUS_URL);
+    const grafanaUrl = resolveString(api.pluginConfig, "grafanaUrl");
+    const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl");
     const uiUrl = resolveString(api.pluginConfig, "uiUrl", DEFAULT_UI_URL);
-    const datasourceUid =
-      stringParam((api.pluginConfig as Record<string, unknown> | undefined)?.datasourceUid) || DEFAULT_DATASOURCE_UID;
+    const datasourceUid = resolveString(api.pluginConfig, "datasourceUid");
     const headers = authHeaders(api.pluginConfig);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
       if (isToolEnabled(api.pluginConfig, tool.name)) {

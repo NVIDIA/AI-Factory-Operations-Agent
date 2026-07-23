@@ -20,21 +20,17 @@ type PrometheusResponse = {
   error?: string;
 };
 
-const DEFAULT_BASE_URL = "http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090";
-
 function resolveBaseUrl(pluginConfig: unknown): string {
   if (
     pluginConfig &&
     typeof pluginConfig === "object" &&
-    "baseUrl" in pluginConfig &&
-    typeof (pluginConfig as { baseUrl?: unknown }).baseUrl === "string"
+    "prometheusUrl" in pluginConfig &&
+    typeof (pluginConfig as { prometheusUrl?: unknown }).prometheusUrl === "string"
   ) {
-    return ((pluginConfig as { baseUrl: string }).baseUrl || "").replace(/\/+$/, "");
+    const value = (pluginConfig as { prometheusUrl: string }).prometheusUrl.trim();
+    if (value) return value.replace(/\/+$/, "");
   }
-  if (typeof process !== "undefined" && process.env?.MOSAIC_PROMETHEUS_URL) {
-    return process.env.MOSAIC_PROMETHEUS_URL.replace(/\/+$/, "");
-  }
-  return DEFAULT_BASE_URL;
+  throw new Error("observability.prometheusUrl is required");
 }
 
 function jsonToolResult(payload: unknown) {

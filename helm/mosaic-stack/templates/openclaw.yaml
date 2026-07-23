@@ -510,9 +510,9 @@ spec:
                   key: {{ .Values.openclaw.slack.appTokenKey | quote }}
             {{- end }}
             - name: MOSAIC_PROMETHEUS_URL
-              value: {{ default "http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
+              value: {{ $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ default "http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana" $observability.grafanaUrl | quote }}
+              value: {{ $observability.grafanaUrl | quote }}
             {{- with $observability.grafanaAuth.existingSecret }}
             - name: MOSAIC_GRAFANA_BASIC_USER
               valueFrom:
