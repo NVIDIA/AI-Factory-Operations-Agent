@@ -173,6 +173,23 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Alertmanager
+
+Mosaic defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
+
+```bash
+export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set-string observability.alertmanagerUrl="$ALERTMANAGER_URL" \
+  --wait \
+  --timeout 12m
+```
+
+`alertmanagerUrl` is the Alertmanager API base URL. Mosaic reads active alerts from its `/api/v2/alerts` endpoint.
+
 ### Grafana
 
 To connect Mosaic to an existing Grafana service, run:

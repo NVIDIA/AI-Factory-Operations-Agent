@@ -12,7 +12,6 @@ global:
     email: unused@example.com
   nodeSelector: {}
   tolerations: []
-  alertmanagerNamespace: prometheus
 
 namespace:
   labels: {}
@@ -20,6 +19,7 @@ namespace:
 observability:
   prometheusUrl: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
   grafanaUrl: http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana
+  alertmanagerUrl: http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093
   grafanaDatasourceUid: prometheus
   grafanaAuth:
     existingSecret: ""

@@ -108,6 +108,25 @@ test("uses NMC observability services by default", () => {
   assert.doesNotMatch(output, /mosaic-observability/);
 });
 
+test("configures the Alertmanager endpoint", () => {
+  const defaultOutput = render("--show-only", "templates/mosaic-ui.yaml");
+  assert.match(
+    defaultOutput,
+    /name: MOSAIC_ALERTMANAGER_URL\s+value: "http:\/\/kube-prometheus-stack-alertmanager\.prometheus\.svc\.cluster\.local:9093"/,
+  );
+
+  const customOutput = render(
+    "--set-string",
+    "observability.alertmanagerUrl=https://alerts.example.com/alertmanager",
+    "--show-only",
+    "templates/mosaic-ui.yaml",
+  );
+  assert.match(
+    customOutput,
+    /name: MOSAIC_ALERTMANAGER_URL\s+value: "https:\/\/alerts\.example\.com\/alertmanager"/,
+  );
+});
+
 test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
