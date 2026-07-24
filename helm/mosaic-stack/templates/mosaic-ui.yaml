@@ -108,9 +108,9 @@ spec:
             - name: MOSAIC_DASHBOARD_DIR
               value: /var/lib/mosaic-audit/dashboard
             - name: MOSAIC_PROMETHEUS_URL
-              value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
+              value: {{ $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy" $observability.grafanaUrl | quote }}
+              value: {{ $observability.grafanaUrl | quote }}
             {{- with $observability.grafanaAuth.existingSecret }}
             - name: MOSAIC_GRAFANA_BASIC_USER
               valueFrom:
@@ -124,7 +124,7 @@ spec:
                   key: {{ $observability.grafanaAuth.passwordKey }}
             {{- end }}
             - name: MOSAIC_ALERTMANAGER_URL
-              value: {{ printf "http://kube-prometheus-stack-alertmanager.%s.svc.cluster.local:9093" .Values.global.alertmanagerNamespace | quote }}
+              value: {{ $observability.alertmanagerUrl | quote }}
           readinessProbe:
             httpGet:
               path: /

@@ -12,15 +12,15 @@ global:
     email: unused@example.com
   nodeSelector: {}
   tolerations: []
-  alertmanagerNamespace: prometheus
 
 namespace:
   labels: {}
 
 observability:
-  prometheusUrl: http://prometheus.mosaic-observability.svc.cluster.local:9090
-  grafanaUrl: http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy
-  grafanaDatasourceUid: mosaic-observability-prometheus
+  prometheusUrl: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
+  grafanaUrl: http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana
+  alertmanagerUrl: http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093
+  grafanaDatasourceUid: prometheus
   grafanaAuth:
     existingSecret: ""
     usernameKey: username
@@ -99,8 +99,6 @@ llm:
     enabled: true
     name: llm-openai-compat
     port: 8000
-    disableThinking: true
-    vllmUpstream: false
   external:
     baseUrl: ""
     model: ""

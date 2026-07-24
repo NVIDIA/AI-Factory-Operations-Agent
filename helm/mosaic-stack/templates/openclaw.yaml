@@ -321,8 +321,8 @@ spec:
               python /seed/bcm-docs-download.py
               rm -rf /home/node/.openclaw/workspace/skills/bcm/docs
               mkdir -p /home/node/.openclaw/workspace/skills/bcm/docs
-              cp /home/node/.openclaw/workspace/bcm-docs/*.md /home/node/.openclaw/workspace/skills/bcm/docs/
-              chown -R 1000:1000 /home/node/.openclaw/workspace/bcm-docs
+              cp /home/node/.openclaw/workspace/docs/*.md /home/node/.openclaw/workspace/skills/bcm/docs/
+              chown -R 1000:1000 /home/node/.openclaw/workspace/docs
               chown -R 1000:1000 /home/node/.openclaw/workspace/skills/bcm/docs
           env:
             - name: MOSAIC_BCM_DOCS_BASE_URL
@@ -332,7 +332,7 @@ spec:
             - name: MOSAIC_BCM_DOCS_TIMEOUT_SECONDS
               value: {{ $bcmDocs.timeoutSeconds | quote }}
             - name: MOSAIC_BCM_DOCS_OUTPUT_DIR
-              value: /home/node/.openclaw/workspace/bcm-docs
+              value: /home/node/.openclaw/workspace/docs
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -514,9 +514,9 @@ spec:
                   key: {{ .Values.openclaw.slack.appTokenKey | quote }}
             {{- end }}
             - name: MOSAIC_PROMETHEUS_URL
-              value: {{ default "http://prometheus.mosaic-observability.svc.cluster.local:9090" $observability.prometheusUrl | quote }}
+              value: {{ $observability.prometheusUrl | quote }}
             - name: MOSAIC_GRAFANA_URL
-              value: {{ default "http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy" $observability.grafanaUrl | quote }}
+              value: {{ $observability.grafanaUrl | quote }}
             {{- with $observability.grafanaAuth.existingSecret }}
             - name: MOSAIC_GRAFANA_BASIC_USER
               valueFrom:

@@ -74,6 +74,12 @@ unset EXTERNAL_LLM_API_KEY
 
 For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
+Mosaic requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
+
+```bash
+vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
+```
+
 For chart-managed vLLM profiles, unpack the published chart once:
 
 ```bash
@@ -107,7 +113,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
@@ -132,7 +138,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --reset-values \
   --atomic \
   --wait \
-  --timeout 12m
+  --timeout 30m
 ```
 
 After this point you will be able to open up the UI by running this:
@@ -156,7 +162,7 @@ All module changes below update an existing Mosaic release and preserve its curr
 To connect Mosaic to an existing Prometheus service, run:
 
 ```bash
-export PROMETHEUS_URL='http://prometheus.mosaic-observability.svc.cluster.local:9090'
+export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
@@ -167,13 +173,30 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Alertmanager
+
+Mosaic defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
+
+```bash
+export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set-string observability.alertmanagerUrl="$ALERTMANAGER_URL" \
+  --wait \
+  --timeout 12m
+```
+
+`alertmanagerUrl` is the Alertmanager API base URL. Mosaic reads active alerts from its `/api/v2/alerts` endpoint.
+
 ### Grafana
 
 To connect Mosaic to an existing Grafana service, run:
 
 ```bash
-export GRAFANA_URL='http://grafana.mosaic-observability.svc.cluster.local:3000/api/grafana/proxy'
-export GRAFANA_DATASOURCE_UID='mosaic-observability-prometheus'
+export GRAFANA_URL='http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana'
+export GRAFANA_DATASOURCE_UID='prometheus'
 export GRAFANA_USERNAME='admin'
 read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
 
@@ -196,7 +219,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 unset GRAFANA_PASSWORD
 ```
 
-`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana, `/grafana` for the NMC deployment, or `/api/grafana/proxy` for the bundled reference deployment.
+`grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
 
 ### Terminal
 

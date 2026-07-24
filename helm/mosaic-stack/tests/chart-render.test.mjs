@@ -165,19 +165,52 @@ test("pins the UI to the immutable GitLab short SHA tag", () => {
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
-test("can disable thinking for an external vLLM endpoint", () => {
+test("uses NMC observability services by default", () => {
+  const output = render();
+  assert.match(output, /http:\/\/kube-prometheus-stack-prometheus\.prometheus\.svc\.cluster\.local:9090/);
+  assert.match(output, /http:\/\/kube-prometheus-stack-grafana\.prometheus\.svc\.cluster\.local\/grafana/);
+  assert.match(output, /"datasourceUid": "prometheus"/);
+  assert.doesNotMatch(output, /mosaic-observability/);
+});
+
+test("configures the Alertmanager endpoint", () => {
+  const defaultOutput = render("--show-only", "templates/mosaic-ui.yaml");
+  assert.match(
+    defaultOutput,
+    /name: MOSAIC_ALERTMANAGER_URL\s+value: "http:\/\/kube-prometheus-stack-alertmanager\.prometheus\.svc\.cluster\.local:9093"/,
+  );
+
+  const customOutput = render(
+    "--set-string",
+    "observability.alertmanagerUrl=https://alerts.example.com/alertmanager",
+    "--show-only",
+    "templates/mosaic-ui.yaml",
+  );
+  assert.match(
+    customOutput,
+    /name: MOSAIC_ALERTMANAGER_URL\s+value: "https:\/\/alerts\.example\.com\/alertmanager"/,
+  );
+});
+
+test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
-    "--set", "llm.external.baseUrl=http://vllm.example/v1",
-    "--set", "llm.external.model=nemotron-super-120b",
-    "--set", "llm.requestCompatibility.vllmUpstream=true",
+    "--set", "llm.external.baseUrl=https://inference.example/v1",
+    "--set", "llm.external.model=example-model",
     "--show-only", "templates/llm-compat.yaml",
   );
-  assert.match(output, /name: VLLM_UPSTREAM\s+value: "true"/);
-  assert.match(output, /const vllmUpstream = process\.env\.VLLM_UPSTREAM === 'true'/);
-  assert.match(output, /llmMode !== 'vllm' && !vllmUpstream/);
-  assert.match(output, /const content = parsed\.flatMap/);
-  assert.doesNotMatch(output, /scrubVisibleThinking|paragraphDrop/);
+  assert.match(output, /json\.reasoning_effort = 'none'/);
+  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
+});
+
+test("configures chart-managed vLLM for non-thinking generation", () => {
+  for (const args of [
+    [],
+    ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
+  ]) {
+    const output = render(...args, "--show-only", "templates/vllm.yaml");
+    assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
+  }
 });
 
 test("renders the OpenShell backend with mTLS under XDG_CONFIG_HOME", () => {
@@ -658,6 +691,7 @@ test("renders the terminal service from the UI image with isolated read-only acc
   assert.match(output, /kind: Service[\s\S]*name: mosaic-terminal/);
   assert.match(output, /kind: Secret[\s\S]*name: mosaic-terminal-auth/);
   assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-terminal\.mjs"\]/);
+  assert.match(output, /name: PATH\s+value: \/opt\/node\/bin:\/tools:/);
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[^"]+"/);
   assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
   assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);

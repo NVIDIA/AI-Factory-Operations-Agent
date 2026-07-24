@@ -14,7 +14,7 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "baseUrl": {
+      "prometheusUrl": {
         "type": "string",
         "description": "Mosaic observability Prometheus base URL."
       },
@@ -60,6 +60,7 @@
         "items": { "type": "string" },
         "description": "Optional list of observability tool names to suppress."
       }
-    }
+    },
+    "required": ["prometheusUrl"]
   }
 }
