@@ -23,7 +23,7 @@ import {
 } from "../files/openclaw-seed/extensions/automation-context.ts";
 
 for (const [sessionKey, source] of [
-  ["mosaic-automation-cluster-monitor-thor", "cluster-monitor"],
+  ["mosaic-automation-cluster-monitor-production", "cluster-monitor"],
   ["agent:default:mosaic-automation-alert-gpu-hot", "alert"],
 ]) {
   test(`recognizes ${source} automation`, () => {
