@@ -9,7 +9,14 @@ const plugin = readFileSync(
   new URL("../files/openclaw-seed/extensions/bcm/index.ts", import.meta.url),
   "utf8",
 );
-const adapter = readFileSync(new URL("../files/bcm-mcp-ssh-adapter-http.py", import.meta.url), "utf8");
+const adapter = readFileSync(new URL("../files/bcm-mcp-ssh-server.py", import.meta.url), "utf8");
+
+test("runs BCM tools locally and sends command execution over SSH", () => {
+  assert.match(adapter, /from bcm_mcp_tools\.server import BCMServer/);
+  assert.doesNotMatch(adapter, /SSHTunnelManager|install_server|bcm-mcp-tools-install/);
+  assert.match(plugin, /context\.ssh_host = config\.headHost/);
+  assert.doesNotMatch(plugin, /hostname: config\.headHost/);
+});
 
 test("keeps readonly and admin CMSH on separate tools and identities", () => {
   assert.match(plugin, /name: "bcm_execute_cmsh"[\s\S]*?"execute_cmsh"/);

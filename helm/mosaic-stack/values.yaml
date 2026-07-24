@@ -374,8 +374,6 @@ bcmMcp:
     cmshSetupTimeout: "240"
     cmshExecTimeout: "120"
     cmshPath: /cm/local/apps/cmd/bin/cmsh
-    installServer: auto
-    remoteCommand: bcm-support-mcp --stdio --no-cmsh-user --preloaded-modules shared,slurm
   resources:
     requests:
       cpu: 100m

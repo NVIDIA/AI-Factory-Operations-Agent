@@ -227,7 +227,7 @@ async function nodeHealthSummary(config: BcmConfig, options: SubagentOptions) {
     const result = await cachedBcmRpc(
       config,
       "tools/call",
-      { name: "execute_cmsh", arguments: bcmToolArgs(config, { commands: "device; status" }) },
+      { name: "execute_cmsh", arguments: { commands: "device; status" } },
     );
     const raw = textFromResult(result);
     const rows = parseDeviceStatusRows(raw);
@@ -248,7 +248,7 @@ async function runCmsh(config: BcmConfig, commands: string) {
   const result = await cachedBcmRpc(
     config,
     "tools/call",
-    { name: "execute_cmsh", arguments: bcmToolArgs(config, { commands }) },
+    { name: "execute_cmsh", arguments: { commands } },
     180_000,
   );
   if (result && typeof result === "object" && (result as { isError?: boolean }).isError) {
@@ -262,7 +262,7 @@ async function slurmJobEvidence(config: BcmConfig, jobId: string, options: Subag
   const result = await cachedBcmRpc(
     config,
     "tools/call",
-    { name: "slurm_job_evidence", arguments: bcmToolArgs(config, { job_id: jobId }) },
+    { name: "slurm_job_evidence", arguments: { job_id: jobId } },
     180_000,
   );
   postSubagentEvent(options, "complete", `Collected BCM WLM metadata, stdout, and stderr for job ${jobId}.`);
@@ -290,10 +290,6 @@ function compactToolSummaries(tools: unknown[]) {
       return description ? { name, description: truncate(description, 180) } : { name };
     })
     .filter(Boolean);
-}
-
-function bcmToolArgs(config: BcmConfig, args: Record<string, unknown>) {
-  return config.mcpMode === "ssh-adapter" ? { hostname: config.headHost, ...args } : args;
 }
 
 function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase, content: string) {
@@ -669,10 +665,10 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_tool",
-          bcmToolArgs(config, {
+          {
             tool_id: "bcm.get_info",
             ...(Object.keys(context).length ? { context } : {}),
-          }),
+          },
           subagentOptions(config, toolCallId, "bcm_get_info", "BCM cluster info"),
         );
       },
@@ -731,9 +727,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "search_tool",
-          {
-            ...bcmToolArgs(config, {}),
-            query,
+          { query,
             limit: numberParam(rawParams.limit, 25, 1, 250),
             regex: rawParams.regex === true,
           },
@@ -773,7 +767,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_tool",
-          bcmToolArgs(config, args),
+          args,
           subagentOptions(config, toolCallId, "bcm_execute_tool", `BCM ${toolId}`),
         );
       },
@@ -795,7 +789,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "execute_cmsh",
-          bcmToolArgs(config, { commands: cmshCommands(rawParams.commands) }),
+          { commands: cmshCommands(rawParams.commands) },
           subagentOptions(config, toolCallId, "bcm_execute_cmsh", "BCM CMSH"),
         );
       },
@@ -818,7 +812,7 @@ export default definePluginEntry({
         const execute = () => callBcmTool(
           config,
           "execute_cmsh_admin",
-          bcmToolArgs(config, { commands }),
+          { commands },
           subagentOptions(config, toolCallId, "bcm_execute_cmsh_admin", "BCM CMSH admin"),
         );
         const attempt = await runMutationOnce({
@@ -844,7 +838,7 @@ export default definePluginEntry({
       description: "List BCM cluster notes maintained by bcm-mcp-tools.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
-        return callBcmTool(config, "list_notes", bcmToolArgs(config, {}), subagentOptions(config, toolCallId, "bcm_list_notes", "BCM notes"));
+        return callBcmTool(config, "list_notes", {}, subagentOptions(config, toolCallId, "bcm_list_notes", "BCM notes"));
       },
     });
 
@@ -869,7 +863,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "search_notes",
-          bcmToolArgs(config, { query, limit: numberParam(rawParams.limit, 5, 1, 50) }),
+          { query, limit: numberParam(rawParams.limit, 5, 1, 50) },
           subagentOptions(config, toolCallId, "bcm_search_notes", "BCM notes search"),
         );
       },
@@ -897,7 +891,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "add_note",
-          bcmToolArgs(config, { subject, content }),
+          { subject, content },
           subagentOptions(config, toolCallId, "bcm_add_note", "BCM note write"),
         );
       },
@@ -923,7 +917,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "remove_note",
-          bcmToolArgs(config, { filename }),
+          { filename },
           subagentOptions(config, toolCallId, "bcm_remove_note", "BCM note delete"),
         );
       },
@@ -950,7 +944,7 @@ export default definePluginEntry({
         return callBcmTool(
           config,
           "search_bcm_docs",
-          bcmToolArgs(config, { query, limit: numberParam(rawParams.limit, 3, 1, 20) }),
+          { query, limit: numberParam(rawParams.limit, 3, 1, 20) },
           subagentOptions(config, toolCallId, "bcm_search_docs", "BCM docs search"),
         );
       },
