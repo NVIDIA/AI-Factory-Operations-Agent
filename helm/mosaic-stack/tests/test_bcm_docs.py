@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 
-SCRIPT = Path(__file__).parents[1] / "files/bcm-docs/download_bcm_docs.py"
+SCRIPT = Path(__file__).parents[1] / "files/docs/download_bcm_docs.py"
 SPEC = importlib.util.spec_from_file_location("download_bcm_docs", SCRIPT)
 docs = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader
