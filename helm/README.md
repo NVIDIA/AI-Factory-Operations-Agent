@@ -330,7 +330,20 @@ unset NVIDIA_API_KEY
 
 ### Hardware Agent
 
-The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. Provide only the NVDebug playbook archive.
+The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. Without a playbook archive, the agent uses NVDebug evidence and its generic analysis capabilities without playbook-specific symptom patterns or remediation guidance.
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.diagnostics.enabled=true \
+  --wait \
+  --timeout 12m
+
+```
+
+To add an approved playbook archive, create a ConfigMap containing `playbooks.tgz` and configure its name:
 
 ```bash
 export NVDEBUG_PLAYBOOKS_TGZ='/path/to/playbooks.tgz'
@@ -344,10 +357,9 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
   --reuse-values \
-  --set modules.diagnostics.enabled=true \
+  --set diagnosticAgent.playbooksConfigMapName=debughub-playbooks-tar \
   --wait \
   --timeout 12m
-
 ```
 
 After installation the plugins of your choosing the installation process is done and you can reference the previous mentioned port-forward to open up the UI.

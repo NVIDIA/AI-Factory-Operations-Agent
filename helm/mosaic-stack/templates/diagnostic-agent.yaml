@@ -101,10 +101,12 @@ spec:
                   key: AGENT_API_KEYS
             - name: DIAGNOSTIC_AGENT_AUTH_MODE
               value: required
+            {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
             - name: DEBUGHUB_PLAYBOOK__PATH
               value: /opt/debuggability/playbooks
             - name: DEBUGHUB_PLAYBOOK_PATH
               value: /opt/debuggability/playbooks
+            {{- end }}
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
             - name: BCM_WEBHOOK_URL
