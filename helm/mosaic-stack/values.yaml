@@ -222,10 +222,6 @@ researchAgent:
       port: 9200
   opensearchInit:
     enabled: true
-    image:
-      repository: python
-      tag: 3.12-slim
-      pullPolicy: IfNotPresent
     backoffLimit: 5
 
 mosaicUi:
