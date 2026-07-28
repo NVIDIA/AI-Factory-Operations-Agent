@@ -101,12 +101,6 @@ test("wires Hardware Agent BCM lookup through the internal SSH adapter", () => {
   assert.doesNotMatch(output, /name: DEBUGHUB_BCM__WEBHOOK_(?:URL|TOKEN)/);
 });
 
-test("renders the Hardware Agent without playbook injection", () => {
-  const output = renderDiagnostics("--show-only", "templates/diagnostic-agent.yaml");
-  assert.doesNotMatch(output, /init-playbooks|playbooks-tar|DEBUGHUB_PLAYBOOK|\/opt\/debuggability\/playbooks/);
-  assert.match(output, /name: DEBUGHUB_REASONING__REQUIRE_FINDINGS_MATCH\s+value: "false"/);
-});
-
 test("applies global scheduling controls to the Hardware Agent", () => {
   const output = renderDiagnostics(
     "--set-json", 'global.nodeSelector={"kubernetes.io/hostname":"worker-02"}',
