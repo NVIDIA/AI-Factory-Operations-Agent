@@ -101,21 +101,10 @@ test("wires Hardware Agent BCM lookup through the internal SSH adapter", () => {
   assert.doesNotMatch(output, /name: DEBUGHUB_BCM__WEBHOOK_(?:URL|TOKEN)/);
 });
 
-test("runs the Hardware Agent without playbooks by default", () => {
+test("renders the Hardware Agent without playbook injection", () => {
   const output = renderDiagnostics("--show-only", "templates/diagnostic-agent.yaml");
   assert.doesNotMatch(output, /init-playbooks|playbooks-tar|DEBUGHUB_PLAYBOOK|\/opt\/debuggability\/playbooks/);
   assert.match(output, /name: DEBUGHUB_REASONING__REQUIRE_FINDINGS_MATCH\s+value: "false"/);
-});
-
-test("mounts an explicitly configured Hardware Agent playbook archive", () => {
-  const output = renderDiagnostics(
-    "--set", "diagnosticAgent.playbooksConfigMapName=internal-playbooks",
-    "--show-only", "templates/diagnostic-agent.yaml",
-  );
-  assert.match(output, /name: init-playbooks/);
-  assert.match(output, /name: DEBUGHUB_PLAYBOOK__PATH\s+value: \/opt\/debuggability\/playbooks/);
-  assert.match(output, /name: DEBUGHUB_PLAYBOOK_PATH\s+value: \/opt\/debuggability\/playbooks/);
-  assert.match(output, /name: playbooks-tar\s+configMap:\s+name: internal-playbooks/);
 });
 
 test("applies global scheduling controls to the Hardware Agent", () => {

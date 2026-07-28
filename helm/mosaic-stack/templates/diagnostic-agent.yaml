@@ -49,24 +49,6 @@ spec:
           volumeMounts:
             - name: diagnostic-agent-bin
               mountPath: /opt/mosaic-bin
-      {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
-        - name: init-playbooks
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              set -eux
-              mkdir -p /opt/debuggability/playbooks
-              tar xzf /opt/playbooks-tar/playbooks.tgz -C /opt/debuggability/playbooks
-              ls /opt/debuggability/playbooks/categories/ | head
-          volumeMounts:
-            - name: playbooks
-              mountPath: /opt/debuggability/playbooks
-            - name: playbooks-tar
-              mountPath: /opt/playbooks-tar
-              readOnly: true
-      {{- end }}
       containers:
         - name: diagnostic-agent
           image: {{ include "mosaic-stack.image" .Values.diagnosticAgent.image | quote }}
@@ -101,12 +83,6 @@ spec:
                   key: AGENT_API_KEYS
             - name: DIAGNOSTIC_AGENT_AUTH_MODE
               value: required
-            {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
-            - name: DEBUGHUB_PLAYBOOK__PATH
-              value: /opt/debuggability/playbooks
-            - name: DEBUGHUB_PLAYBOOK_PATH
-              value: /opt/debuggability/playbooks
-            {{- end }}
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
             - name: BCM_WEBHOOK_URL
@@ -154,11 +130,6 @@ spec:
               mountPath: /etc/ssh-keys
               readOnly: true
             {{- end }}
-            {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
-            - name: playbooks
-              mountPath: /opt/debuggability/playbooks
-              readOnly: true
-            {{- end }}
       volumes:
         - name: diagnostic-agent-bin
           emptyDir: {}
@@ -167,13 +138,6 @@ spec:
           secret:
             secretName: {{ .Values.diagnosticAgent.hostSshKeySecretName }}
             defaultMode: 0400
-        {{- end }}
-        {{- if .Values.diagnosticAgent.playbooksConfigMapName }}
-        - name: playbooks
-          emptyDir: {}
-        - name: playbooks-tar
-          configMap:
-            name: {{ .Values.diagnosticAgent.playbooksConfigMapName }}
         {{- end }}
 ---
 apiVersion: v1

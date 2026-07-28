@@ -330,7 +330,7 @@ unset NVIDIA_API_KEY
 
 ### Hardware Agent
 
-The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis without requiring a playbook archive.
+The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
