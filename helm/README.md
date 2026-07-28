@@ -330,16 +330,9 @@ unset NVIDIA_API_KEY
 
 ### Hardware Agent
 
-The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. Provide only the NVDebug playbook archive.
+The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
-export NVDEBUG_PLAYBOOKS_TGZ='/path/to/playbooks.tgz'
-
-test -r "$NVDEBUG_PLAYBOOKS_TGZ"
-kubectl -n mosaic create configmap debughub-playbooks-tar \
-  --from-file=playbooks.tgz="$NVDEBUG_PLAYBOOKS_TGZ" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
   -n mosaic \
