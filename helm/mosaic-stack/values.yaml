@@ -233,7 +233,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: b7658326
+    tag: 5065d948
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -357,7 +357,7 @@ bcmMcp:
     port: 3001
   image:
     repository: nvcr.io/0948643769302270/bcm-mcp-tools
-    tag: 0b0cb309
+    tag: 3c2280ff
     pullPolicy: IfNotPresent
   busyboxImage:
     repository: busybox
