@@ -92,6 +92,10 @@ spec:
               value: openclaw
             - name: MOSAIC_OPENCLAW_PROTOCOL
               value: {{ .Values.openclaw.gatewayProtocol | quote }}
+            {{- if .Values.modules.research.managed }}
+            - name: MOSAIC_IRAOP_CORPUS_DIR
+              value: {{ .Values.researchAgent.iraop.config.CORPUS_DIR | quote }}
+            {{- end }}
             {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
             - name: MOSAIC_OPENCLAW_GATEWAY_URL
               value: {{ printf "ws://openclaw:%v" .Values.openclaw.service.port | quote }}
@@ -142,10 +146,20 @@ spec:
           volumeMounts:
             - name: audit-log
               mountPath: /var/lib/mosaic-audit
+            {{- if .Values.modules.research.managed }}
+            - name: research-corpus
+              mountPath: {{ .Values.researchAgent.iraop.config.CORPUS_DIR }}
+            {{- end }}
       volumes:
         - name: audit-log
           persistentVolumeClaim:
             claimName: mosaic-audit-log
+        {{- if .Values.modules.research.managed }}
+        - name: research-corpus
+          hostPath:
+            path: {{ .Values.researchAgent.iraop.corpus.hostPath }}
+            type: Directory
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

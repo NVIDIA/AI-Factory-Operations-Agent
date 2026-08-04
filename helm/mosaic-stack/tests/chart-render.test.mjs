@@ -192,6 +192,19 @@ test("configures the Alertmanager endpoint", () => {
   );
 });
 
+test("shares the managed Research Agent corpus with the UI", () => {
+  const output = render(
+    "--show-only", "templates/mosaic-ui.yaml",
+    "--set", "modules.research.enabled=true",
+    "--set", "modules.research.managed=true",
+    "--set", "researchAgent.iraop.config.CORPUS_DIR=/data/corpus",
+    "--set", "researchAgent.iraop.corpus.hostPath=/srv/corpus",
+  );
+  assert.match(output, /name: MOSAIC_IRAOP_CORPUS_DIR\s+value: "\/data\/corpus"/);
+  assert.match(output, /name: research-corpus\s+mountPath: \/data\/corpus/);
+  assert.match(output, /name: research-corpus\s+hostPath:\s+path: \/srv\/corpus\s+type: Directory/);
+});
+
 test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
