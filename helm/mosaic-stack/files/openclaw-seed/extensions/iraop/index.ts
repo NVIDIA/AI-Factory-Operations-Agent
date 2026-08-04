@@ -5,7 +5,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 // Default SSE endpoint — in-cluster DNS for the iraop Service. Override via
 // plugins.entries.iraop.baseUrl in openclaw.json if the service moves.
-const DEFAULT_SSE_URL = "http://iraop.mosaic.svc.cluster.local:8000/mcp/sse";
+const DEFAULT_SSE_URL = "http://iraop:8000/mcp/sse";
 const DEFAULT_TIMEOUT_MS = 240_000;
 
 type SubagentPhase = "start" | "delta" | "complete" | "error";

@@ -93,6 +93,8 @@ spec:
             - name: MOSAIC_OPENCLAW_PROTOCOL
               value: {{ .Values.openclaw.gatewayProtocol | quote }}
             {{- if .Values.modules.research.managed }}
+            - name: MOSAIC_IRAOP_BASE_URL
+              value: "http://iraop:8000"
             - name: MOSAIC_IRAOP_CORPUS_DIR
               value: {{ .Values.researchAgent.iraop.config.CORPUS_DIR | quote }}
             {{- end }}

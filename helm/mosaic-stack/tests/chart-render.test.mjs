@@ -201,6 +201,7 @@ test("shares the managed Research Agent corpus with the UI", () => {
     "--set", "researchAgent.iraop.corpus.hostPath=/srv/corpus",
   );
   assert.match(output, /name: MOSAIC_IRAOP_CORPUS_DIR\s+value: "\/data\/corpus"/);
+  assert.match(output, /name: MOSAIC_IRAOP_BASE_URL\s+value: "http:\/\/iraop:8000"/);
   assert.match(output, /name: research-corpus\s+mountPath: \/data\/corpus/);
   assert.match(output, /name: research-corpus\s+hostPath:\s+path: \/srv\/corpus\s+type: Directory/);
 });

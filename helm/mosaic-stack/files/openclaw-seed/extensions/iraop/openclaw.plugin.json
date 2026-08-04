@@ -19,7 +19,7 @@
       },
       "baseUrl": {
         "type": "string",
-        "description": "iraop MCP SSE endpoint URL. Defaults to http://iraop.mosaic.svc.cluster.local:8000/mcp/sse."
+        "description": "iraop MCP SSE endpoint URL. Defaults to http://iraop:8000/mcp/sse."
       },
       "timeoutMs": {
         "type": "number",
@@ -35,7 +35,7 @@
   "uiHints": {
     "baseUrl": {
       "label": "iraop MCP SSE URL",
-      "help": "Full URL to iraop's /mcp/sse endpoint. In-cluster: http://iraop.mosaic.svc.cluster.local:8000/mcp/sse"
+      "help": "Full URL to iraop's /mcp/sse endpoint. In-cluster: http://iraop:8000/mcp/sse"
     },
     "timeoutMs": {
       "label": "Tool-call timeout (ms)",
