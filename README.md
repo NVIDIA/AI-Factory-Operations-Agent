@@ -55,20 +55,20 @@ Choose the interface that matches the caller:
 | `mosaic` CLI | Shell and Slurm automation | Sends one prompt to an AI Factory Operations Agent URL and waits for the completed assistant turn. |
 | `mosaic-mcp` | Claude Code, Codex, and other MCP clients | Local stdio bridge to the AI Factory Operations Agent HTTP service; exposes chat, history, commands, and enabled module tools. |
 
-The [AI Factory Operations Agent headless skill](docs/skills/mosaic-headless/SKILL.md) gives coding agents the HTTP, CLI, and MCP contracts. Install it for Codex with:
+The [AI Factory Operations Agent headless skill](docs/skills/ai-factory-operations-agent-headless/SKILL.md) gives coding agents the HTTP, CLI, and MCP contracts. Install it for Codex with:
 
 ```bash
-install -d ~/.codex/skills/mosaic-headless
-install -m 0644 docs/skills/mosaic-headless/SKILL.md \
-  ~/.codex/skills/mosaic-headless/SKILL.md
+install -d ~/.codex/skills/ai-factory-operations-agent-headless
+install -m 0644 docs/skills/ai-factory-operations-agent-headless/SKILL.md \
+  ~/.codex/skills/ai-factory-operations-agent-headless/SKILL.md
 ```
 
 For Claude Code:
 
 ```bash
-install -d ~/.claude/skills/mosaic-headless
-install -m 0644 docs/skills/mosaic-headless/SKILL.md \
-  ~/.claude/skills/mosaic-headless/SKILL.md
+install -d ~/.claude/skills/ai-factory-operations-agent-headless
+install -m 0644 docs/skills/ai-factory-operations-agent-headless/SKILL.md \
+  ~/.claude/skills/ai-factory-operations-agent-headless/SKILL.md
 ```
 
 Invoke the installed skill when an agent needs to discover an AI Factory Operations Agent service, ask an operational question, or configure the MCP bridge.
@@ -76,7 +76,7 @@ Invoke the installed skill when an agent needs to discover an AI Factory Operati
 - More examples and deployment options: [helm/README.md](helm/README.md)
 - Use cases: [docs/use_cases.md](docs/use_cases.md)
 - Slurm RCA reference: [docs/slurm_rca.md](docs/slurm_rca.md)
-- Headless agent integration: [docs/skills/mosaic-headless/SKILL.md](docs/skills/mosaic-headless/SKILL.md)
+- Headless agent integration: [docs/skills/ai-factory-operations-agent-headless/SKILL.md](docs/skills/ai-factory-operations-agent-headless/SKILL.md)
 
 # Releases & Roadmap
 

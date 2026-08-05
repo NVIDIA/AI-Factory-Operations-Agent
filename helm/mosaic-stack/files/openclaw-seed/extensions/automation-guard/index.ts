@@ -44,7 +44,7 @@ export default definePluginEntry({
           ...(context.senderId ? { senderId: context.senderId } : {}),
         });
         return {
-          prependContext: `[Runtime Context]\nmosaic_access_mode=${mode}\nThis access mode is authoritative for the current Slack user.`,
+          prependContext: `[Runtime Context]\nai_factory_operations_agent_access_mode=${mode}\nThis access mode is authoritative for the current Slack user.`,
         };
       });
       api.on("agent_end", (_event, context) => clearRunAccess(context.runId));

@@ -58,10 +58,10 @@ test("stdio bridge exposes and invokes configured tools", async t => {
   };
 
   const initialized = await request(1, "initialize");
-  assert.equal(initialized.result.serverInfo.name, "mosaic");
+  assert.equal(initialized.result.serverInfo.name, "ai_factory_operations_agent");
 
   const listed = await request(2, "tools/list");
-  assert.ok(listed.result.tools.some(tool => tool.name === "mosaic_chat"));
+  assert.ok(listed.result.tools.some(tool => tool.name === "ai_factory_operations_agent_chat"));
   assert.ok(listed.result.tools.some(tool => tool.name === "cluster_status"));
 
   const called = await request(3, "tools/call", {

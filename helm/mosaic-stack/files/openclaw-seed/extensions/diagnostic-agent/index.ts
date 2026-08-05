@@ -388,7 +388,7 @@ export default definePluginEntry({
             type: "string",
             description: "Optional nvdebug collection profile override from the matched playbook.",
           },
-          mosaic_chat_session_key: {
+          ai_factory_operations_agent_chat_session_key: {
             type: "string",
             description: "Optional chat session key. Copy the exact value from the [Runtime Context] block when present so the Hardware Agent can stream NVDebug progress to the matching Terminal tab.",
           },
@@ -408,9 +408,9 @@ export default definePluginEntry({
           event_text: eventText,
         };
         const profileName = stringParam(rawParams.profile_name);
-        const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key) || inferRecentSessionKey();
+        const chatSessionKey = stringParam(rawParams.ai_factory_operations_agent_chat_session_key) || inferRecentSessionKey();
         if (profileName) body.profile_name = profileName;
-        if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
+        if (chatSessionKey) body.mosaic_chat_session_key = chatSessionKey;
 
         const events = subagentOptions(config, toolCallId, "hardware_analyze_dut", "Hardware Agent");
         await postSubagentEvent(events, "start", `Submitting NVDebug hardware analysis for ${displayDutId}\n${eventText}`);

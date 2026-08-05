@@ -7,7 +7,7 @@ import readline from "node:readline";
 const baseUrl = process.env.MOSAIC_URL || "http://127.0.0.1:3000";
 const builtinTools = [
   {
-    name: "mosaic_chat",
+    name: "ai_factory_operations_agent_chat",
     description: "Investigate or operate using configured agents.",
     inputSchema: {
       type: "object",
@@ -21,7 +21,7 @@ const builtinTools = [
     },
   },
   {
-    name: "mosaic_history",
+    name: "ai_factory_operations_agent_history",
     description: "Read conversation history.",
     inputSchema: {
       type: "object",
@@ -29,7 +29,7 @@ const builtinTools = [
     },
   },
   {
-    name: "mosaic_commands",
+    name: "ai_factory_operations_agent_commands",
     description: "List slash commands and agent entrypoints.",
     inputSchema: { type: "object", properties: {} },
   },
@@ -63,7 +63,7 @@ async function listTools() {
 }
 
 async function callTool(name, args = {}) {
-  if (name === "mosaic_chat") {
+  if (name === "ai_factory_operations_agent_chat") {
     const payload = await request("/api/headless/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -71,14 +71,14 @@ async function callTool(name, args = {}) {
     });
     return payload.message || JSON.stringify(payload);
   }
-  if (name === "mosaic_history") {
+  if (name === "ai_factory_operations_agent_history") {
     const params = new URLSearchParams({
       sessionKey: typeof args.sessionKey === "string" ? args.sessionKey : "headless",
       limit: String(Number.isFinite(args.limit) ? args.limit : 24),
     });
     return JSON.stringify(await request(`/api/openclaw/chat?${params}`), null, 2);
   }
-  if (name === "mosaic_commands") {
+  if (name === "ai_factory_operations_agent_commands") {
     return JSON.stringify(await request("/api/openclaw/commands"), null, 2);
   }
   const payload = await request("/api/openclaw/tools/call", {
@@ -107,7 +107,7 @@ readline.createInterface({ input: process.stdin }).on("line", async line => {
       respond(message.id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "mosaic", version: "0.1.0" },
+        serverInfo: { name: "ai_factory_operations_agent", version: "0.1.0" },
       });
     } else if (message.method === "tools/list") {
       respond(message.id, { tools: await listTools() });

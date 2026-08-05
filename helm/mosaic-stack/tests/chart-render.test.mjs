@@ -538,7 +538,7 @@ test("tells the assistant about session access modes only when editing is enable
     "--set", "modules.edit.ssh.hosts[0].port=22",
   );
   assert.match(editable, /## Session Access Modes/);
-  assert.match(editable, /`mosaic_access_mode`.*authoritative/);
+  assert.match(editable, /`ai_factory_operations_agent_access_mode`.*authoritative/);
   assert.match(editable, /call `run_remote_ssh`/);
   assert.match(editable, /For remote host operations, call `run_remote_ssh` immediately/);
 });

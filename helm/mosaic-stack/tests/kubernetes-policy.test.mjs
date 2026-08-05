@@ -215,7 +215,7 @@ test("makes the per-session access mode authoritative", () => {
     new URL("../files/openclaw-seed/workspace/AGENTS.md", import.meta.url),
     "utf8",
   );
-  assert.match(source, /mosaic_access_mode.*authoritative/);
+  assert.match(source, /ai_factory_operations_agent_access_mode.*authoritative/);
   assert.match(source, /In Edit, immediately call the enabled mutation tool/);
   assert.match(source, /Auto permits the same mutation tools and executes explicit user-requested changes immediately without per-tool approval/);
   assert.match(source, /run_kubectl_admin.*including create, exec, label, patch, scale, delete, and apply/);

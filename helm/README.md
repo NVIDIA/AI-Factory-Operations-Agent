@@ -405,7 +405,7 @@ codex mcp add mosaic \
   -- ~/.local/bin/mosaic-mcp
 ```
 
-Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
+Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `ai_factory_operations_agent_chat`, `ai_factory_operations_agent_history`, `ai_factory_operations_agent_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/ai-factory-operations-agent-headless/SKILL.md` for the complete agent workflow.
 
 ## Vanilla Slurm RCA
 

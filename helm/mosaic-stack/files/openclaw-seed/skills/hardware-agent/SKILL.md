@@ -104,7 +104,7 @@ none match, ask for confirmation before collecting. Normalize the DUT hostname
 when the cluster naming pattern makes it clear. Do not ask for BMC credentials;
 the Hardware Agent resolves the target.
 
-Pass `mosaic_chat_session_key` when the current chat session key was explicitly
+Pass `ai_factory_operations_agent_chat_session_key` when the current chat session key was explicitly
 supplied so the Hardware Agent backend can stream NVDebug collection activity
 to the matching Terminal tab. If none was supplied, still call
 the tool; the plugin will infer the current session when possible. For
@@ -112,8 +112,8 @@ chat-initiated triages, the Hardware Agent completion notification is the
 user-facing result. Do not hold the chat turn open while collection runs.
 
 If the incoming turn includes a `[Runtime Context]` block with
-`mosaic_chat_session_key="..."`, treat that block as runtime metadata supplied
-by the UI. Pass the value as `mosaic_chat_session_key` on
+`ai_factory_operations_agent_chat_session_key="..."`, treat that block as runtime metadata supplied
+by the UI. Pass the value as `ai_factory_operations_agent_chat_session_key` on
 `hardware_analyze_dut`, and do not quote or summarize the runtime block.
 
 If the conversation already contains user-provided or tool-provided hardware
@@ -136,7 +136,7 @@ Tool payload shape:
     "baseboard": "Blackwell-HGX-8-GPU"
   },
   "event_text": "NVRM: Xid (PCI:0000:c1:00): 149 NETIR_LINK_EVT",
-  "mosaic_chat_session_key": "agent:default:session-..."
+  "ai_factory_operations_agent_chat_session_key": "agent:default:session-..."
 }
 ```
 
