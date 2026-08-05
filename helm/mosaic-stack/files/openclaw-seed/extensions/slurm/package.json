@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "OpenClaw plugin for Mosaic Slurm evidence tools",
+  "description": "OpenClaw plugin for Slurm evidence tools",
   "type": "module",
   "openclaw": {
     "extensions": [

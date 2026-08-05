@@ -28,7 +28,7 @@
       },
       "subagentEventsUrl": {
         "type": "string",
-        "description": "Optional Mosaic UI endpoint that receives live iraop subagent events."
+        "description": "Optional UI endpoint that receives live iraop subagent events."
       }
     }
   },
@@ -44,7 +44,7 @@
     },
     "subagentEventsUrl": {
       "label": "Subagent events URL",
-      "help": "Mosaic UI endpoint for rendering IRA as a read-only subagent panel.",
+      "help": "UI endpoint for rendering IRA as a read-only subagent panel.",
       "advanced": true
     }
   }

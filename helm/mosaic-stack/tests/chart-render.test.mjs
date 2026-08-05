@@ -525,7 +525,7 @@ test("seeds edit mode and approval settings into Kubernetes and BCM plugins", ()
 
 test("tells the assistant about session access modes only when editing is enabled", () => {
   const readonly = render();
-  assert.match(readonly, /Mosaic edit mode is disabled/);
+  assert.match(readonly, /Edit mode is disabled/);
   assert.doesNotMatch(readonly, /Remote commands are permitted only/);
 
   const editable = render(

@@ -583,7 +583,7 @@ export default definePluginEntry({
         if (automated && ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName)) {
           return {
             block: true,
-            blockReason: "Automated Mosaic sessions cannot use BCM mutation tools.",
+            blockReason: "Automated sessions cannot use BCM mutation tools.",
           };
         }
         const mutating = ["bcm_add_note", "bcm_execute_cmsh_admin", "bcm_remove_note"].includes(event.toolName);

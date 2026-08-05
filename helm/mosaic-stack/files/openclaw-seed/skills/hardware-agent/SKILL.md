@@ -76,7 +76,7 @@ stop until the user answers.
 
 Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
 `/api/v1/analyze-dut`, returns the queued triage id, and emits a live NVDebug
-subagent card in Mosaic. The Hardware Agent backend owns NVDebug collection,
+subagent card in the UI. The Hardware Agent backend owns NVDebug collection,
 collection validation, retry policy, RCA generation, and completion notification.
 
 After the user confirms a fresh collection, use only `hardware_analyze_dut`
@@ -104,16 +104,16 @@ none match, ask for confirmation before collecting. Normalize the DUT hostname
 when the cluster naming pattern makes it clear. Do not ask for BMC credentials;
 the Hardware Agent resolves the target.
 
-Pass `mosaic_chat_session_key` when Mosaic has explicitly supplied the current
-chat session key so the Hardware Agent backend can stream NVDebug collection
-activity to the matching Terminal tab. If Mosaic does not supply one, still call
+Pass `mosaic_chat_session_key` when the current chat session key was explicitly
+supplied so the Hardware Agent backend can stream NVDebug collection activity
+to the matching Terminal tab. If none was supplied, still call
 the tool; the plugin will infer the current session when possible. For
 chat-initiated triages, the Hardware Agent completion notification is the
 user-facing result. Do not hold the chat turn open while collection runs.
 
-If the incoming turn includes a `[Mosaic Runtime]` block with
+If the incoming turn includes a `[Runtime Context]` block with
 `mosaic_chat_session_key="..."`, treat that block as runtime metadata supplied
-by Mosaic. Pass the value as `mosaic_chat_session_key` on
+by the UI. Pass the value as `mosaic_chat_session_key` on
 `hardware_analyze_dut`, and do not quote or summarize the runtime block.
 
 If the conversation already contains user-provided or tool-provided hardware
@@ -165,7 +165,7 @@ Payload:
 
 - `dut.id` is the hostname as known to BCM.
 - `dut.baseboard` should use the nvdebug catalog baseboard name. For DGX/HGX B200 systems, use `Blackwell-HGX-8-GPU` rather than the informal shorthand `HGX B200`.
-- `dut.bmc.ip` is optional; omit it for normal Mosaic use so the Hardware Agent resolves the target.
+- `dut.bmc.ip` is optional; normally omit it so the Hardware Agent resolves the target.
 - `event_text` is the dmesg/fault line or a free-text description.
 
 Never include BMC passwords in the payload. The backend resolves them from BCM.

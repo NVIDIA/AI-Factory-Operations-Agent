@@ -40,7 +40,7 @@ function stringParam(value: unknown) {
 export default definePluginEntry({
   id: "slurm",
   name: "Slurm Evidence",
-  description: "Read-only Slurm and node evidence tools for Mosaic RCA.",
+  description: "Read-only Slurm and node evidence tools for root-cause analysis.",
   register(api) {
     const collector = baseUrl(api.pluginConfig);
 

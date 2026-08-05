@@ -61,7 +61,7 @@ export default definePluginEntry({
         if (isReadonlyAutomationSession(context.sessionKey)) {
           return {
             block: true,
-            blockReason: "Automated Mosaic sessions cannot run remote SSH commands.",
+            blockReason: "Automated sessions cannot run remote SSH commands.",
           };
         }
         try {

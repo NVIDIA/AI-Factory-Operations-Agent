@@ -256,7 +256,7 @@ async function validatePanels(
             panelTitle: panel.title,
             query: panel.query,
             severity: "error",
-            message: "Mosaic frontend Grafana proxy returned no data frames. The iframe panel would render empty.",
+            message: "The frontend Grafana proxy returned no data frames. The iframe panel would render empty.",
           });
         }
       } catch (error) {
@@ -264,7 +264,7 @@ async function validatePanels(
           panelTitle: panel.title,
           query: panel.query,
           severity: "error",
-          message: `Mosaic frontend Grafana proxy validation failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Frontend Grafana proxy validation failed: ${error instanceof Error ? error.message : String(error)}`,
         });
       }
       results.push({ title: panel.title, query: panel.query, seriesCount: result.length, grafanaFrameCount: frameCount, sample: result[0] });
@@ -368,7 +368,7 @@ function buildDashboard(title: string, panels: PanelSpec[], datasourceUid: strin
 export default definePluginEntry({
   id: "grafana",
   name: "Grafana Dashboard Builder",
-  description: "Create, validate, and open Grafana dashboards backed by Mosaic observability Prometheus.",
+  description: "Create, validate, and open Grafana dashboards backed by observability Prometheus.",
   register(api) {
     const grafanaUrl = resolveString(api.pluginConfig, "grafanaUrl");
     const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl");
@@ -384,7 +384,7 @@ export default definePluginEntry({
     registerTool({
       name: "grafana_dashboard_health",
       label: "Grafana Dashboard Health",
-      description: "Check Grafana, Prometheus, and Mosaic UI dashboard notification endpoints.",
+      description: "Check Grafana, Prometheus, and UI dashboard notification endpoints.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute() {
         const [grafanaHealth, prometheusHealth, uiHealth] = await Promise.allSettled([
@@ -452,7 +452,7 @@ export default definePluginEntry({
     registerTool({
       name: "grafana_dashboard_create",
       label: "Create Grafana Dashboard",
-      description: "Create a Grafana dashboard after validating every panel query, then open it in the Mosaic UI Grafana tab.",
+      description: "Create a Grafana dashboard after validating every panel query, then open it in the UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -466,11 +466,11 @@ export default definePluginEntry({
           },
           rangeMinutes: { type: "number", description: "Dashboard time range in minutes. Default 60." },
           requireData: { type: "boolean", description: "If true, do not create when any query returns no data. Default true." },
-          openInUi: { type: "boolean", description: "If true, switch Mosaic UI to Grafana after creation. Default true." },
+          openInUi: { type: "boolean", description: "If true, switch the UI to Grafana after creation. Default true." },
         },
       },
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
-        const title = stringParam(rawParams.title) || "Mosaic Generated Dashboard";
+        const title = stringParam(rawParams.title) || "Generated Dashboard";
         const panels = panelsFromParams(rawParams);
         if (panels.length === 0) {
           throw new Error("Provide panels or a known preset.");
@@ -491,7 +491,7 @@ export default definePluginEntry({
         const createPayload = await fetchJson(`${grafanaUrl}/api/dashboards/db`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ dashboard, folderId: 0, overwrite: true, message: "Created by OpenClaw Mosaic plugin" }),
+          body: JSON.stringify({ dashboard, folderId: 0, overwrite: true, message: "Created by OpenClaw dashboard plugin" }),
         });
 
         const uid = stringParam(createPayload.uid) || stringParam((dashboard as Record<string, unknown>).uid) || "";
@@ -535,7 +535,7 @@ export default definePluginEntry({
     registerTool({
       name: "grafana_dashboard_open",
       label: "Open Grafana Dashboard",
-      description: "Open an existing Grafana dashboard UID in the Mosaic UI Grafana tab.",
+      description: "Open an existing Grafana dashboard UID in the UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,

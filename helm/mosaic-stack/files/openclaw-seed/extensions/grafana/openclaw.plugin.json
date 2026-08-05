@@ -23,7 +23,7 @@
       },
       "uiUrl": {
         "type": "string",
-        "description": "Mosaic UI service base URL used to switch the frontend Grafana tab."
+        "description": "UI service base URL used to switch the frontend Grafana tab."
       },
       "datasourceUid": {
         "type": "string",

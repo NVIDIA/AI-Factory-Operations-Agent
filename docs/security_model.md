@@ -64,9 +64,9 @@ Auto presents a warning before activation, then executes the same validated muta
 
 - Scheduled cluster checks and alert-triggered sessions are marked as automation and reject all mutating tools regardless of requested mode.
 - General local command execution remains inside OpenShell. View permits only the diagnostic allowlist; other commands require an interactive Edit or Auto session.
-- Tool calls, approvals, denials, and results are recorded in the Mosaic audit stream.
+- Tool calls, approvals, denials, and results are recorded in the audit stream.
 - Secrets remain Kubernetes Secrets and are mounted only into the workloads that need them. They are not supplied through prompts or committed values.
 
 ## Operator Responsibility
 
-Enabling Edit expands Mosaic's authority. Before enabling it, review the generated RBAC, any custom ClusterRole, BCM profiles, SSH host list, mounted credentials, and who can access the Mosaic UI. Auto should be restricted to users trusted to exercise those configured permissions without per-operation review.
+Enabling Edit expands the assistant's authority. Before enabling it, review the generated RBAC, any custom ClusterRole, BCM profiles, SSH host list, mounted credentials, and who can access the UI. Auto should be restricted to users trusted to exercise those configured permissions without per-operation review.

@@ -18,7 +18,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # grafana — Dashboard Builder
 
-Use `grafana_dashboard_create` to build a dashboard from PromQL panels and open it in the Mosaic UI Grafana tab.
+Use `grafana_dashboard_create` to build a dashboard from PromQL panels and open it in the UI Grafana tab.
 
 Always validate queries before claiming success. The create tool validates each panel and returns actionable errors if a query is invalid or empty.
 

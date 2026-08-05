@@ -165,8 +165,8 @@ async function queryRange(baseUrl: string, promql: string, rawParams: Record<str
 
 export default definePluginEntry({
   id: "observability",
-  name: "Mosaic Observability",
-  description: "Read-only Prometheus and Grafana tools for Mosaic cluster observability.",
+  name: "Observability",
+  description: "Read-only Prometheus and Grafana tools for cluster observability.",
   register(api) {
     registerGrafanaTools(api);
 
@@ -210,7 +210,7 @@ export default definePluginEntry({
     registerTool({
       name: "observability_query",
       label: "Prometheus Instant Query",
-      description: "Run a read-only instant PromQL query against Mosaic observability Prometheus.",
+      description: "Run a read-only instant PromQL query against observability Prometheus.",
       parameters: {
         type: "object",
         additionalProperties: false,

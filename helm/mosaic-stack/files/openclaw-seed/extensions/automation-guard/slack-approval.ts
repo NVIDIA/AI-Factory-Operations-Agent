@@ -4,15 +4,15 @@
 import { randomUUID } from "node:crypto";
 import { recordApprovalDecision } from "../mutation-ledger.ts";
 import type {
-  MosaicApprovalDecision,
-  MosaicApprovalRequest,
-  MosaicRunAccess,
+  ApprovalDecision,
+  ApprovalRequest,
+  RunAccess,
 } from "../automation-context.ts";
 
 type PendingApproval = {
   senderId: string;
-  request: MosaicApprovalRequest;
-  resolve: (decision: MosaicApprovalDecision) => void;
+  request: ApprovalRequest;
+  resolve: (decision: ApprovalDecision) => void;
   timer: ReturnType<typeof setTimeout>;
 };
 
@@ -78,11 +78,11 @@ export function installSlackApprovalBroker(api: any, editUserIds: string[], ledg
     },
   });
 
-  return async (access: MosaicRunAccess, request: MosaicApprovalRequest) => {
+  return async (access: RunAccess, request: ApprovalRequest) => {
     if (!access.senderId || !editUsers.has(access.senderId)) return "deny" as const;
     const id = randomUUID();
     const timeoutMs = request.timeoutMs ?? 120_000;
-    const decision = new Promise<MosaicApprovalDecision>((resolve) => {
+    const decision = new Promise<ApprovalDecision>((resolve) => {
       const timer = setTimeout(() => {
         pending.delete(id);
         void recordApprovalDecision({

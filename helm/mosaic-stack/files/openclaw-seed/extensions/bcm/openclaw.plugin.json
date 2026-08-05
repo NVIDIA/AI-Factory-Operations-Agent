@@ -85,7 +85,7 @@
       },
       "subagentEventsUrl": {
         "type": "string",
-        "description": "Optional Mosaic UI endpoint that receives live BCM subagent events."
+        "description": "Optional UI endpoint that receives live BCM subagent events."
       },
       "enabledTools": {
         "type": "array",
@@ -121,7 +121,7 @@
     },
     "subagentEventsUrl": {
       "label": "Subagent events URL",
-      "help": "Mosaic UI endpoint for rendering BCM as a read-only subagent panel.",
+      "help": "UI endpoint for rendering BCM as a read-only subagent panel.",
       "advanced": true
     }
   }

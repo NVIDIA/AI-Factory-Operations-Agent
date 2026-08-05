@@ -135,7 +135,7 @@ function objectParam(value: unknown) {
     : null;
 }
 
-function inferRecentMosaicSessionKey() {
+function inferRecentSessionKey() {
   try {
     const fs = require("fs") as typeof import("fs");
     const home = typeof process !== "undefined" ? process.env?.HOME || "/home/node" : "/home/node";
@@ -174,7 +174,7 @@ function inferRecentMosaicSessionKey() {
       }
     }
   } catch {
-    // Best-effort fallback for Mosaic UI sessions when the model omits runtime metadata.
+    // Best-effort fallback for UI sessions when the model omits runtime metadata.
   }
   return "";
 }
@@ -390,7 +390,7 @@ export default definePluginEntry({
           },
           mosaic_chat_session_key: {
             type: "string",
-            description: "Optional Mosaic session key. Copy the exact value from the [Mosaic Runtime] block when present so the Hardware Agent can stream NVDebug progress to the matching Terminal tab.",
+            description: "Optional chat session key. Copy the exact value from the [Runtime Context] block when present so the Hardware Agent can stream NVDebug progress to the matching Terminal tab.",
           },
         },
       },
@@ -408,7 +408,7 @@ export default definePluginEntry({
           event_text: eventText,
         };
         const profileName = stringParam(rawParams.profile_name);
-        const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key) || inferRecentMosaicSessionKey();
+        const mosaicSessionKey = stringParam(rawParams.mosaic_chat_session_key) || inferRecentSessionKey();
         if (profileName) body.profile_name = profileName;
         if (mosaicSessionKey) body.mosaic_chat_session_key = mosaicSessionKey;
 

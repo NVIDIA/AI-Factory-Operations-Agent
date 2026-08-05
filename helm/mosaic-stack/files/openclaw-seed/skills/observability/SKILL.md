@@ -28,8 +28,8 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `observability_query` runs an instant PromQL query.
 - `observability_range_query` runs a historical range query.
 - `dashboard_list` lists existing Grafana dashboards.
-- `dashboard_create` validates explicit panel PromQL, creates a Grafana dashboard, and opens it in the Mosaic UI Grafana tab.
-- `dashboard_open` opens an existing Grafana dashboard UID in the Mosaic UI Grafana tab.
+- `dashboard_create` validates explicit panel PromQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
+- `dashboard_open` opens an existing Grafana dashboard UID in the UI Grafana tab.
 
 ## Example PromQL
 

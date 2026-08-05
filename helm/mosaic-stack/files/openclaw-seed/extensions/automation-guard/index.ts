@@ -44,7 +44,7 @@ export default definePluginEntry({
           ...(context.senderId ? { senderId: context.senderId } : {}),
         });
         return {
-          prependContext: `[Mosaic Runtime]\nmosaic_access_mode=${mode}\nThis access mode is authoritative for the current Slack user.`,
+          prependContext: `[Runtime Context]\nmosaic_access_mode=${mode}\nThis access mode is authoritative for the current Slack user.`,
         };
       });
       api.on("agent_end", (_event, context) => clearRunAccess(context.runId));
@@ -64,7 +64,7 @@ export default definePluginEntry({
         const automated = isReadonlyAutomationSession(context.sessionKey);
         if (!automated && (!editEnabled || contextAllowsEdit(context))) return;
         const reason = automated
-          ? "Automated Mosaic sessions are read-only."
+          ? "Automated sessions are read-only."
           : "This conversation is in View mode. Switch it to Edit before requesting changes.";
         return {
           block: true,

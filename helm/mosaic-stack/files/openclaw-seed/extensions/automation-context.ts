@@ -15,21 +15,21 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "write",
 ]);
 
-export type MosaicAccessMode = "view" | "edit" | "auto";
+export type AccessMode = "view" | "edit" | "auto";
 
-export type MosaicRunAccess = {
-  mode: MosaicAccessMode;
+export type RunAccess = {
+  mode: AccessMode;
   provider?: string;
   senderId?: string;
 };
 
-export type MosaicToolContext = {
+export type ToolContext = {
   runId?: string;
   sessionKey?: string;
   getSessionExtension?: (namespace: string) => unknown;
 };
 
-export type MosaicApprovalRequest = {
+export type ApprovalRequest = {
   toolCallId?: string;
   toolName?: string;
   title: string;
@@ -38,10 +38,10 @@ export type MosaicApprovalRequest = {
   timeoutMs?: number;
 };
 
-export type MosaicApprovalDecision = "allow" | "deny" | "timeout";
+export type ApprovalDecision = "allow" | "deny" | "timeout";
 
-const runAccess = new Map<string, MosaicRunAccess>();
-let identityApprovalBroker: ((access: MosaicRunAccess, request: MosaicApprovalRequest) => Promise<MosaicApprovalDecision>) | undefined;
+const runAccess = new Map<string, RunAccess>();
+let identityApprovalBroker: ((access: RunAccess, request: ApprovalRequest) => Promise<ApprovalDecision>) | undefined;
 
 export function readonlyAutomationSource(sessionKey: unknown) {
   if (typeof sessionKey !== "string") return undefined;
@@ -58,7 +58,7 @@ export function sessionAccessMode(state: unknown) {
   return mode === "edit" || mode === "auto" ? mode : "view";
 }
 
-export function setRunAccess(runId: unknown, access: MosaicRunAccess) {
+export function setRunAccess(runId: unknown, access: RunAccess) {
   if (typeof runId === "string" && runId) runAccess.set(runId, access);
 }
 
@@ -66,22 +66,22 @@ export function clearRunAccess(runId: unknown) {
   if (typeof runId === "string") runAccess.delete(runId);
 }
 
-export function runAccessMode(context: MosaicToolContext) {
+export function runAccessMode(context: ToolContext) {
   if (context.runId && runAccess.has(context.runId)) return runAccess.get(context.runId)!.mode;
   return sessionAccessMode(context.getSessionExtension?.("access"));
 }
 
-export function runAccessIdentity(context: MosaicToolContext) {
+export function runAccessIdentity(context: ToolContext) {
   return context.runId ? runAccess.get(context.runId) : undefined;
 }
 
 export function configureIdentityApprovalBroker(
-  broker?: (access: MosaicRunAccess, request: MosaicApprovalRequest) => Promise<MosaicApprovalDecision>,
+  broker?: (access: RunAccess, request: ApprovalRequest) => Promise<ApprovalDecision>,
 ) {
   identityApprovalBroker = broker;
 }
 
-export async function requestIdentityApproval(context: MosaicToolContext, request: MosaicApprovalRequest) {
+export async function requestIdentityApproval(context: ToolContext, request: ApprovalRequest) {
   const access = runAccessIdentity(context);
   if (access?.provider !== "slack") return undefined;
   if (access.mode !== "edit" || !identityApprovalBroker) return "deny";
@@ -90,7 +90,7 @@ export async function requestIdentityApproval(context: MosaicToolContext, reques
 
 export const sessionAccessExtension = {
   namespace: "access",
-  description: "Mosaic per-conversation access mode",
+  description: "Per-conversation access mode",
   project: ({ state }: { state: unknown }) => ({ mode: sessionAccessMode(state) }),
 };
 
@@ -102,11 +102,11 @@ export function sessionSkipsApproval(sessionKey: unknown, state: unknown) {
   return !isReadonlyAutomationSession(sessionKey) && sessionAccessMode(state) === "auto";
 }
 
-export function contextAllowsEdit(context: MosaicToolContext) {
+export function contextAllowsEdit(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) !== "view";
 }
 
-export function contextSkipsApproval(context: MosaicToolContext) {
+export function contextSkipsApproval(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) === "auto";
 }
 
