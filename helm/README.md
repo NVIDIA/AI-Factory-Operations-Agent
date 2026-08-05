@@ -1,8 +1,8 @@
-# Mosaic Helm Deployment
+# AI Factory Operations Agent Helm Deployment
 
-Mosaic is installed with Helm. This guide documents the shared upgrade, LLM, module, UI, and headless workflows.
+AI Factory Operations Agent is installed with Helm. This guide documents the shared upgrade, LLM, module, UI, and headless workflows.
 
-## Install Mosaic
+## Install AI Factory Operations Agent
 
 For a bare Kubernetes cluster, follow the complete [Kind installation guide](../docs/kind_installation.md).
 
@@ -33,7 +33,7 @@ unset NGC_API_KEY
 
 ### 2. Choose An LLM
 
-To install Mosaic with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
+To install AI Factory Operations Agent with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
@@ -74,7 +74,7 @@ unset EXTERNAL_LLM_API_KEY
 
 For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
-Mosaic requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
+AI Factory Operations Agent requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
 
 ```bash
 vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
@@ -91,7 +91,7 @@ helm pull "$MOSAIC_CHART" \
 MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
 ```
 
-To install Mosaic with Nemotron Super running on 1 GPU in vLLM, run:
+To install AI Factory Operations Agent with Nemotron Super running on 1 GPU in vLLM, run:
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
@@ -116,7 +116,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
-To install Mosaic with Nemotron Ultra running on 16 GPUs in vLLM, run:
+To install AI Factory Operations Agent with Nemotron Ultra running on 16 GPUs in vLLM, run:
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
@@ -155,11 +155,11 @@ The minimal installation includes the UI, headless interfaces, OpenClaw, and Ope
 
 ## Extensions
 
-All module changes below update an existing Mosaic release and preserve its current site configuration.
+All module changes below update an existing AI Factory Operations Agent release and preserve its current site configuration.
 
 ### Observability
 
-To connect Mosaic to an existing Prometheus service, run:
+To connect AI Factory Operations Agent to an existing Prometheus service, run:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
@@ -175,7 +175,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 ### Alertmanager
 
-Mosaic defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
+AI Factory Operations Agent defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
 
 ```bash
 export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
@@ -188,11 +188,11 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-`alertmanagerUrl` is the Alertmanager API base URL. Mosaic reads active alerts from its `/api/v2/alerts` endpoint.
+`alertmanagerUrl` is the Alertmanager API base URL. AI Factory Operations Agent reads active alerts from its `/api/v2/alerts` endpoint.
 
 ### Grafana
 
-To connect Mosaic to an existing Grafana service, run:
+To connect AI Factory Operations Agent to an existing Grafana service, run:
 
 ```bash
 export GRAFANA_URL='http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana'
@@ -250,11 +250,11 @@ modules:
 
 Every interactive conversation starts in **View**. Users can switch that conversation to **Edit** for approval-gated changes or **Auto** for validated changes without approval. Auto requires confirmation through a warning dialog. Other conversations remain in View, and automated alert and cluster-health sessions are always read-only. When the module is disabled, the access control is not shown.
 
-Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use Mosaic through DMs, group DMs, and channel mentions.
+Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions.
 
 Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, BCM, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
-Read [the Mosaic security model](../docs/security_model.md) before enabling Edit or Auto.
+Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
 
 ### BCM
 
@@ -301,7 +301,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-To deploy the chart-managed Research Agent and OpenSearch, set the embedding API key, active Mosaic model, and corpus path, then run:
+To deploy the chart-managed Research Agent and OpenSearch, set the embedding API key, active model, and corpus path, then run:
 
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
@@ -365,7 +365,7 @@ If Helm is not already authenticated to NVCR, run the registry login command fro
 
 ## Headless Mode
 
-The Mosaic UI service also exposes a headless API:
+The AI Factory Operations Agent UI service also exposes a headless API:
 
 ```bash
 curl -sS http://localhost:3000/api/headless/chat \
@@ -380,7 +380,7 @@ kubectl -n mosaic exec deploy/mosaic-ui -- \
   mosaic --session headless "summarize whether the cluster is healthy"
 ```
 
-The Mosaic HTTP service is not itself an MCP endpoint. Install the stdio MCP bridge on the client machine (Node.js 18 or newer is required):
+The AI Factory Operations Agent HTTP service is not itself an MCP endpoint. Install the stdio MCP bridge on the client machine (Node.js 18 or newer is required):
 
 ```bash
 git clone https://github.com/NVIDIA/Mosaic.git
@@ -389,7 +389,7 @@ install -d ~/.local/bin
 install -m 0755 utils/mosaic-mcp.mjs ~/.local/bin/mosaic-mcp
 ```
 
-Point the bridge at any reachable Mosaic UI URL. For Claude Code:
+Point the bridge at any reachable AI Factory Operations Agent UI URL. For Claude Code:
 
 ```bash
 claude mcp add mosaic \
@@ -405,7 +405,7 @@ codex mcp add mosaic \
   -- ~/.local/bin/mosaic-mcp
 ```
 
-Replace `http://localhost:3000` with the deployed Mosaic URL when it is reachable directly. The bridge exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the Mosaic/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
+Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `mosaic_chat`, `mosaic_history`, `mosaic_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/mosaic-headless/SKILL.md` for the complete agent workflow.
 
 ## Vanilla Slurm RCA
 
@@ -438,7 +438,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, Mosaic uses BCM WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without BCM, Mosaic uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
+The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, AI Factory Operations Agent uses BCM WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without BCM, it uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
 
 After enabling the BCM extension, enable BCM-backed Slurm with:
 
@@ -455,7 +455,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 ## Kubernetes Access
 
-Mosaic exposes one read-only OpenClaw tool, `run_kubectl`. The tool invokes a pinned kubectl binary with an argument array, never a shell command. It rejects mutation, pod execution, port forwarding, Secret reads, impersonation, raw kubeconfig output, and credential or API endpoint overrides before launching kubectl. Kubernetes RBAC independently denies those operations.
+AI Factory Operations Agent exposes one read-only OpenClaw tool, `run_kubectl`. The tool invokes a pinned kubectl binary with an argument array, never a shell command. It rejects mutation, pod execution, port forwarding, Secret reads, impersonation, raw kubeconfig output, and credential or API endpoint overrides before launching kubectl. Kubernetes RBAC independently denies those operations.
 
 The local cluster is registered by default using the `openclaw` ServiceAccount. Its token and kubeconfig are mounted only in the OpenClaw pod; OpenShell sandboxes receive neither Kubernetes credentials nor kubectl.
 
@@ -471,14 +471,14 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-To register another cluster, first create a kubeconfig for a read-only identity on that cluster. Store it as a Secret in the Mosaic namespace:
+To register another cluster, first create a kubeconfig for a read-only identity on that cluster. Store it as a Secret in the AI Factory Operations Agent namespace:
 
 ```bash
 kubectl -n mosaic create secret generic production-west-kubeconfig \
   --from-file=config=/path/to/read-only-kubeconfig
 ```
 
-Register that Secret with Mosaic by running:
+Register that Secret with AI Factory Operations Agent by running:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \

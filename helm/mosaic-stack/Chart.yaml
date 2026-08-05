@@ -3,7 +3,7 @@
 
 apiVersion: v2
 name: mosaic-stack
-description: "Mosaic app stack: UI, agent runtime, cluster skills, and optional support services."
+description: "AI Factory Operations Agent stack: UI, agent runtime, cluster skills, and optional support services."
 type: application
 version: 0.0.1
 appVersion: "0.0.1"

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Define the code of conduct followed and enforced for Mosaic.
+Define the code of conduct followed and enforced for AI Factory Operations Agent.
 
 ### Intended audience
 

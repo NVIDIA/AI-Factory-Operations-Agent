@@ -1,6 +1,6 @@
-# Mosaic Security Model
+# AI Factory Operations Agent Security Model
 
-Mosaic separates observation from mutation at the tool, credential, and session layers. Model instructions improve tool selection, but they are not a security boundary.
+AI Factory Operations Agent separates observation from mutation at the tool, credential, and session layers. Model instructions improve tool selection, but they are not a security boundary.
 
 ## Deployment Default
 

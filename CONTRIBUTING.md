@@ -1,6 +1,6 @@
-# Contributing to Mosaic
+# Contributing to AI Factory Operations Agent
 
-Contributions to Mosaic can report a problem, propose a feature, improve documentation, or implement an approved change.
+Contributions to AI Factory Operations Agent can report a problem, propose a feature, improve documentation, or implement an approved change.
 
 ## Report An Issue
 

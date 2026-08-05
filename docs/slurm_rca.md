@@ -1,6 +1,6 @@
 # Slurm RCA
 
-Mosaic's Slurm path is evidence based. It reads available Slurm accounting output, scheduler state, and mounted job logs.
+The AI Factory Operations Agent Slurm workflow is evidence based. It reads available Slurm accounting output, scheduler state, and mounted job logs.
 
 When Slurm and BCM are enabled, `slurm_job_evidence` uses BCM WLM metadata and reads only the bounded stdout/stderr paths recorded for that job, without deploying the filesystem collector. The model cannot provide arbitrary file paths to the adapter. Otherwise, the chart deploys the read-only vanilla collector, which mounts host filesystems read-only and keeps broad filesystem access out of the LLM sandbox.
 

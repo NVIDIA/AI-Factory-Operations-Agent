@@ -1,4 +1,4 @@
-# Mosaic Use Cases
+# AI Factory Operations Agent Use Cases
 
 ## Tenant
 

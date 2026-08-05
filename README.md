@@ -1,12 +1,12 @@
-# Mosaic
+# AI Factory Operations Agent
 
-Mosaic gives AI infrastructure teams a unified operations interface for cluster inspection, observability, and workload root-cause analysis.
+Deploy specialized AI agents to investigate cluster issues and streamline governed AI factory operations.
 
 # Overview
 
-Mosaic runs NemoClaw and OpenShell on Kubernetes and exposes operational workflows through a unified UI and headless API. Its Helm deployment is modular, allowing operators to connect only the capabilities supported by their environment.
+AI Factory Operations Agent is an NVIDIA blueprint for deploying an extensible agentic operations framework built with NemoClaw. Specialized agents gather and correlate evidence across cluster systems, generate clear root cause summaries, and recommend next steps through governed, auditable workflows that teams can adapt to their own AI factory environments.
 
-Mosaic supports:
+Supported workflows include:
 
 - Read-only Kubernetes workload and cluster inspection.
 - Prometheus queries and Grafana dashboard creation.
@@ -19,11 +19,11 @@ Mosaic supports:
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"primaryColor":"#f5f5f5","primaryBorderColor":"#76b900","primaryTextColor":"#1a1a1a","lineColor":"#4d4d4d","secondaryColor":"#ffffff","tertiaryColor":"#ffffff"}}}%%
 flowchart LR
-    operator[Operator] --> ui[Mosaic UI]
+    operator[Operator] --> ui[AI Factory Operations Agent]
     client[CLI / HTTP / MCP client] --> ui
     ui --> gateway[NemoClaw]
     gateway --> sandbox[OpenShell sandbox]
-    gateway --> modules[Enabled Mosaic modules]
+    gateway --> modules[Enabled modules]
     gateway --> llm[LLM]
     modules --> k8s[Kubernetes]
     modules --> obs[Prometheus / Grafana]
@@ -53,7 +53,7 @@ Use the complete installation guide for your environment:
 
 # Usage
 
-After installation, forward the Mosaic UI service:
+After installation, forward the AI Factory Operations Agent UI service:
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
@@ -67,10 +67,10 @@ Choose the interface that matches the caller:
 | --- | --- | --- |
 | Browser UI | Cluster operators | Interactive chat, dashboards, and enabled operational workflows. |
 | HTTP API | Services and scripts | `POST /api/headless/chat` with `prompt` and `sessionKey`; returns the completed assistant turn and run metadata. |
-| `mosaic` CLI | Shell and Slurm automation | Sends one prompt to a Mosaic URL and waits for the completed assistant turn. |
-| `mosaic-mcp` | Claude Code, Codex, and other MCP clients | Local stdio bridge to the Mosaic HTTP service; exposes chat, history, commands, and enabled module tools. |
+| `mosaic` CLI | Shell and Slurm automation | Sends one prompt to an AI Factory Operations Agent URL and waits for the completed assistant turn. |
+| `mosaic-mcp` | Claude Code, Codex, and other MCP clients | Local stdio bridge to the AI Factory Operations Agent HTTP service; exposes chat, history, commands, and enabled module tools. |
 
-The [Mosaic headless skill](docs/skills/mosaic-headless/SKILL.md) gives coding agents the HTTP, CLI, and MCP contracts. Install it for Codex with:
+The [AI Factory Operations Agent headless skill](docs/skills/mosaic-headless/SKILL.md) gives coding agents the HTTP, CLI, and MCP contracts. Install it for Codex with:
 
 ```bash
 install -d ~/.codex/skills/mosaic-headless
@@ -86,7 +86,7 @@ install -m 0644 docs/skills/mosaic-headless/SKILL.md \
   ~/.claude/skills/mosaic-headless/SKILL.md
 ```
 
-Invoke the installed skill when an agent needs to discover a Mosaic service, ask an operational question, or configure the MCP bridge.
+Invoke the installed skill when an agent needs to discover an AI Factory Operations Agent service, ask an operational question, or configure the MCP bridge.
 
 - More examples and deployment options: [helm/README.md](helm/README.md)
 - Use cases: [docs/use_cases.md](docs/use_cases.md)

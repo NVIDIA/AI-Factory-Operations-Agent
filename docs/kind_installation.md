@@ -1,6 +1,6 @@
 # Kind Installation
 
-This guide installs Mosaic on a disposable local Kind cluster for development and evaluation. It uses an external OpenAI-compatible LLM and enables the local read-only Kubernetes integration. BCM, Slurm, Grafana, Prometheus, Research Agent, and Hardware Agent integrations are disabled because a fresh Kind cluster does not provide those services.
+This guide installs AI Factory Operations Agent on a disposable local Kind cluster for development and evaluation. It uses an external OpenAI-compatible LLM and enables the local read-only Kubernetes integration. BCM, Slurm, Grafana, Prometheus, Research Agent, and Hardware Agent integrations are disabled because a fresh Kind cluster does not provide those services.
 
 ## 1. Prerequisites
 
@@ -13,7 +13,7 @@ helm version
 kubectl version --client
 ```
 
-Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the Mosaic registry.
+Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the required private registry artifacts.
 
 Obtain an API key, `/v1/chat/completions` base URL, and model name from the same OpenAI-compatible LLM provider.
 
@@ -25,7 +25,7 @@ kubectl config use-context kind-mosaic
 kubectl cluster-info
 ```
 
-Kind creates the default `standard` storage class used by Mosaic.
+Kind creates the default `standard` storage class used by AI Factory Operations Agent.
 
 ## 3. Configure Credentials And Dependencies
 
@@ -48,7 +48,7 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-## 4. Install Mosaic
+## 4. Install AI Factory Operations Agent
 
 
 ```bash

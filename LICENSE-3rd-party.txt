@@ -1,10 +1,10 @@
-Mosaic Third-Party Notices and Licenses
+AI Factory Operations Agent Third-Party Notices and Licenses
 
-This document identifies third-party open source software and separately maintained open source dependencies copied into the Mosaic source tree or directly referenced by its default Helm configuration. Mosaic-specific source is licensed under Apache-2.0; dependency components remain subject to their respective licenses.
+This document identifies third-party open source software and separately maintained open source dependencies copied into the AI Factory Operations Agent source tree or directly referenced by its default Helm configuration. AI Factory Operations Agent-specific source is licensed under Apache-2.0; dependency components remain subject to their respective licenses.
 
 ## Vendored Or Modified Source
 
-| Component | Use in Mosaic | Copyright or attribution | License | Source |
+| Component | Use in AI Factory Operations Agent | Copyright or attribution | License | Source |
 | --- | --- | --- | --- | --- |
 | Agent Sandbox v0.1.0 | The vendored Sandbox CRD and an NVIDIA-modified controller manifest under `helm/mosaic-stack/` | Copyright 2025 The Kubernetes Authors | Apache-2.0 (full text below) | [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox/tree/v0.1.0) |
 | OpenClaw | Plugin SDK interfaces and modified workspace templates under `helm/mosaic-stack/files/openclaw-seed/` | Copyright (c) 2025 Peter Steinberger | MIT (OpenClaw; full text below) | [openclaw/openclaw](https://github.com/openclaw/openclaw) |
@@ -13,11 +13,11 @@ The vendored files retain source-level SPDX copyright and license identifiers. N
 
 ## Direct Build And Runtime Dependencies
 
-| Component | Use in Mosaic | Copyright or attribution | License | Source |
+| Component | Use in AI Factory Operations Agent | Copyright or attribution | License | Source |
 | --- | --- | --- | --- | --- |
 | OpenShell | Helm dependency and sandbox runtime used by the execution module | Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES | Apache-2.0 (full text below) | [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell) |
 | Model Context Protocol Python SDK | `FastMCP` server API used by the BCM adapter | Copyright (c) 2024 Anthropic, PBC | MIT (MCP Python SDK; full text below) | [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk) |
-| Helm | Packaging and deployment of the Mosaic charts | The Helm Authors | Apache-2.0 (full text below) | [helm/helm](https://github.com/helm/helm) |
+| Helm | Packaging and deployment of the AI Factory Operations Agent charts | The Helm Authors | Apache-2.0 (full text below) | [helm/helm](https://github.com/helm/helm) |
 | Kubernetes and kubectl | Kubernetes API resources and the kubectl installer image | The Kubernetes Authors | Apache-2.0 (full text below) | [kubernetes/kubernetes](https://github.com/kubernetes/kubernetes) |
 | vLLM | Optional chart-managed OpenAI-compatible inference service | vLLM contributors | Apache-2.0 (full text below) | [vllm-project/vllm](https://github.com/vllm-project/vllm) |
 | Prometheus | Optional metrics storage and query service | The Prometheus Authors | Apache-2.0 (full text below) | [prometheus/prometheus](https://github.com/prometheus/prometheus) |
@@ -28,9 +28,9 @@ The vendored files retain source-level SPDX copyright and license identifiers. N
 
 ## Container Image Scope
 
-The Mosaic repository distributes Helm source and configuration, not copies of the upstream container images referenced by the chart. Those images are pulled separately from their registries and may contain additional transitive operating-system packages. Image-level notices and source offers distributed inside or alongside those images remain applicable and are not replaced by this file.
+The AI Factory Operations Agent repository distributes Helm source and configuration, not copies of the upstream container images referenced by the chart. Those images are pulled separately from their registries and may contain additional transitive operating-system packages. Image-level notices and source offers distributed inside or alongside those images remain applicable and are not replaced by this file.
 
-NVIDIA-owned Mosaic, NemoClaw, OpenShell, BCM, and diagnostic images are first-party components. Their image-specific third-party notices are maintained with those image distributions.
+NVIDIA-owned NemoClaw, OpenShell, BCM, and diagnostic images are first-party components. Their image-specific third-party notices are maintained with those image distributions.
 
 ===============================================================================
 FULL LICENSE TEXTS

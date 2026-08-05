@@ -1,18 +1,18 @@
 # NMC Installation
 
-This guide installs Mosaic on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](../helm/README.md).
+This guide installs AI Factory Operations Agent on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](../helm/README.md).
 
 Run this flow from the BCM head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
 
-Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the Mosaic registry. NGC displays a newly generated key only once. Run the command in a login shell where `module load` is available.
+Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the required private registry artifacts. NGC displays a newly generated key only once. Run the command in a login shell where `module load` is available.
 
-The command selects the NMC `k8s-admin` cluster, connects Mosaic to the existing `kube-prometheus-stack` services, enables BCM-backed Slurm, and installs the AgentSandbox CRD and controller from the Mosaic chart.
+The command selects the NMC `k8s-admin` cluster, connects AI Factory Operations Agent to the existing `kube-prometheus-stack` services, enables BCM-backed Slurm, and installs the AgentSandbox CRD and controller from the chart.
 
 ```bash
 set -euo pipefail
 module load kubernetes/k8s-admin
 
-: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with Mosaic registry access}"
+: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with private registry access}"
 : "${EXTERNAL_LLM_API_KEY:?Set EXTERNAL_LLM_API_KEY for the selected provider}"
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
