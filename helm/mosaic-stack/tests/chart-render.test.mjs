@@ -436,7 +436,7 @@ test("patches Slack Enterprise Grid workspace events without weakening app check
   assert.match(patched, /incomingApiAppId !== params\.apiAppId/);
 });
 
-test("exposes only Mosaic-owned skills to OpenClaw agents", () => {
+test("exposes only blueprint-owned skills to OpenClaw agents", () => {
   const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(
     output,

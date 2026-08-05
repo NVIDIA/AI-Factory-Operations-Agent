@@ -8,7 +8,7 @@ const baseUrl = process.env.MOSAIC_URL || "http://127.0.0.1:3000";
 const builtinTools = [
   {
     name: "mosaic_chat",
-    description: "Ask Mosaic to investigate or operate using its configured agents.",
+    description: "Investigate or operate using configured agents.",
     inputSchema: {
       type: "object",
       properties: {
@@ -22,7 +22,7 @@ const builtinTools = [
   },
   {
     name: "mosaic_history",
-    description: "Read a Mosaic conversation history.",
+    description: "Read conversation history.",
     inputSchema: {
       type: "object",
       properties: { sessionKey: { type: "string" }, limit: { type: "number" } },
@@ -30,7 +30,7 @@ const builtinTools = [
   },
   {
     name: "mosaic_commands",
-    description: "List Mosaic slash commands and agent entrypoints.",
+    description: "List slash commands and agent entrypoints.",
     inputSchema: { type: "object", properties: {} },
   },
 ];
@@ -53,7 +53,7 @@ async function listTools() {
     const catalog = await request("/api/openclaw/tools");
     moduleTools = Array.isArray(catalog.tools) ? catalog.tools.map(tool => ({
       name: tool.name,
-      description: tool.description || `Call Mosaic tool ${tool.name}.`,
+      description: tool.description || `Call tool ${tool.name}.`,
       inputSchema: tool.inputSchema || { type: "object", additionalProperties: true },
     })).filter(tool => typeof tool.name === "string" && tool.name) : [];
   } catch {}

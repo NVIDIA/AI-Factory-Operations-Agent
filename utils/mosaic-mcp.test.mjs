@@ -9,7 +9,7 @@ import test from "node:test";
 
 const bridge = fileURLToPath(new URL("mosaic-mcp.mjs", import.meta.url));
 
-test("stdio bridge exposes and invokes Mosaic tools", async t => {
+test("stdio bridge exposes and invokes configured tools", async t => {
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
     if (request.url === "/api/openclaw/tools") {
