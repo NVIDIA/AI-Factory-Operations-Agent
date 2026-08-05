@@ -424,8 +424,8 @@ test("patches Slack Enterprise Grid workspace events without weakening app check
   writeFileSync(
     provider,
     `\t\tconst incomingTeamId = typeof raw.team_id === "string" ? raw.team_id : typeof raw.team?.id === "string" ? raw.team.id : "";\n` +
-      `\t\tif (params.apiAppId && incomingApiAppId && incomingApiAppId !== params.apiAppId) {}\n` +
-      `\t\tif (params.teamId && incomingTeamId && incomingTeamId !== params.teamId) {}`,
+    `\t\tif (params.apiAppId && incomingApiAppId && incomingApiAppId !== params.apiAppId) {}\n` +
+    `\t\tif (params.teamId && incomingTeamId && incomingTeamId !== params.teamId) {}`,
   );
   execFileSync("node", [slackEnterprisePatch, provider]);
   execFileSync("node", [slackEnterprisePatch, provider]);
