@@ -16,22 +16,7 @@ Supported workflows include:
 
 # Architecture
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#f5f5f5","primaryBorderColor":"#76b900","primaryTextColor":"#1a1a1a","lineColor":"#4d4d4d","secondaryColor":"#ffffff","tertiaryColor":"#ffffff"}}}%%
-flowchart LR
-    operator[Operator] --> ui[AI Factory Operations Agent]
-    client[CLI / HTTP / MCP client] --> ui
-    ui --> gateway[NemoClaw]
-    gateway --> sandbox[OpenShell sandbox]
-    gateway --> modules[Enabled modules]
-    gateway --> llm[LLM]
-    modules --> k8s[Kubernetes]
-    modules --> obs[Prometheus / Grafana]
-    modules --> slurm[Slurm]
-    modules --> bcm[BCM]
-    modules --> research[Research Agent]
-    modules --> hardware[Hardware Agent]
-```
+![AI Factory Operations Agent architecture](https://assets.ngc.nvidia.com/products/api-catalog/operate-ai-factories-with-agents/diagram.jpg)
 
 OpenShell isolates general agent command execution. Kubernetes, observability, Slurm, and BCM access use module-specific server-side tools and the credentials explicitly configured for those modules. Browser and MCP clients do not receive cluster credentials. Kubernetes Secrets remain mounted only in the pods that require them.
 
