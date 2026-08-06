@@ -106,6 +106,10 @@ export function contextAllowsEdit(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) !== "view";
 }
 
+export function contextAllowsMutation(editEnabled: boolean, context: ToolContext) {
+  return editEnabled && contextAllowsEdit(context);
+}
+
 export function contextSkipsApproval(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) === "auto";
 }

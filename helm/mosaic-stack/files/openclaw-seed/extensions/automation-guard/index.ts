@@ -5,7 +5,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
   clearRunAccess,
   configureIdentityApprovalBroker,
-  contextAllowsEdit,
+  contextAllowsMutation,
   isReadonlyAutomationSession,
   sessionAccessExtension,
   setRunAccess,
@@ -62,7 +62,7 @@ export default definePluginEntry({
         }
         if (!mutating) return;
         const automated = isReadonlyAutomationSession(context.sessionKey);
-        if (!automated && (!editEnabled || contextAllowsEdit(context))) return;
+        if (contextAllowsMutation(editEnabled, context)) return;
         const reason = automated
           ? "Automated sessions are read-only."
           : "This conversation is in View mode. Switch it to Edit before requesting changes.";

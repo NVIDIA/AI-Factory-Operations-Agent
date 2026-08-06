@@ -8,6 +8,7 @@ import {
   clearRunAccess,
   configureIdentityApprovalBroker,
   contextAllowsEdit,
+  contextAllowsMutation,
   contextSkipsApproval,
   isReadonlyAutomationSession,
   requestIdentityApproval,
@@ -50,6 +51,20 @@ test("defaults conversations to view and never enables automation edits", () => 
   assert.equal(sessionAllowsEdit("agent:default:interactive", undefined), false);
   assert.equal(sessionAllowsEdit("agent:default:mosaic-automation-cluster-monitor-local", { mode: "edit" }), false);
   assert.equal(sessionSkipsApproval("agent:default:mosaic-automation-cluster-monitor-local", { mode: "auto" }), false);
+});
+
+test("allows mutations only when editing is enabled and the conversation permits it", () => {
+  const view = { getSessionExtension: () => ({ mode: "view" }) };
+  const edit = { getSessionExtension: () => ({ mode: "edit" }) };
+  const automation = {
+    sessionKey: "agent:default:mosaic-automation-alert-test",
+    getSessionExtension: () => ({ mode: "edit" }),
+  };
+  assert.equal(contextAllowsMutation(false, view), false);
+  assert.equal(contextAllowsMutation(true, view), false);
+  assert.equal(contextAllowsMutation(false, edit), false);
+  assert.equal(contextAllowsMutation(true, edit), true);
+  assert.equal(contextAllowsMutation(true, automation), false);
 });
 
 test("uses verified Slack identity access without changing non-Slack sessions", async () => {
