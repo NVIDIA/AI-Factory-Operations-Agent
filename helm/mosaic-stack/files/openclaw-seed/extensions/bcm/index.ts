@@ -124,14 +124,6 @@ function readConfig(pluginConfig: unknown): BcmConfig {
     (typeof process !== "undefined"
       ? process.env?.MOSAIC_BCM_MCP_TOKEN || process.env?.BCM_MCP_TOKEN || ""
       : "");
-  const allowInsecureTls =
-    pluginConfig &&
-    typeof pluginConfig === "object" &&
-    (pluginConfig as Record<string, unknown>).allowInsecureTls === true;
-  if (allowInsecureTls && typeof process !== "undefined" && process.env) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  }
-
   return {
     mcpUrl: normalizeMcpUrl(configuredUrl || DEFAULT_MCP_URL),
     authToken: configuredToken || undefined,

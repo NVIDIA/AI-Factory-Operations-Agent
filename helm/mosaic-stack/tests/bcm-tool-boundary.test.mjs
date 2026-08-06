@@ -18,6 +18,15 @@ test("runs BCM tools locally and sends command execution over SSH", () => {
   assert.doesNotMatch(plugin, /hostname: config\.headHost/);
 });
 
+test("does not permit BCM configuration to disable TLS verification", () => {
+  const manifest = JSON.parse(readFileSync(
+    new URL("../files/openclaw-seed/extensions/bcm/openclaw.plugin.json", import.meta.url),
+  ));
+  assert.equal(manifest.configSchema.properties.allowInsecureTls, undefined);
+  assert.equal(manifest.uiHints.allowInsecureTls, undefined);
+  assert.doesNotMatch(plugin, /NODE_TLS_REJECT_UNAUTHORIZED|allowInsecureTls/);
+});
+
 test("keeps readonly and admin CMSH on separate tools and identities", () => {
   assert.match(plugin, /name: "bcm_execute_cmsh"[\s\S]*?"execute_cmsh"/);
   assert.match(plugin, /name: "bcm_execute_cmsh_admin"[\s\S]*?"execute_cmsh_admin"/);
