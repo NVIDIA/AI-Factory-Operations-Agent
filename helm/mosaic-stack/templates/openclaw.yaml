@@ -3,8 +3,6 @@
 
 {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
 {{- $observability := default dict .Values.observability }}
-{{- $bcmDocs := mergeOverwrite (dict "enabled" true "baseUrl" "https://docs.nvidia.com/base-command-manager/manuals" "version" "11" "timeoutSeconds" "60") (.Values.bcmDocs | default dict) }}
-{{- $bcmDocsImage := mergeOverwrite (dict "repository" "python" "tag" "3.12-alpine" "pullPolicy" "IfNotPresent") ($bcmDocs.image | default dict) }}
 {{- $kubernetesClusters := include "mosaic-stack.kubernetesClusters" . | fromJson }}
 apiVersion: apps/v1
 kind: Deployment
@@ -308,39 +306,28 @@ spec:
             - name: openclaw-seed
               mountPath: /seed
         {{- end }}
-        {{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") ($bcmDocs.enabled | default true) }}
+        {{- if eq (include "mosaic-stack.bcmEnabled" .) "true" }}
         - name: init-bcm-docs
-          image: {{ include "mosaic-stack.image" $bcmDocsImage | quote }}
-          imagePullPolicy: {{ $bcmDocsImage.pullPolicy }}
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
           command:
             - sh
             - -c
             - |
               set -eu
-              apk add --no-cache poppler-utils >/dev/null
-              python /seed/bcm-docs-download.py
-              rm -rf /home/node/.openclaw/workspace/skills/bcm/docs
-              mkdir -p /home/node/.openclaw/workspace/skills/bcm/docs
-              cp /home/node/.openclaw/workspace/docs/*.md /home/node/.openclaw/workspace/skills/bcm/docs/
-              chown -R 1000:1000 /home/node/.openclaw/workspace/docs
-              chown -R 1000:1000 /home/node/.openclaw/workspace/skills/bcm/docs
-          env:
-            - name: MOSAIC_BCM_DOCS_BASE_URL
-              value: {{ $bcmDocs.baseUrl | quote }}
-            - name: MOSAIC_BCM_DOCS_VERSION
-              value: {{ $bcmDocs.version | quote }}
-            - name: MOSAIC_BCM_DOCS_TIMEOUT_SECONDS
-              value: {{ $bcmDocs.timeoutSeconds | quote }}
-            - name: MOSAIC_BCM_DOCS_OUTPUT_DIR
-              value: /home/node/.openclaw/workspace/docs
+              docs=/home/node/.openclaw/workspace/docs
+              skill_docs=/home/node/.openclaw/workspace/skills/bcm/docs
+              rm -rf "$docs" "$skill_docs"
+              mkdir -p "$docs" "$skill_docs"
+              tar -xzf /opt/nemoclaw/bcm-docs.tar.gz -C "$docs"
+              tar -xzf /opt/nemoclaw/bcm-docs.tar.gz -C "$skill_docs"
+              chown -R 1000:1000 "$docs" "$skill_docs"
           securityContext:
             runAsUser: 0
             runAsGroup: 0
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
-            - name: openclaw-seed
-              mountPath: /seed
         {{- end }}
         - name: install-openshell-assets
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}

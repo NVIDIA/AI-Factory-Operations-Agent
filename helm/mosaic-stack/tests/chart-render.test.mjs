@@ -165,6 +165,22 @@ test("pins the UI to the immutable GitLab short SHA tag", () => {
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
+test("seeds BCM manuals without deployment-time network access", () => {
+  const output = renderDiagnostics(
+    "--set-string", "mosaicUi.image.tag=1234abcd",
+    "--show-only", "templates/openclaw.yaml",
+  );
+  const init = output.split("- name: init-bcm-docs")[1]?.split("- name: install-openshell-assets")[0] || "";
+  assert.match(init, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:1234abcd"/);
+  assert.match(init, /tar -xzf \/opt\/nemoclaw\/bcm-docs\.tar\.gz/);
+  assert.doesNotMatch(init, /https?:|curl|apk|python|pdftotext/);
+  assert.doesNotMatch(renderDiagnostics("--show-only", "templates/openclaw-seed-configmap.yaml"), /bcm-docs-download/);
+  assert.doesNotMatch(
+    render("--set", "modules.bcm.enabled=false", "--show-only", "templates/openclaw.yaml"),
+    /name: init-bcm-docs/,
+  );
+});
+
 test("uses NMC observability services by default", () => {
   const output = render();
   assert.match(output, /http:\/\/kube-prometheus-stack-prometheus\.prometheus\.svc\.cluster\.local:9090/);
