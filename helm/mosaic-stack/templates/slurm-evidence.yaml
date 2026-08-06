@@ -77,7 +77,7 @@ spec:
             - name: MAX_MATCHES
               value: {{ default 40 $collector.maxMatches | quote }}
             - name: MAX_VISITED_FILES
-              value: {{ default 50000 $collector.maxVisitedFiles | quote }}
+              value: {{ default 5000 $collector.maxVisitedFiles | quote }}
             - name: EVIDENCE_ROOTS
               value: {{ join ":" $roots | quote }}
             - name: EVIDENCE_AUTH_TOKEN

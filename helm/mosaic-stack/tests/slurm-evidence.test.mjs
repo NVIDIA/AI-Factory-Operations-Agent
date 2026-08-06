@@ -12,6 +12,7 @@ test("authenticates evidence reads and rejects symlink escapes", async () => {
   const logRoot = path.join(host, "var/log");
   await mkdir(logRoot, { recursive: true });
   await writeFile(path.join(logRoot, "slurm.log"), "safe evidence\n");
+  await writeFile(path.join(logRoot, "literal.log"), "(?:a+)+$\n");
   await writeFile(path.join(host, "secret"), "host secret\n");
   await symlink("../../secret", path.join(logRoot, "escaped"));
   process.env.HOST_ROOT = host;
@@ -34,6 +35,10 @@ test("authenticates evidence reads and rejects symlink escapes", async () => {
     assert.equal(allowed.status, 200);
     assert.equal((await allowed.json()).text, "safe evidence\n");
     assert.equal((await request("/read?path=/var/log/escaped", "test-token")).status, 400);
+    const literal = await request("/grep?root=/var/log&pattern=%28%3F%3Aa%2B%29%2B%24", "test-token");
+    assert.deepEqual((await literal.json()).matches, [{ path: "/var/log/literal.log", lines: ["(?:a+)+$"] }]);
+    const oversized = encodeURIComponent("x".repeat(257));
+    assert.equal((await request(`/grep?root=/var/log&pattern=${oversized}`, "test-token")).status, 400);
   } finally {
     server.close();
     await rm(host, { recursive: true, force: true });

@@ -330,7 +330,7 @@ slurmEvidenceCollector:
   port: 8080
   maxFileBytes: 65536
   maxMatches: 40
-  maxVisitedFiles: 50000
+  maxVisitedFiles: 5000
   nodeSelector: {}
   roots:
     - /var/log

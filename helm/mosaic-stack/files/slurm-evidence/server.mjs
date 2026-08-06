@@ -6,12 +6,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-const hostRoot = process.env.HOST_ROOT || '/host';
+const hostRoot = await realpath(process.env.HOST_ROOT || '/host');
 const roots = (process.env.EVIDENCE_ROOTS || '').split(':').filter(Boolean);
 const authToken = process.env.EVIDENCE_AUTH_TOKEN || '';
 const maxFileBytes = Number(process.env.MAX_FILE_BYTES || 65536);
 const maxMatches = Number(process.env.MAX_MATCHES || 40);
-const maxVisitedFiles = Number(process.env.MAX_VISITED_FILES || 50000);
+const maxVisitedFiles = Number(process.env.MAX_VISITED_FILES || 5000);
 
 if (!authToken) throw new Error('EVIDENCE_AUTH_TOKEN is required');
 
@@ -87,8 +87,7 @@ async function findJobFiles(jobId) {
   return matches;
 }
 
-async function grepFiles(pattern, root = '/', pathFilter = () => true) {
-  const regex = new RegExp(pattern, 'i');
+async function searchFiles(matchesLine, root = '/', pathFilter = () => true) {
   const matches = [];
   const counter = { visited: 0 };
   const bases = root === '/'
@@ -104,7 +103,7 @@ async function grepFiles(pattern, root = '/', pathFilter = () => true) {
       } catch {
         continue;
       }
-      const lines = text.split('\n').filter(line => regex.test(line)).slice(0, 5);
+      const lines = text.split('\n').filter(matchesLine).slice(0, 5);
       if (lines.length) matches.push({ path: publicPath(file), lines });
       if (matches.length >= maxMatches || counter.visited > maxVisitedFiles) return matches;
     }
@@ -113,11 +112,24 @@ async function grepFiles(pattern, root = '/', pathFilter = () => true) {
 }
 
 function isSlurmPath(filePath) {
-  return /(^|\/)slurm([^/]*|\/)/i.test(filePath);
+  return filePath.toLowerCase().split('/').some(part => part.startsWith('slurm'));
 }
 
-function jobIdPattern(jobId) {
-  return `(^|[^0-9])${jobId}([^0-9]|$)`;
+function containsJobId(line, jobId) {
+  let offset = line.indexOf(jobId);
+  while (offset >= 0) {
+    const before = line[offset - 1];
+    const after = line[offset + jobId.length];
+    if ((!before || before < '0' || before > '9') && (!after || after < '0' || after > '9')) return true;
+    offset = line.indexOf(jobId, offset + 1);
+  }
+  return false;
+}
+
+function literalMatcher(pattern) {
+  if (pattern.length > 256) throw new Error('pattern must not exceed 256 characters');
+  const needle = pattern.toLowerCase();
+  return line => line.toLowerCase().includes(needle);
 }
 
 async function slurmJobEvidence(jobId) {
@@ -142,8 +154,12 @@ async function slurmJobEvidence(jobId) {
     searched_roots: roots,
     matched_files: files,
     snippets,
-    slurm_logs: await grepFiles(jobIdPattern(jobId), '/var/log', isSlurmPath),
-    slurm_config: await grepFiles('SlurmctldLogFile|SlurmdLogFile|AccountingStorage|StateSaveLocation', '/etc/slurm'),
+    slurm_logs: await searchFiles(line => containsJobId(line, jobId), '/var/log', isSlurmPath),
+    slurm_config: await searchFiles(
+      line => ['slurmctldlogfile', 'slurmdlogfile', 'accountingstorage', 'statesavelocation']
+        .some(key => line.toLowerCase().includes(key)),
+      '/etc/slurm',
+    ),
   };
 }
 
@@ -163,11 +179,16 @@ function authorized(req) {
 }
 
 export function createEvidenceServer() {
+  let busy = false;
   return createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
+    let acquired = false;
     try {
       if (url.pathname === '/healthz') return send(res, 200, { ok: true });
       if (!authorized(req)) return send(res, 401, { error: 'unauthorized' });
+      if (busy) return send(res, 429, { error: 'collector is busy' });
+      busy = true;
+      acquired = true;
       if (url.pathname === '/slurm/job') {
         const id = url.searchParams.get('id') || '';
         if (!/^[0-9]+(?:_[0-9]+)?$/.test(id)) throw new Error('id must be a Slurm job id');
@@ -181,11 +202,13 @@ export function createEvidenceServer() {
         const pattern = url.searchParams.get('pattern') || '';
         if (!pattern) throw new Error('pattern is required');
         const root = url.searchParams.get('root') || '/';
-        return send(res, 200, { root, pattern, matches: await grepFiles(pattern, root) });
+        return send(res, 200, { root, pattern, matches: await searchFiles(literalMatcher(pattern), root) });
       }
       send(res, 404, { error: 'not found' });
     } catch (error) {
       send(res, 400, { error: String(error?.message || error) });
+    } finally {
+      if (acquired) busy = false;
     }
   });
 }

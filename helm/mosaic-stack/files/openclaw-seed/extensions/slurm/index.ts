@@ -93,7 +93,7 @@ export default definePluginEntry({
         additionalProperties: false,
         required: ["pattern"],
         properties: {
-          pattern: { type: "string", description: "Case-insensitive regular expression." },
+          pattern: { type: "string", maxLength: 256, description: "Case-insensitive literal text." },
           root: { type: "string", description: "Optional allowlisted root path. Defaults to all evidence roots." },
         },
       },
