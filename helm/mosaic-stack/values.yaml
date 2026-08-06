@@ -320,6 +320,9 @@ openshell:
     sandboxImagePullPolicy: IfNotPresent
 
 slurmEvidenceCollector:
+  auth:
+    secretName: slurm-evidence-auth
+    secretKey: token
   image:
     repository: node
     tag: 20-bookworm-slim

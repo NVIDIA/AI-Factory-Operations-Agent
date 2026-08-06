@@ -21,7 +21,9 @@ function jsonToolResult(payload: unknown) {
 }
 
 async function getJson(url: string) {
-  const response = await fetch(url);
+  const token = process.env.MOSAIC_SLURM_EVIDENCE_TOKEN;
+  if (!token) throw new Error("MOSAIC_SLURM_EVIDENCE_TOKEN is required");
+  const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
   const text = await response.text();
   let payload: unknown;
   try {

@@ -851,6 +851,16 @@ test("preserves the Slurm evidence apiVersion after its SPDX header", () => {
   assert.doesNotMatch(output, /Apache-2\.0apiVersion/);
 });
 
+test("shares a generated credential between OpenClaw and the Slurm evidence collector", () => {
+  const output = render(
+    "--set", "modules.slurm.enabled=true",
+    "--set", "modules.bcm.enabled=false",
+  );
+  assert.match(output, /kind: Secret\s+metadata:\s+name: slurm-evidence-auth/);
+  assert.match(output, /name: EVIDENCE_AUTH_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: slurm-evidence-auth\s+key: token/);
+  assert.match(output, /name: MOSAIC_SLURM_EVIDENCE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: slurm-evidence-auth\s+key: token/);
+});
+
 test("rejects an unregistered default Kubernetes cluster", () => {
   const result = spawnSync(
     "helm",

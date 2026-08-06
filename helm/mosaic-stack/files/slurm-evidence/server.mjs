@@ -2,21 +2,35 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createServer } from 'node:http';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { timingSafeEqual } from 'node:crypto';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-const hostRoot = '/host';
+const hostRoot = process.env.HOST_ROOT || '/host';
 const roots = (process.env.EVIDENCE_ROOTS || '').split(':').filter(Boolean);
+const authToken = process.env.EVIDENCE_AUTH_TOKEN || '';
 const maxFileBytes = Number(process.env.MAX_FILE_BYTES || 65536);
 const maxMatches = Number(process.env.MAX_MATCHES || 40);
 const maxVisitedFiles = Number(process.env.MAX_VISITED_FILES || 50000);
 
-function hostPath(rawPath) {
+if (!authToken) throw new Error('EVIDENCE_AUTH_TOKEN is required');
+
+function uncheckedHostPath(rawPath) {
   const clean = path.resolve('/', rawPath || '/');
   if (!roots.some(root => clean === root || clean.startsWith(`${root.replace(/\/$/, '')}/`))) {
     throw new Error(`path is outside allowed roots: ${rawPath}`);
   }
   return path.join(hostRoot, clean.slice(1));
+}
+
+const canonicalRoots = await Promise.all(roots.map(async root => realpath(uncheckedHostPath(root)).catch(() => undefined)));
+
+async function hostPath(rawPath) {
+  const target = await realpath(uncheckedHostPath(rawPath));
+  if (!canonicalRoots.some(root => root && (target === root || target.startsWith(`${root}${path.sep}`)))) {
+    throw new Error(`path is outside allowed roots: ${rawPath}`);
+  }
+  return target;
 }
 
 function publicPath(fullPath) {
@@ -55,9 +69,10 @@ async function findJobFiles(jobId) {
   const counter = { visited: 0 };
   for (const root of roots) {
     const bases = root === '/cm/shared'
-      ? ['/cm/shared/training', '/cm/shared/slurm-logs', '/cm/shared'].map(hostPath)
-      : [hostPath(root)];
+      ? await Promise.all(['/cm/shared/training', '/cm/shared/slurm-logs', '/cm/shared'].map(candidate => hostPath(candidate).catch(() => undefined)))
+      : [await hostPath(root).catch(() => undefined)];
     for (const base of bases) {
+      if (!base) continue;
       for await (const file of walk(base, counter)) {
         const name = path.basename(file);
         if (patterns.some(pattern => name.includes(pattern))) {
@@ -76,8 +91,11 @@ async function grepFiles(pattern, root = '/', pathFilter = () => true) {
   const regex = new RegExp(pattern, 'i');
   const matches = [];
   const counter = { visited: 0 };
-  const bases = root === '/' ? roots.map(hostPath) : [hostPath(root)];
+  const bases = root === '/'
+    ? await Promise.all(roots.map(candidate => hostPath(candidate).catch(() => undefined)))
+    : [await hostPath(root)];
   for (const base of bases) {
+    if (!base) continue;
     for await (const file of walk(base, counter)) {
       if (!pathFilter(publicPath(file))) continue;
       let text;
@@ -107,7 +125,7 @@ async function slurmJobEvidence(jobId) {
   const snippets = [];
   for (const item of files.slice(0, 10)) {
     try {
-      const { text, truncated } = await readTail(hostPath(item.path));
+      const { text, truncated } = await readTail(await hostPath(item.path));
       const lines = text.split('\n');
       snippets.push({
         path: item.path,
@@ -135,27 +153,43 @@ function send(res, status, payload) {
   res.end(body);
 }
 
-createServer(async (req, res) => {
-  const url = new URL(req.url || '/', 'http://localhost');
-  try {
-    if (url.pathname === '/healthz') return send(res, 200, { ok: true, roots });
-    if (url.pathname === '/slurm/job') {
-      const id = url.searchParams.get('id') || '';
-      if (!/^[0-9]+(?:_[0-9]+)?$/.test(id)) throw new Error('id must be a Slurm job id');
-      return send(res, 200, await slurmJobEvidence(id));
+function authorized(req) {
+  const header = String(req.headers.authorization || '');
+  if (!header.startsWith('Bearer ')) return false;
+  const supplied = header.slice(7);
+  const expected = Buffer.from(authToken);
+  const actual = Buffer.from(supplied);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export function createEvidenceServer() {
+  return createServer(async (req, res) => {
+    const url = new URL(req.url || '/', 'http://localhost');
+    try {
+      if (url.pathname === '/healthz') return send(res, 200, { ok: true });
+      if (!authorized(req)) return send(res, 401, { error: 'unauthorized' });
+      if (url.pathname === '/slurm/job') {
+        const id = url.searchParams.get('id') || '';
+        if (!/^[0-9]+(?:_[0-9]+)?$/.test(id)) throw new Error('id must be a Slurm job id');
+        return send(res, 200, await slurmJobEvidence(id));
+      }
+      if (url.pathname === '/read') {
+        const target = url.searchParams.get('path') || '';
+        return send(res, 200, { path: target, ...(await readTail(await hostPath(target))) });
+      }
+      if (url.pathname === '/grep') {
+        const pattern = url.searchParams.get('pattern') || '';
+        if (!pattern) throw new Error('pattern is required');
+        const root = url.searchParams.get('root') || '/';
+        return send(res, 200, { root, pattern, matches: await grepFiles(pattern, root) });
+      }
+      send(res, 404, { error: 'not found' });
+    } catch (error) {
+      send(res, 400, { error: String(error?.message || error) });
     }
-    if (url.pathname === '/read') {
-      const target = url.searchParams.get('path') || '';
-      return send(res, 200, { path: target, ...(await readTail(hostPath(target))) });
-    }
-    if (url.pathname === '/grep') {
-      const pattern = url.searchParams.get('pattern') || '';
-      if (!pattern) throw new Error('pattern is required');
-      const root = url.searchParams.get('root') || '/';
-      return send(res, 200, { root, pattern, matches: await grepFiles(pattern, root) });
-    }
-    send(res, 404, { error: 'not found' });
-  } catch (error) {
-    send(res, 400, { error: String(error?.message || error) });
-  }
-}).listen(Number(process.env.PORT || 8080), '0.0.0.0');
+  });
+}
+
+if (process.env.EVIDENCE_TEST_MODE !== '1') {
+  createEvidenceServer().listen(Number(process.env.PORT || 8080), '0.0.0.0');
+}

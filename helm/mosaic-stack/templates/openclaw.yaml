@@ -535,6 +535,11 @@ spec:
             {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}
+            - name: MOSAIC_SLURM_EVIDENCE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default "slurm-evidence-auth" .Values.slurmEvidenceCollector.auth.secretName }}
+                  key: {{ default "token" .Values.slurmEvidenceCollector.auth.secretKey }}
             {{- end }}
           ports:
             - containerPort: 18789

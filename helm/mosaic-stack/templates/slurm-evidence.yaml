@@ -4,8 +4,27 @@
 {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
 {{- $collector := .Values.slurmEvidenceCollector | default dict -}}
 {{- $image := $collector.image | default dict -}}
+{{- $auth := $collector.auth | default dict -}}
+{{- $secretName := default "slurm-evidence-auth" $auth.secretName -}}
+{{- $secretKey := default "token" $auth.secretKey -}}
+{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName -}}
+{{- $existingToken := "" -}}
+{{- if and $existingSecret (hasKey $existingSecret.data $secretKey) -}}
+{{- $existingToken = (index $existingSecret.data $secretKey | b64dec) -}}
+{{- end -}}
+{{- $token := $existingToken | default (randAlphaNum 48) -}}
 {{- $port := default 8080 $collector.port -}}
 {{- $roots := default (list "/var/log" "/cm/shared" "/slurm" "/etc/slurm" "/cm/shared/apps/slurm/etc" "/run/log/journal" "/var/log/journal") $collector.roots }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{ $secretKey }}: {{ $token | quote }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -61,6 +80,11 @@ spec:
               value: {{ default 50000 $collector.maxVisitedFiles | quote }}
             - name: EVIDENCE_ROOTS
               value: {{ join ":" $roots | quote }}
+            - name: EVIDENCE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ $secretKey }}
           ports:
             - name: http
               containerPort: {{ $port }}
