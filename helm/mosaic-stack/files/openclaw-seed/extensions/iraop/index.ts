@@ -29,9 +29,12 @@ function resolveSubagentEventsUrl(pluginConfig: unknown): string {
   return "http://mosaic-ui:3000/api/subagents/events";
 }
 
-function readConfig(pluginConfig: unknown): { sseUrl: string; timeoutMs: number; subagentEventsUrl: string } {
+function readConfig(
+  pluginConfig: unknown,
+): { sseUrl: string; timeoutMs: number; apiKey: string; subagentEventsUrl: string } {
   let sseUrl = DEFAULT_SSE_URL;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
+  let apiKey = "";
   if (pluginConfig && typeof pluginConfig === "object") {
     const cfg = pluginConfig as Record<string, unknown>;
     if (typeof cfg.baseUrl === "string" && cfg.baseUrl.trim()) {
@@ -40,8 +43,23 @@ function readConfig(pluginConfig: unknown): { sseUrl: string; timeoutMs: number;
     if (typeof cfg.timeoutMs === "number" && Number.isFinite(cfg.timeoutMs) && cfg.timeoutMs > 0) {
       timeoutMs = cfg.timeoutMs;
     }
+    if (typeof cfg.apiKey === "string") {
+      const raw = cfg.apiKey.trim();
+      // OpenClaw leaves `${VAR}` as a literal when the env var is unset. Sending
+      // that as a bearer token is worse than sending nothing: iraop would count
+      // it as a rejected caller rather than an unconfigured one, which is the
+      // signal the 2026-08-20 enforcement gate is read from.
+      apiKey = raw.startsWith("${") ? "" : raw;
+    }
   }
-  return { sseUrl, timeoutMs, subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig) };
+  return { sseUrl, timeoutMs, apiKey, subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig) };
+}
+
+// iraop authenticates its HTTP API and its MCP surface with one shared bearer
+// token. No key configured means no header at all, which is what every
+// namespace sends today and what iraop still accepts while enforcement is off.
+function authHeaders(apiKey: string): Record<string, string> {
+  return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 }
 
 function postSubagentEvent(
@@ -84,6 +102,7 @@ async function callMcpTool(
   toolName: string,
   toolArgs: Record<string, unknown>,
   timeoutMs: number,
+  apiKey = "",
   progress?: (message: string) => void,
 ): Promise<unknown> {
   const controller = new AbortController();
@@ -104,11 +123,17 @@ async function callMcpTool(
   progress?.(`Opening IRA MCP/SSE connection: ${sseUrl}`);
 
   const sseResp = await fetch(sseUrl, {
-    headers: { Accept: "text/event-stream" },
+    headers: { Accept: "text/event-stream", ...authHeaders(apiKey) },
     signal: controller.signal,
   });
   if (!sseResp.ok || !sseResp.body) {
     clearTimeout(timer);
+    if (sseResp.status === 401) {
+      throw new Error(
+        "iraop MCP SSE connect rejected (401): the iraop bearer token is missing or wrong. " +
+          "Check IRAOP_API_KEY on the openclaw gateway and the iraop-auth Secret in this namespace.",
+      );
+    }
     throw new Error(`iraop MCP SSE connect failed: ${sseResp.status} ${sseResp.statusText}`);
   }
   log(`SSE open, status=${sseResp.status}`);
@@ -181,11 +206,21 @@ async function callMcpTool(
   async function post(body: unknown): Promise<Response> {
     return fetch(sessionUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders(apiKey) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
   }
+
+  // MCP-over-SSE authenticates each leg separately — the stream open and every
+  // session POST are independent HTTP requests — so a 401 can surface here even
+  // though the stream opened fine.
+  const postError = (method: string, kind: string, status: number) =>
+    new Error(
+      status === 401
+        ? `iraop MCP ${method} ${kind} rejected (401): the iraop bearer token is missing or wrong.`
+        : `iraop MCP ${method} ${kind} failed: ${status}`,
+    );
 
   let nextId = 1;
   async function rpc(method: string, params?: unknown): Promise<unknown> {
@@ -196,7 +231,7 @@ async function callMcpTool(
     const resp = await post({ jsonrpc: "2.0", id, method, params });
     if (!resp.ok) {
       pending.delete(id);
-      throw new Error(`iraop MCP ${method} POST failed: ${resp.status}`);
+      throw postError(method, "POST", resp.status);
     }
     return waiter;
   }
@@ -204,7 +239,7 @@ async function callMcpTool(
   async function notify(method: string, params?: unknown): Promise<void> {
     const resp = await post({ jsonrpc: "2.0", method, params });
     if (!resp.ok) {
-      throw new Error(`iraop MCP ${method} notify failed: ${resp.status}`);
+      throw postError(method, "notify", resp.status);
     }
   }
 
@@ -289,7 +324,7 @@ export default definePluginEntry({
   name: "iraop Plugin",
   description: "MCP-SSE bridge from OpenClaw to the iraop (Sequoia) documentation retrieval agent.",
   register(api) {
-    const { sseUrl, timeoutMs, subagentEventsUrl } = readConfig(api.pluginConfig);
+    const { sseUrl, timeoutMs, apiKey, subagentEventsUrl } = readConfig(api.pluginConfig);
 
     api.registerTool({
       name: "iraop_query",
@@ -352,7 +387,7 @@ export default definePluginEntry({
         );
         const startedAt = Date.now();
         try {
-          const result = await callMcpTool(sseUrl, "query", args, timeoutMs, (message) => {
+          const result = await callMcpTool(sseUrl, "query", args, timeoutMs, apiKey, (message) => {
             postSubagentEvent(subagent, "delta", message);
           });
           const openClawResult = toOpenClawResult(result);
@@ -376,7 +411,7 @@ export default definePluginEntry({
         "List all iraop document collections with doc counts and on-disk sizes. Use this to discover what knowledge bases are available before calling iraop_query or iraop_list_documents.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute() {
-        const result = await callMcpTool(sseUrl, "list_collections", {}, 30_000);
+        const result = await callMcpTool(sseUrl, "list_collections", {}, 30_000, apiKey);
         return toOpenClawResult(result);
       },
     });
@@ -397,7 +432,7 @@ export default definePluginEntry({
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
         const collection = typeof rawParams.collection === "string" ? rawParams.collection.trim() : "";
         if (!collection) throw new Error("collection is required");
-        const result = await callMcpTool(sseUrl, "list_documents", { collection }, 30_000);
+        const result = await callMcpTool(sseUrl, "list_documents", { collection }, 30_000, apiKey);
         return toOpenClawResult(result);
       },
     });
@@ -418,7 +453,7 @@ export default definePluginEntry({
       async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
         const filename = typeof rawParams.filename === "string" ? rawParams.filename.trim() : "";
         if (!filename) throw new Error("filename is required");
-        const result = await callMcpTool(sseUrl, "get_document", { filename }, 30_000);
+        const result = await callMcpTool(sseUrl, "get_document", { filename }, 30_000, apiKey);
         return toOpenClawResult(result);
       },
     });

@@ -54,6 +54,14 @@ modules:
     managed: false
     baseUrl: http://iraop:8000/mcp/sse
     timeoutMs: 240000
+    # Existing Secret holding iraop's shared bearer token. The chart REFERENCES
+    # it and never creates it: the token is owned by the iraop release, which
+    # may live in another namespace, and Secrets do not cross namespaces. A
+    # missing Secret is tolerated (optional: true on the secretKeyRef) — the
+    # plugin then sends no Authorization header, which iraop logs rather than
+    # rejects while enforcement is staged off.
+    apiKeySecretName: iraop-auth
+    apiKeySecretKey: IRAOP_API_KEY
     secrets:
       create: false
       nvidiaApiKey: ""

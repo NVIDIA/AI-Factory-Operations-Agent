@@ -532,6 +532,14 @@ spec:
                   name: {{ .Values.diagnosticAgent.apiKeySecretName }}
                   key: API_KEY
             {{- end }}
+            {{- if .Values.modules.research.enabled }}
+            - name: IRAOP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modules.research.apiKeySecretName }}
+                  key: {{ .Values.modules.research.apiKeySecretKey }}
+                  optional: true
+            {{- end }}
             {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}

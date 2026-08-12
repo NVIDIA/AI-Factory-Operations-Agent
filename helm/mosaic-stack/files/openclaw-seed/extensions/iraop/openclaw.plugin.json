@@ -26,6 +26,10 @@
         "minimum": 1000,
         "description": "Per-tool-call timeout in milliseconds. Default 240000 (4 min) so deep queries have headroom."
       },
+      "apiKey": {
+        "type": "string",
+        "description": "Bearer token for iraop's HTTP API and MCP surface. Empty means no Authorization header is sent."
+      },
       "subagentEventsUrl": {
         "type": "string",
         "description": "Optional UI endpoint that receives live iraop subagent events."
@@ -40,6 +44,11 @@
     "timeoutMs": {
       "label": "Tool-call timeout (ms)",
       "help": "iraop's deep-research agent can take 30-120s per query; 240000 gives headroom for deep mode.",
+      "advanced": true
+    },
+    "apiKey": {
+      "label": "iraop API key",
+      "help": "Shared bearer token for iraop. Supplied at runtime from the IRAOP_API_KEY env var; never stored in the chart.",
       "advanced": true
     },
     "subagentEventsUrl": {

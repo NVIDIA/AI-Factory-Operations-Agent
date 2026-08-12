@@ -215,6 +215,9 @@
         "enabled": {{ .Values.modules.research.enabled }},
         "config": {
           "baseUrl": {{ .Values.modules.research.baseUrl | quote }},
+          {{- if .Values.modules.research.enabled }}
+          "apiKey": "${IRAOP_API_KEY}",
+          {{- end }}
           "timeoutMs": {{ default 240000 .Values.modules.research.timeoutMs }}
         }
       },
