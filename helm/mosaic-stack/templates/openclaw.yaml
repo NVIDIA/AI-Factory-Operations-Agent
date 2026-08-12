@@ -536,7 +536,7 @@ spec:
             - name: IRAOP_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.modules.research.apiKeySecretName }}
+                  name: {{ ternary .Values.researchAgent.iraop.secretName .Values.modules.research.apiKeySecretName .Values.modules.research.managed }}
                   key: {{ .Values.modules.research.apiKeySecretKey }}
                   optional: true
             {{- end }}

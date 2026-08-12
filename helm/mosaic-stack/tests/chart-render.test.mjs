@@ -222,6 +222,15 @@ test("shares the managed Research Agent corpus with the UI", () => {
   assert.match(output, /name: research-corpus\s+hostPath:\s+path: \/srv\/corpus\s+type: Directory/);
 });
 
+test("shares the managed Research Agent credential with OpenClaw", () => {
+  const output = render(
+    "--set", "modules.research.enabled=true",
+    "--set", "modules.research.managed=true",
+    "--show-only", "templates/openclaw.yaml",
+  );
+  assert.match(output, /name: IRAOP_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: iraop-secrets\s+key: IRAOP_API_KEY/);
+});
+
 test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
