@@ -3,6 +3,8 @@
 
 {{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
 {{- $observability := default dict .Values.observability }}
+{{- $uiAuth := .Values.mosaicUi.auth | default dict }}
+{{- $uiAuthSecret := $uiAuth.existingSecret | default ($uiAuth.name | default "mosaic-ui-auth") }}
 {{- $sessionAccessPlugins := list "automation-guard" }}
 {{- if .Values.modules.kubernetes.enabled }}
 {{- $sessionAccessPlugins = append $sessionAccessPlugins "kubernetes" }}
@@ -58,12 +60,12 @@ spec:
             - name: MOSAIC_UI_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ default .Values.mosaicUi.auth.name .Values.mosaicUi.auth.existingSecret }}
+                  name: {{ $uiAuthSecret }}
                   key: username
             - name: MOSAIC_UI_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ default .Values.mosaicUi.auth.name .Values.mosaicUi.auth.existingSecret }}
+                  name: {{ $uiAuthSecret }}
                   key: password
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
