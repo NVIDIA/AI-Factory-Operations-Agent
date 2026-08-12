@@ -34,6 +34,7 @@ spec:
         app: mosaic-ui
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
+        checksum/auth: {{ include (print $.Template.BasePath "/mosaic-ui-auth-secret.yaml") . | sha256sum }}
     spec:
       serviceAccountName: default
       automountServiceAccountToken: false
@@ -54,6 +55,16 @@ spec:
               value: "3000"
             - name: HOSTNAME
               value: "0.0.0.0"
+            - name: MOSAIC_UI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicUi.auth.name .Values.mosaicUi.auth.existingSecret }}
+                  key: username
+            - name: MOSAIC_UI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.mosaicUi.auth.name .Values.mosaicUi.auth.existingSecret }}
+                  key: password
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
             - name: MOSAIC_TERMINAL_ENABLED
@@ -97,6 +108,11 @@ spec:
               value: "http://iraop:8000"
             - name: MOSAIC_IRAOP_CORPUS_DIR
               value: {{ .Values.researchAgent.iraop.config.CORPUS_DIR | quote }}
+            - name: MOSAIC_IRAOP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.researchAgent.iraop.secretName }}
+                  key: IRAOP_API_KEY
             {{- end }}
             {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
             - name: MOSAIC_OPENCLAW_GATEWAY_URL
@@ -133,14 +149,14 @@ spec:
               value: {{ $observability.alertmanagerUrl | quote }}
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/health
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/health
               port: http
             initialDelaySeconds: 30
             periodSeconds: 20

@@ -165,6 +165,13 @@ test("pins the UI to the immutable GitLab short SHA tag", () => {
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
+test("protects the UI with a generated login", () => {
+  const output = render();
+  assert.match(output, /name: mosaic-ui-auth[\s\S]*username: "operator"[\s\S]*password: "[A-Za-z0-9]{32}"/);
+  assert.match(output, /name: MOSAIC_UI_USERNAME\s+valueFrom:/);
+  assert.match(output, /path: \/api\/health/);
+});
+
 test("seeds BCM manuals without deployment-time network access", () => {
   const output = renderDiagnostics(
     "--set-string", "mosaicUi.image.tag=1234abcd",
@@ -218,6 +225,7 @@ test("shares the managed Research Agent corpus with the UI", () => {
   );
   assert.match(output, /name: MOSAIC_IRAOP_CORPUS_DIR\s+value: "\/data\/corpus"/);
   assert.match(output, /name: MOSAIC_IRAOP_BASE_URL\s+value: "http:\/\/iraop:8000"/);
+  assert.match(output, /name: MOSAIC_IRAOP_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: iraop-secrets\s+key: IRAOP_API_KEY/);
   assert.match(output, /name: research-corpus\s+mountPath: \/data\/corpus/);
   assert.match(output, /name: research-corpus\s+hostPath:\s+path: \/srv\/corpus\s+type: Directory/);
 });

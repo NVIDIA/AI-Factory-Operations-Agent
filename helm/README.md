@@ -147,6 +147,13 @@ After this point you will be able to open up the UI by running this:
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 ```
 
+The chart generates the UI password during installation. Retrieve the login with:
+
+```bash
+kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.username}' | base64 --decode; echo
+kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
+```
+
 Open `http://localhost:3000`.
 
 ### 3. Add Extensions

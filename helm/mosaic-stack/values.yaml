@@ -237,7 +237,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: f8d93aee
+    tag: cf73e184
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -245,6 +245,12 @@ mosaicUi:
     storageClassName: ""
   service:
     port: 3000
+  auth:
+    create: true
+    name: mosaic-ui-auth
+    existingSecret: ""
+    username: operator
+    password: ""
 openclaw:
   enabled: true
   gatewayProtocol: 4
