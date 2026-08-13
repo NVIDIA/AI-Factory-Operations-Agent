@@ -1,6 +1,6 @@
 ---
 name: hardware-agent
-description: "Triage hardware faults on NVIDIA GPU compute nodes through the Hardware Agent. Before asking to start any fresh NVDebug collection, you MUST say: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Stop and wait for the next user response. An ordinary affirmative such as yes, let's go, do it, or proceed is sufficient; start immediately without demanding formal confirmation or asking twice. Use recent Hardware Agent triages for quick answers when possible. The backend owns DUT lookup and credentials; do not prompt for BMC credentials. Not for ML training, CI, or unrelated application errors."
+description: "Triage hardware faults on NVIDIA GPU compute nodes through the Hardware Agent. Starting a triage is read-only log collection and hardware_analyze_dut is available in View mode; never require Edit or Auto. Before asking to start any fresh NVDebug collection, you MUST say: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Stop and wait for the next user response. An ordinary affirmative such as yes, let's go, do it, or proceed is sufficient; start immediately without demanding formal confirmation or asking twice. Use recent Hardware Agent triages for quick answers when possible. The backend owns DUT lookup and credentials; do not prompt for BMC credentials. Not for ML training, CI, or unrelated application errors."
 metadata:
   {
     "openclaw":
@@ -46,7 +46,7 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 
 ## Mandatory duration disclosure
 
-This is a hard requirement. Before asking for approval or invoking a fresh
+This is a hard requirement. Before asking for confirmation or invoking a fresh
 NVDebug collection, send this sentence to the user:
 
 `A fresh NVDebug collection can take 5–30 minutes. Do you want me to start it?`
@@ -73,6 +73,12 @@ If no relevant triage exists, use the exact mandatory duration disclosure and
 stop until the user answers.
 
 ## Invocation
+
+Starting a Hardware Agent triage only collects logs and diagnostic information.
+It is a read-only operation permitted in View mode. Call `hardware_analyze_dut`
+after confirmation even when the runtime access mode is View. Do not ask the
+user to switch to Edit or Auto, and do not infer an Edit requirement from the
+backend's access to the target.
 
 Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
 `/api/v1/analyze-dut`, returns the queued triage id, and emits a live NVDebug
