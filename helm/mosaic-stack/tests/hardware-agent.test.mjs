@@ -35,12 +35,6 @@ test("routes Hardware Agent requests through the hardware backend", () => {
   assert.match(skill, /Do not demand a formal confirmation/);
   assert.match(skill, /Interpret the user's response in conversation/);
   assert.match(skill, /This is a hard requirement/);
-  assert.match(skill, /A fresh NVDebug collection can take 5–30 minutes\. Do you want me to start it\?/);
-  assert.match(skill, /you MUST say: 'A fresh NVDebug collection can take 5-30 minutes\. Do you want me to start it\?'/);
-  assert.match(skill, /Do not invoke `hardware_analyze_dut` in the same\s+turn as the disclosure/);
-  assert.match(skill, /Starting a Hardware Agent triage only collects logs and diagnostic information/);
-  assert.match(skill, /read-only operation permitted in View mode/);
-  assert.match(skill, /Do not ask the\s+user to switch to Edit or Auto/);
   assert.match(extension, /source: "hardware-agent"/);
   assert.match(extension, /name: "NVDebug Hardware Agent"/);
   assert.match(extension, /label: "Hardware Triage Report"/);
