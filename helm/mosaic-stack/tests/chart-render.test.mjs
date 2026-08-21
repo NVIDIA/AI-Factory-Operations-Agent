@@ -194,6 +194,12 @@ test("authenticates internal UI callbacks with one machine credential", () => {
     const plugin = readFileSync(new URL(path, import.meta.url), "utf8");
     assert.match(plugin, /Authorization: `Bearer \$\{token\}`/);
     assert.equal((plugin.match(/headers: uiAuthHeaders\(\)/g) || []).length, expectedCallbacks);
+    if (path.endsWith("grafana.ts") || path.endsWith("grafana/index.ts")) {
+      assert.match(
+        plugin,
+        /`\$\{uiUrl\}\/api\/grafana\/proxy\/api\/ds\/query`[\s\S]*?headers: \{ \.\.\.uiAuthHeaders\(\), Origin: uiUrl \}/,
+      );
+    }
   }
 });
 

@@ -216,7 +216,7 @@ async function validatePanels(
       try {
         const uiProxyPayload = await fetchJson(`${uiUrl}/api/grafana/proxy/api/ds/query`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Origin": uiUrl },
+          headers: { ...uiAuthHeaders(), Origin: uiUrl },
           body: JSON.stringify(buildGrafanaQueryPayload(panel, rangeMinutes, datasourceUid)),
         });
         const uiFrameCount = grafanaFrameCount(uiProxyPayload);
