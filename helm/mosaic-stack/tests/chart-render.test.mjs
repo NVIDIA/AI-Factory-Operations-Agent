@@ -172,6 +172,45 @@ test("protects the UI with a generated login", () => {
   assert.match(output, /path: \/api\/health/);
 });
 
+test("authenticates internal UI callbacks with one machine credential", () => {
+  const secret = render("--show-only", "templates/mosaic-ui-auth-secret.yaml");
+  assert.match(secret, /machineToken: "[A-Za-z0-9]{48}"/);
+
+  for (const template of ["templates/mosaic-ui.yaml", "templates/openclaw.yaml"]) {
+    const output = render("--show-only", template);
+    assert.match(
+      output,
+      /name: MOSAIC_UI_MACHINE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: mosaic-ui-auth\s+key: machineToken/,
+    );
+  }
+
+  for (const [path, expectedCallbacks] of [
+    ["../files/openclaw-seed/extensions/bcm/index.ts", 1],
+    ["../files/openclaw-seed/extensions/diagnostic-agent/index.ts", 1],
+    ["../files/openclaw-seed/extensions/grafana/index.ts", 2],
+    ["../files/openclaw-seed/extensions/iraop/index.ts", 1],
+    ["../files/openclaw-seed/extensions/observability/grafana.ts", 2],
+  ]) {
+    const plugin = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.match(plugin, /Authorization: `Bearer \$\{token\}`/);
+    assert.equal((plugin.match(/headers: uiAuthHeaders\(\)/g) || []).length, expectedCallbacks);
+  }
+});
+
+test("uses an existing UI auth secret for browser and machine credentials", () => {
+  for (const template of ["templates/mosaic-ui.yaml", "templates/openclaw.yaml"]) {
+    const output = render(
+      "--set", "mosaicUi.auth.create=false",
+      "--set", "mosaicUi.auth.existingSecret=shared-ui-auth",
+      "--show-only", template,
+    );
+    assert.match(
+      output,
+      /name: MOSAIC_UI_MACHINE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: shared-ui-auth\s+key: machineToken/,
+    );
+  }
+});
+
 test("seeds BCM manuals without deployment-time network access", () => {
   const output = renderDiagnostics(
     "--set-string", "mosaicUi.image.tag=1234abcd",

@@ -251,6 +251,7 @@ mosaicUi:
     existingSecret: ""
     username: operator
     password: ""
+    machineToken: ""
 openclaw:
   enabled: true
   gatewayProtocol: 4

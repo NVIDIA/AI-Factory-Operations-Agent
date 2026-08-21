@@ -62,6 +62,14 @@ function authHeaders(apiKey: string): Record<string, string> {
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 }
 
+function uiAuthHeaders() {
+  const token = process.env.MOSAIC_UI_MACHINE_TOKEN || "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 function postSubagentEvent(
   options: SubagentOptions,
   phase: SubagentPhase,
@@ -85,7 +93,7 @@ function postSubagentEvent(
 
   void fetch(options.subagentEventsUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: uiAuthHeaders(),
     body: JSON.stringify(payload),
   }).catch(() => {
     // Subagent UI telemetry is best-effort and must not fail iraop execution.

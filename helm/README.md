@@ -154,6 +154,8 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.username}' | bas
 kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
+When `mosaicUi.auth.existingSecret` is set, that Secret must contain `username`, `password`, and `machineToken`. The machine token authenticates internal callbacks and is not a browser credential.
+
 Open `http://localhost:3000`.
 
 ### 3. Add Extensions

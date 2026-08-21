@@ -153,6 +153,14 @@ function authHeaders(pluginConfig: unknown) {
   return headers;
 }
 
+function uiAuthHeaders() {
+  const token = process.env.MOSAIC_UI_MACHINE_TOKEN || "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 async function validatePanels(
   prometheusUrl: string,
   grafanaUrl: string,
@@ -418,7 +426,7 @@ export function registerGrafanaTools(api: PluginApi) {
           try {
             uiNotification = await fetchJson(`${uiUrl}/api/ui/actions`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: uiAuthHeaders(),
               body: JSON.stringify({
                 type: "open_grafana",
                 title,
@@ -468,7 +476,7 @@ export function registerGrafanaTools(api: PluginApi) {
         const iframeUrl = appendTimeRange(path, rangeMinutes);
         const uiNotification = await fetchJson(`${uiUrl}/api/ui/actions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: uiAuthHeaders(),
           body: JSON.stringify({
             type: "open_grafana",
             title,

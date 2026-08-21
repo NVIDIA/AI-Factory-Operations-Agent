@@ -111,6 +111,14 @@ function resolveSubagentEventsUrl(pluginConfig: unknown): string {
   return "http://mosaic-ui:3000/api/subagents/events";
 }
 
+function uiAuthHeaders() {
+  const token = process.env.MOSAIC_UI_MACHINE_TOKEN || "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 function readConfig(pluginConfig: unknown): BcmConfig {
   const configuredUrl =
     stringConfig(pluginConfig, "mcpUrl") ||
@@ -303,7 +311,7 @@ function postSubagentEvent(options: SubagentOptions, phase: SubagentPhase, conte
 
   void fetch(options.subagentEventsUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: uiAuthHeaders(),
     body: JSON.stringify(payload),
   }).catch(() => {
     // Subagent UI telemetry is best-effort and must not fail BCM execution.

@@ -67,6 +67,11 @@ spec:
                 secretKeyRef:
                   name: {{ $uiAuthSecret }}
                   key: password
+            - name: MOSAIC_UI_MACHINE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $uiAuthSecret }}
+                  key: machineToken
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
             - name: MOSAIC_TERMINAL_ENABLED

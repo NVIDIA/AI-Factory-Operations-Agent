@@ -4,6 +4,8 @@
 {{- if and .Values.modules.execution.enabled .Values.openclaw.enabled }}
 {{- $observability := default dict .Values.observability }}
 {{- $kubernetesClusters := include "mosaic-stack.kubernetesClusters" . | fromJson }}
+{{- $uiAuth := .Values.mosaicUi.auth | default dict }}
+{{- $uiAuthSecret := $uiAuth.existingSecret | default ($uiAuth.name | default "mosaic-ui-auth") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -518,6 +520,11 @@ spec:
             {{- end }}
             - name: MOSAIC_UI_URL
               value: {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+            - name: MOSAIC_UI_MACHINE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $uiAuthSecret }}
+                  key: machineToken
             {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
             - name: MOSAIC_BCM_MCP_TOKEN
               valueFrom:
