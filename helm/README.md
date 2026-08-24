@@ -147,14 +147,18 @@ After this point you will be able to open up the UI by running this:
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
 ```
 
-The chart generates the UI password during installation. Retrieve the login with:
+By default, the chart creates the `mosaic-ui-auth` Secret and generates both the UI password and an internal machine token. Leave `mosaicUi.auth.password` and `mosaicUi.auth.machineToken` empty; users do not need to provide either value. The generated credentials are preserved across upgrades.
+
+Retrieve the browser login with:
 
 ```bash
 kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.username}' | base64 --decode; echo
 kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
-When `mosaicUi.auth.existingSecret` is set, that Secret must contain `username`, `password`, and `machineToken`. The machine token authenticates internal callbacks and is not a browser credential.
+`username` and `password` are browser credentials. `machineToken` is used automatically by OpenClaw when it calls protected Mosaic UI APIs; it is never entered in the browser.
+
+`mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 
 Open `http://localhost:3000`.
 
