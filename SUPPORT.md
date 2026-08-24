@@ -1,9 +1,7 @@
 # Support
 
-AI Factory Operations Agent is currently experimental. APIs, configuration, and deployment requirements may change between releases.
+The NVIDIA AI Factory Operations Agent orchestration framework is available as open source software today. It is currently experimental. APIs, configuration, and deployment requirements may change between releases. NVIDIA customers can contact their account manager to request access to NVIDIA-developed agents.
 
-Use [GitHub issues](https://github.com/NVIDIA/Mosaic/issues) for installation problems, reproducible bugs, documentation problems, and feature requests. Include the AI Factory Operations Agent chart version, Kubernetes version, enabled modules, and sanitized logs. Support is provided on a best-effort basis without a response-time commitment.
+Use GitHub issues for installation problems, reproducible bugs, documentation problems, and feature requests, and make sure to include the AI Factory Operations Agent chart version, Kubernetes version, enabled modules, and sanitized logs. Support is provided on a best-effort basis, with no guaranteed response time.
 
-For current NVIDIA customers please reach out to your account team and ai-factory-operations-agent@nvidia.com to understand whether this software is the right fit for you. 
-
-Do not report security vulnerabilities through GitHub. Follow [SECURITY.md](SECURITY.md) for private disclosure.
+Do not report security vulnerabilities through GitHub. Follow SECURITY.md for private disclosure.
