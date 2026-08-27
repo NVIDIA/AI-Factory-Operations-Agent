@@ -90,6 +90,12 @@ test("generates one internal Hardware Agent credential for the service and OpenC
   assert.doesNotMatch(output, /name: diagnostic-agent-api-keys|name: diagnostic-agent-secrets/);
 });
 
+test("preserves the secured Hardware Agent image entrypoint", () => {
+  const output = renderDiagnostics("--show-only", "templates/diagnostic-agent.yaml");
+  assert.match(output, /name: diagnostic-agent\s+image:[\s\S]*?args: \["--host", "0\.0\.0\.0", "--port", "8080"\]/);
+  assert.doesNotMatch(output, /command: \["diagnostic-agent"/);
+});
+
 test("wires Hardware Agent BCM lookup through the internal SSH adapter", () => {
   const output = renderDiagnostics();
   assert.match(output, /name: MOSAIC_BCM_HEAD_HOST\s+value: "bcm-head\.example\.com"/);

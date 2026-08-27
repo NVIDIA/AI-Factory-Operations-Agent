@@ -450,8 +450,8 @@ diagnosticAgent:
   enabled: true
   image:
     repository: nvcr.io/0948643769302270/diagnostic-agent
-    tag: validation-3774f6b1-2c7526f3
-    digest: sha256:f4755f3b4512ab12817602b67c4d4fc51285057bb375a5b947a3741cbae0028e
+    tag: mr48-ea1a35e1-208536e5
+    digest: sha256:69b178ac2fbda731d9685f14b96f9b751ea443cbf44367c7c0ac402413a7d6cb
     pullPolicy: IfNotPresent
   service:
     port: 80
