@@ -237,7 +237,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/mosaic-ui
-    tag: cf73e184
+    tag: 81da8e07
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
