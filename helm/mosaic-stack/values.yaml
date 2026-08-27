@@ -183,7 +183,7 @@ researchAgent:
     replicaCount: 1
     image:
       repository: nvcr.io/0948643769302270/iraop
-      tag: 5f7f2de0
+      tag: f804535b
       pullPolicy: IfNotPresent
     service:
       port: 8000

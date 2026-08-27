@@ -15,6 +15,6 @@ dependencies:
     condition: openclaw.enabled
   - name: iraop-stack
     alias: researchAgent
-    version: 0.1.0-5f7f2de0
+    version: 0.1.0-f804535b
     repository: oci://nvcr.io/0948643769302270
     condition: modules.research.managed
