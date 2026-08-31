@@ -299,22 +299,8 @@ The SSH identity must be allowed to create or update the dedicated read-only CMS
 
 ### Research
 
-To connect the Research module to an existing IRA MCP SSE endpoint, run:
-
-```bash
-export IRA_MCP_URL='http://iraop.research.svc.cluster.local:8000/mcp/sse'
-helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
-  -n mosaic \
-  --reuse-values \
-  --set modules.research.enabled=true \
-  --set modules.research.managed=false \
-  --set-string modules.research.baseUrl="$IRA_MCP_URL" \
-  --wait \
-  --timeout 12m
-```
-
-To deploy the chart-managed Research Agent and OpenSearch, set the embedding API key, active model, and corpus path, then run:
+To deploy the Research Agent and OpenSearch, set the embedding API key, active
+model, and corpus path, then run:
 
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
