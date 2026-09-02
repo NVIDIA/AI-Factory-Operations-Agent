@@ -36,6 +36,7 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 Use the complete installation guide for your environment:
 
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
+- [BCM installation without Kubernetes](docs/bcm.md)
 - [Kind installation](docs/kind_installation.md)
 - [Custom installation and module configuration](helm/README.md)
 
