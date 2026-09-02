@@ -62,8 +62,8 @@ The response includes `success`, `message`, `sessionKey`, `runId`, `elapsedMs`, 
 The HTTP service is the backend for a local stdio MCP bridge; it does not expose an HTTP `/mcp` endpoint. Install the bridge on the client machine (Node.js 18 or newer is required):
 
 ```bash
-git clone https://github.com/NVIDIA/Mosaic.git
-cd Mosaic
+git clone https://github.com/NVIDIA/AI-Factory-Operations-Agent.git
+cd AI-Factory-Operations-Agent
 install -d ~/.local/bin
 install -m 0755 utils/mosaic-mcp.mjs ~/.local/bin/mosaic-mcp
 ```

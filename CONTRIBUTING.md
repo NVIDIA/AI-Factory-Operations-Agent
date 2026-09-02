@@ -4,7 +4,7 @@ Contributions to AI Factory Operations Agent can report a problem, propose a fea
 
 ## Report An Issue
 
-Use the [issue chooser](https://github.com/NVIDIA/Mosaic/issues/new/choose) and select the form that matches the request. Include the chart version, Kubernetes version, enabled modules, reproduction steps, and sanitized logs when reporting a bug. Never include credentials, tokens, kubeconfig contents, or other secrets.
+Use the [issue chooser](https://github.com/NVIDIA/AI-Factory-Operations-Agent/issues/new/choose) and select the form that matches the request. Include the chart version, Kubernetes version, enabled modules, reproduction steps, and sanitized logs when reporting a bug. Never include credentials, tokens, kubeconfig contents, or other secrets.
 
 Security vulnerabilities must follow [SECURITY.md](SECURITY.md) instead of the public issue tracker.
 

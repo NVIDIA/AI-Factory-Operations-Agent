@@ -77,7 +77,7 @@ github-main-mirror:
         echo "Skipping superseded pipeline for $CI_COMMIT_SHA; main is $latest_sha."
         exit 0
       fi
-    - git remote add github git@github.com:NVIDIA/Mosaic.git
+    - git remote add github git@github.com:NVIDIA/AI-Factory-Operations-Agent.git
     - git push --force github "$CI_COMMIT_SHA:refs/heads/main"
   after_script:
     - rm -rf "$HOME/.ssh"

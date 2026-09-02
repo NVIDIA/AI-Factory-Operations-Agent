@@ -85,7 +85,7 @@ Invoke the installed skill when an agent needs to discover an AI Factory Operati
 # Releases & Roadmap
 
 - Release history: [CHANGELOG.md](CHANGELOG.md)
-- Planned work is tracked through [GitHub issues](https://github.com/NVIDIA/Mosaic/issues).
+- Planned work is tracked through [GitHub issues](https://github.com/NVIDIA/AI-Factory-Operations-Agent/issues).
 
 # Contribution Guidelines
 
@@ -109,7 +109,7 @@ Invoke the installed skill when an agent needs to discover an AI Factory Operati
 
 - Level: Experimental
 - Support policy: [SUPPORT.md](SUPPORT.md)
-- Use [GitHub issues](https://github.com/NVIDIA/Mosaic/issues) for non-security problems and feature requests.
+- Use [GitHub issues](https://github.com/NVIDIA/AI-Factory-Operations-Agent/issues) for non-security problems and feature requests.
 
 # Community
 

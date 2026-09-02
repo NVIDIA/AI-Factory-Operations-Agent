@@ -382,8 +382,8 @@ kubectl -n mosaic exec deploy/mosaic-ui -- \
 The AI Factory Operations Agent HTTP service is not itself an MCP endpoint. Install the stdio MCP bridge on the client machine (Node.js 18 or newer is required):
 
 ```bash
-git clone https://github.com/NVIDIA/Mosaic.git
-cd Mosaic
+git clone https://github.com/NVIDIA/AI-Factory-Operations-Agent.git
+cd AI-Factory-Operations-Agent
 install -d ~/.local/bin
 install -m 0755 utils/mosaic-mcp.mjs ~/.local/bin/mosaic-mcp
 ```
