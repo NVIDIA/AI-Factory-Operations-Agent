@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: New Documentation Request
-description: Request new Mosaic documentation
+description: Request new AI Factory Operations Agent documentation
 title: "[Docs]: "
 labels: ["documentation"]
 body:
@@ -23,5 +23,5 @@ body:
     attributes:
       label: Code of Conduct
       options:
-        - label: I agree to follow Mosaic's [Code of Conduct](https://github.com/NVIDIA/AI-Factory-Operations-Agent/blob/main/CODE_OF_CONDUCT.md).
+        - label: I agree to follow the AI Factory Operations Agent [Code of Conduct](https://github.com/NVIDIA/AI-Factory-Operations-Agent/blob/main/CODE_OF_CONDUCT.md).
           required: true

@@ -156,7 +156,7 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.username}' | bas
 kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
-`username` and `password` are browser credentials. `machineToken` is used automatically by OpenClaw when it calls protected Mosaic UI APIs; it is never entered in the browser.
+`username` and `password` are browser credentials. `machineToken` is used automatically by OpenClaw when it calls protected AI Factory Operations Agent UI APIs; it is never entered in the browser.
 
 `mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 

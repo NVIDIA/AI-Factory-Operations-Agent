@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: Bug Report
-description: Report reproducible incorrect behavior in Mosaic
+description: Report reproducible incorrect behavior in AI Factory Operations Agent
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to report a Mosaic problem. Do not include credentials or other secrets.
+      value: Thanks for taking the time to report an AI Factory Operations Agent problem. Do not include credentials or other secrets.
   - type: input
     id: version
     attributes:
-      label: Mosaic version
+      label: AI Factory Operations Agent version
       description: Provide the Helm chart version or commit.
       placeholder: "example: 0.1.0"
     validations:
@@ -64,7 +64,7 @@ body:
     attributes:
       label: Code of Conduct
       options:
-        - label: I agree to follow Mosaic's [Code of Conduct](https://github.com/NVIDIA/AI-Factory-Operations-Agent/blob/main/CODE_OF_CONDUCT.md).
+        - label: I agree to follow the AI Factory Operations Agent [Code of Conduct](https://github.com/NVIDIA/AI-Factory-Operations-Agent/blob/main/CODE_OF_CONDUCT.md).
           required: true
         - label: I searched open issues and found no duplicate.
           required: true

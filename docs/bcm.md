@@ -228,7 +228,7 @@ unset NGC_API_KEY EXTERNAL_LLM_API_KEY
 
 ## 6. Validate BCM Access
 
-Confirm that the Kind node and Mosaic workloads are ready, then issue a real
+Confirm that the Kind node and AI Factory Operations Agent workloads are ready, then issue a real
 read-only BCM request. The first request creates or updates `aichatbotuser`:
 
 ```bash
