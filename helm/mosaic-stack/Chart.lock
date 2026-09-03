@@ -5,5 +5,5 @@ dependencies:
 - name: iraop-stack
   repository: oci://nvcr.io/0948643769302270
   version: 0.1.0-f804535b
-digest: sha256:48622d8860c5e50ed4c6e7a1bb0db61fc7656c93b6b755adb080350d589d1cd1
-generated: "2026-08-27T13:29:09.858977-07:00"
+digest: sha256:01bcef7475a19a4ad7334341845588565b400f6f0e00440c6ae0f1a9e283571d
+generated: "2026-09-02T17:15:01-07:00"

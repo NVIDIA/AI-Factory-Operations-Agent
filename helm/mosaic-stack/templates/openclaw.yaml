@@ -543,9 +543,8 @@ spec:
             - name: IRAOP_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ ternary .Values.researchAgent.iraop.secretName .Values.modules.research.apiKeySecretName .Values.modules.research.managed }}
-                  key: {{ .Values.modules.research.apiKeySecretKey }}
-                  optional: true
+                  name: {{ .Values.researchAgent.iraop.secretName }}
+                  key: IRAOP_API_KEY
             {{- end }}
             {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL

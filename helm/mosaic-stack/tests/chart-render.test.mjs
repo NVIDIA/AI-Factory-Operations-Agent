@@ -270,7 +270,6 @@ test("shares the managed Research Agent corpus with the UI", () => {
   const output = render(
     "--show-only", "templates/mosaic-ui.yaml",
     "--set", "modules.research.enabled=true",
-    "--set", "modules.research.managed=true",
     "--set", "researchAgent.iraop.config.CORPUS_DIR=/data/corpus",
     "--set", "researchAgent.iraop.corpus.hostPath=/srv/corpus",
   );
@@ -284,10 +283,20 @@ test("shares the managed Research Agent corpus with the UI", () => {
 test("shares the managed Research Agent credential with OpenClaw", () => {
   const output = render(
     "--set", "modules.research.enabled=true",
-    "--set", "modules.research.managed=true",
     "--show-only", "templates/openclaw.yaml",
   );
   assert.match(output, /name: IRAOP_API_KEY\s+valueFrom:\s+secretKeyRef:\s+name: iraop-secrets\s+key: IRAOP_API_KEY/);
+  assert.doesNotMatch(output, /key: IRAOP_API_KEY\s+optional: true/);
+});
+
+test("generates a bearer credential with a chart-managed Research Agent Secret", () => {
+  const output = render(
+    "--set", "modules.research.enabled=true",
+    "--set", "modules.research.secrets.create=true",
+    "--set", "modules.research.secrets.nvidiaApiKey=test-key",
+    "--show-only", "templates/secrets.yaml",
+  );
+  assert.match(output, /name: iraop-secrets[\s\S]*IRAOP_API_KEY: "[A-Za-z0-9]{48}"/);
 });
 
 test("uses one no-reasoning request contract for external endpoints", () => {

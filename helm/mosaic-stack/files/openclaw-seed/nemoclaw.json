@@ -214,7 +214,7 @@
       "iraop": {
         "enabled": {{ .Values.modules.research.enabled }},
         "config": {
-          "baseUrl": {{ .Values.modules.research.baseUrl | quote }},
+          "baseUrl": {{ printf "http://iraop:%v/mcp/sse" .Values.researchAgent.iraop.service.port | quote }},
           {{- if .Values.modules.research.enabled }}
           "apiKey": "${IRAOP_API_KEY}",
           {{- end }}

@@ -181,10 +181,7 @@
 {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") (not .Values.bcmMcp.authTokenSecretKey) -}}
 {{- fail "bcmMcp.authTokenSecretKey is required when bcmMcp.mode=ssh-adapter" -}}
 {{- end -}}
-{{- if and .Values.modules.research.managed (not .Values.modules.research.enabled) -}}
-{{- fail "modules.research.managed=true requires modules.research.enabled=true" -}}
-{{- end -}}
-{{- if and .Values.modules.research.managed .Values.modules.research.secrets.create (not .Values.modules.research.secrets.nvidiaApiKey) -}}
+{{- if and .Values.modules.research.enabled .Values.modules.research.secrets.create (not .Values.modules.research.secrets.nvidiaApiKey) -}}
 {{- fail "modules.research.secrets.nvidiaApiKey is required when the managed Research Agent Secret is created" -}}
 {{- end -}}
 {{- if and .Values.modules.diagnostics.enabled (not .Values.diagnosticAgent.enabled) -}}

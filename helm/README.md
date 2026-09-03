@@ -304,12 +304,14 @@ model, and corpus path, then run:
 
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
+export IRAOP_API_KEY="$(openssl rand -hex 32)"
 export MOSAIC_CHAT_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
 export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
 
 kubectl -n mosaic create secret generic iraop-secrets \
   --from-literal=NVIDIA_API_KEY="$NVIDIA_API_KEY" \
   --from-literal=NVIDIA_CHAT_API_KEY=EMPTY \
+  --from-literal=IRAOP_API_KEY="$IRAOP_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
@@ -317,14 +319,13 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
-  --set modules.research.managed=true \
   --set modules.research.secrets.create=false \
   --set-string researchAgent.iraop.config.NVIDIA_CHAT_MODEL="$MOSAIC_CHAT_MODEL" \
   --set-string researchAgent.iraop.corpus.hostPath="$IRA_CORPUS_PATH" \
   --wait \
   --timeout 12m
 
-unset NVIDIA_API_KEY
+unset NVIDIA_API_KEY IRAOP_API_KEY
 ```
 
 ### Hardware Agent

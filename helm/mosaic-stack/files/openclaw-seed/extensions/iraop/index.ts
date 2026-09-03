@@ -55,9 +55,8 @@ function readConfig(
   return { sseUrl, timeoutMs, apiKey, subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig) };
 }
 
-// iraop authenticates its HTTP API and its MCP surface with one shared bearer
-// token. No key configured means no header at all, which is what every
-// namespace sends today and what iraop still accepts while enforcement is off.
+// iraop authenticates its HTTP API and MCP surface with the shared bearer token
+// mounted from the chart-managed Research Agent Secret.
 function authHeaders(apiKey: string): Record<string, string> {
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 }

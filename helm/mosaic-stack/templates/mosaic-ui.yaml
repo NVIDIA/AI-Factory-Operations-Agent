@@ -110,7 +110,7 @@ spec:
               value: openclaw
             - name: MOSAIC_OPENCLAW_PROTOCOL
               value: {{ .Values.openclaw.gatewayProtocol | quote }}
-            {{- if .Values.modules.research.managed }}
+            {{- if .Values.modules.research.enabled }}
             - name: MOSAIC_IRAOP_BASE_URL
               value: "http://iraop:8000"
             - name: MOSAIC_IRAOP_CORPUS_DIR
@@ -171,7 +171,7 @@ spec:
           volumeMounts:
             - name: audit-log
               mountPath: /var/lib/mosaic-audit
-            {{- if .Values.modules.research.managed }}
+            {{- if .Values.modules.research.enabled }}
             - name: research-corpus
               mountPath: {{ .Values.researchAgent.iraop.config.CORPUS_DIR }}
             {{- end }}
@@ -179,7 +179,7 @@ spec:
         - name: audit-log
           persistentVolumeClaim:
             claimName: mosaic-audit-log
-        {{- if .Values.modules.research.managed }}
+        {{- if .Values.modules.research.enabled }}
         - name: research-corpus
           hostPath:
             path: {{ .Values.researchAgent.iraop.corpus.hostPath }}
