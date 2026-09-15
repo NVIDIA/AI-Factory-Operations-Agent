@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      - name: Prepare chart test dependencies
+        run: |
+          set -euo pipefail
+          chart=helm/mosaic-stack
+          charts="$chart/charts"
+          openshell_version="$(helm dependency list "$chart" | awk '$1 == "helm-chart" { print $2 }')"
+          iraop_version="$(helm dependency list "$chart" | awk '$1 == "iraop-stack" { print $2 }')"
+          test -n "$openshell_version"
+          test -n "$iraop_version"
+          mkdir -p "$charts"
+          helm pull oci://ghcr.io/nvidia/openshell/helm-chart --version "$openshell_version" --destination "$charts"
+          stub="$(mktemp -d)"
+          printf 'apiVersion: v2\nname: iraop-stack\nversion: %s\n' "$iraop_version" >"$stub/Chart.yaml"
+          helm package "$stub" --destination "$charts"
+
+      - name: Run tests
+        run: node --test utils/*.test.mjs helm/mosaic-stack/tests/*.test.mjs
+
+      - name: Lint Helm chart
+        run: helm lint helm/mosaic-stack

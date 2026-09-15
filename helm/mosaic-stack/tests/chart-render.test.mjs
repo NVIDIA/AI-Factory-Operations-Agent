@@ -166,7 +166,7 @@ test("renders namespace labeling with the configured kubectl image", () => {
   assert.match(output, /"example\.com\/managed=true"/);
 });
 
-test("pins the UI to the immutable GitLab short SHA tag", () => {
+test("pins the UI to an immutable commit tag", () => {
   const output = render("--show-only", "templates/mosaic-ui.yaml");
   assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
 });
