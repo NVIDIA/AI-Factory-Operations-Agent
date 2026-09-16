@@ -1,6 +1,7 @@
 {
   "id": "automation-guard",
   "contracts": {
+    "tools": ["request_mcp_connection"],
     "trustedToolPolicies": ["session-access"]
   },
   "activation": {
@@ -19,6 +20,16 @@
       "slackEditUserIds": {
         "type": "array",
         "items": { "type": "string" }
+      },
+      "mcpConnectionRequestUrl": {
+        "type": "string"
+      },
+      "hitl": {
+        "type": "boolean"
+      },
+      "approvalTimeoutMs": {
+        "type": "number",
+        "minimum": 1000
       }
     }
   }

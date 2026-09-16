@@ -20,6 +20,7 @@ import {
   sessionAllowsEdit,
   sessionSkipsApproval,
   setRunAccess,
+  toolAccess,
   toolRequiresEdit,
 } from "../files/openclaw-seed/extensions/automation-context.ts";
 
@@ -120,6 +121,7 @@ test("projects and registers access state in every approval-owning plugin", () =
 test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   for (const tool of [
     "write", "edit", "apply_patch",
+    "request_mcp_connection",
     "run_kubectl_admin", "bcm_execute_cmsh_admin", "bcm_add_note", "bcm_remove_note",
   ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
@@ -127,6 +129,8 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
   assert.equal(toolRequiresEdit("observability_query"), false);
+  assert.equal(toolRequiresEdit("mcp_delete_cluster"), true);
+  assert.equal(toolAccess("mcp_delete_cluster"), "unknown");
   assert.equal(toolRequiresEdit("exec", { command: "nvidia-smi -L" }), false);
   assert.equal(toolRequiresEdit("exec", { command: "touch /tmp/changed" }), true);
   assert.equal(toolRequiresEdit("run_remote_ssh", { host: "node-1", argv: ["ipmitool", "mc", "info"] }), false);

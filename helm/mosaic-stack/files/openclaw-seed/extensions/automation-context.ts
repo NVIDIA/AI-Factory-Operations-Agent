@@ -11,9 +11,72 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "bcm_execute_cmsh_admin",
   "bcm_remove_note",
   "edit",
+  "request_mcp_connection",
   "run_kubectl_admin",
   "write",
 ]);
+
+const READ_ONLY_TOOLS = new Set([
+  "agents_list",
+  "bcm_execute_cmsh",
+  "bcm_execute_tool",
+  "bcm_get_info",
+  "bcm_health",
+  "bcm_list_notes",
+  "bcm_node_health_summary",
+  "bcm_search_notes",
+  "bcm_search_tools",
+  "dashboard_create",
+  "dashboard_list",
+  "dashboard_open",
+  "dcgm_current",
+  "dcgm_health",
+  "dcgm_metric_names",
+  "dcgm_raw_metric",
+  "dcgm_top",
+  "find",
+  "get_goal",
+  "glob",
+  "grafana_dashboard_create",
+  "grafana_dashboard_health",
+  "grafana_dashboard_open",
+  "grafana_dashboard_presets",
+  "grafana_dashboard_validate",
+  "hardware_analyze_dut",
+  "hardware_health",
+  "hardware_triage_list",
+  "hardware_triage_report",
+  "hardware_triage_status",
+  "image",
+  "iraop_get_document",
+  "iraop_list_collections",
+  "iraop_list_documents",
+  "iraop_query",
+  "grep",
+  "ls",
+  "memory_get",
+  "memory_search",
+  "node_grep_files",
+  "node_read_file",
+  "observability_metric_names",
+  "observability_query",
+  "observability_range_query",
+  "pdf",
+  "read",
+  "run_kubectl",
+  "search",
+  "sessions_history",
+  "sessions_list",
+  "slurm_job_evidence",
+  "tool_describe",
+  "tool_search",
+  "update_plan",
+  "web_fetch",
+  "web_search",
+  "x_search",
+]);
+
+export type ToolAccess = "read" | "edit" | "unknown";
 
 export type AccessMode = "view" | "edit" | "auto";
 
@@ -114,15 +177,21 @@ export function contextSkipsApproval(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) === "auto";
 }
 
-export function toolRequiresEdit(toolName: unknown, params?: unknown) {
-  if (typeof toolName !== "string") return false;
+export function toolAccess(toolName: unknown, params?: unknown): ToolAccess {
+  if (typeof toolName !== "string") return "unknown";
   const normalized = toolName.trim().toLowerCase();
-  if (normalized === "exec") return diagnosticExecArgv(params) === undefined;
+  if (normalized === "exec") return diagnosticExecArgv(params) === undefined ? "edit" : "read";
   if (normalized === "run_remote_ssh") {
     const argv = params && typeof params === "object" && !Array.isArray(params)
       ? (params as { argv?: unknown }).argv
       : undefined;
-    return !isAllowedDiagnosticArgv(argv);
+    return isAllowedDiagnosticArgv(argv) ? "read" : "edit";
   }
-  return ALWAYS_MUTATING_TOOLS.has(normalized);
+  if (ALWAYS_MUTATING_TOOLS.has(normalized)) return "edit";
+  if (READ_ONLY_TOOLS.has(normalized)) return "read";
+  return "unknown";
+}
+
+export function toolRequiresEdit(toolName: unknown, params?: unknown) {
+  return toolAccess(toolName, params) !== "read";
 }

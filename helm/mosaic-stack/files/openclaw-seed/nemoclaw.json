@@ -172,6 +172,9 @@
         },
         "config": {
           "editEnabled": {{ .Values.modules.edit.enabled }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
+          "mcpConnectionRequestUrl": {{ ternary (printf "http://mosaic-ui:%v/api/mcp/requests" .Values.mosaicUi.service.port) "" (and .Values.modules.ui.enabled .Values.mosaicUi.enabled) | quote }},
           "slackEnabled": {{ .Values.openclaw.slack.enabled }},
           "slackEditUserIds": {{ .Values.openclaw.slack.editUserIds | toJson }}
         }
