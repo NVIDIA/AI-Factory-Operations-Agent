@@ -414,7 +414,27 @@ managedMcpServers:
       limits:
         cpu: 500m
         memory: 512Mi
-  servers: {}
+  servers:
+    runai:
+      enabled: false
+      image:
+        repository: nvcr.io/nvidia/runai/runai-mcp-server
+        tag: 2.26.27
+        digest: sha256:4dfceb98443643f165136006a17b5488da6a98bdc5a5a146038accac305c3af0
+      env:
+        RUNAI_BASE_URL: ""
+        RUNAI_TRANSPORT: http
+        RUNAI_MCP_LISTEN_PORT: "8080"
+        RUNAI_ALLOW_WRITE_TOOLS: "false"
+      secretEnv:
+        RUNAI_CLIENT_ID:
+          name: ""
+          key: clientId
+        RUNAI_CLIENT_SECRET:
+          name: ""
+          key: clientSecret
+      toolPolicy:
+        defaultAccess: view
 
 mosaicTerminal:
   service:

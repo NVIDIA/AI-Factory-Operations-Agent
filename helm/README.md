@@ -318,6 +318,33 @@ by default. Set `toolPolicy.defaultAccess: view` only when every tool exposed by
 the server is safe in View, or list individual safe tool names in `viewTools`.
 Tools from unconfigured servers remain fail-closed.
 
+#### Run:ai
+
+Run:ai is included as a disabled managed MCP module. Create its credential
+Secret and enable it with the Run:ai HTTPS endpoint:
+
+```bash
+kubectl -n mosaic create secret generic runai-credentials \
+  --from-literal=clientId="$RUNAI_CLIENT_ID" \
+  --from-literal=clientSecret="$RUNAI_CLIENT_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set managedMcpServers.servers.runai.enabled=true \
+  --set-string managedMcpServers.servers.runai.env.RUNAI_BASE_URL="https://runai.example.com" \
+  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_ID.name=runai-credentials \
+  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_SECRET.name=runai-credentials \
+  --wait \
+  --timeout 12m
+```
+
+The Run:ai server exposes only read tools. For a private CA, set
+`managedMcpServers.servers.runai.tls.existingSecret` to a Secret containing
+`ca.crt`.
+
 ### BCM
 
 To enable the BCM extension, provide the BCM head host and SSH key:

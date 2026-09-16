@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- $runai := .Values.managedMcpServers.servers.runai -}}
+{{- if $runai.enabled -}}
+{{- $server := mergeOverwrite (deepCopy .Values.managedMcpServers.defaults) $runai -}}
+{{- if not (regexMatch "^https://[^[:space:]]+$" (lower $server.env.RUNAI_BASE_URL)) -}}
+{{- fail "managedMcpServers.servers.runai.env.RUNAI_BASE_URL must be an HTTPS URL" -}}
+{{- end -}}
+{{- if ne (toString $server.env.RUNAI_ALLOW_WRITE_TOOLS) "false" -}}
+{{- fail "managedMcpServers.servers.runai.env.RUNAI_ALLOW_WRITE_TOOLS must remain false" -}}
+{{- end -}}
+{{- if or (ne (toString $server.env.RUNAI_TRANSPORT) "http") (ne (toString $server.env.RUNAI_MCP_LISTEN_PORT) (toString $server.port)) -}}
+{{- fail "managedMcpServers.servers.runai transport and listen port must match its managed service" -}}
+{{- end -}}
+{{- end -}}
