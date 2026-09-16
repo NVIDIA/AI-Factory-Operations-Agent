@@ -234,6 +234,160 @@ unset GRAFANA_PASSWORD
 
 `grafanaUrl` includes Grafana's configured serving path. Use the service root for a root-served Grafana or `/grafana` for the NMC deployment.
 
+### Run:ai
+
+AI Factory Operations Agent connects to an existing NVIDIA Run:ai control
+plane through the official Run:ai MCP server:
+
+```text
+AI Factory Operations Agent -> Run:ai MCP server -> Run:ai control plane
+```
+
+The chart deploys the MCP server beside AI Factory Operations Agent as a
+private Kubernetes service. It does not modify the Run:ai control plane or
+install components into a Run:ai managed cluster.
+
+#### Requirements
+
+- NVIDIA Run:ai cluster version 2.25 or newer, connected to a reachable control
+  plane.
+- Network access from the AI Factory Operations Agent namespace to the Run:ai
+  control-plane URL.
+- A Run:ai service account with access rules scoped to the projects, clusters,
+  and organization data that AI Factory Operations Agent may inspect.
+- A PEM-encoded CA bundle when the Run:ai URL uses a private certificate
+  authority.
+
+The chart uses `nvcr.io/nvidia/runai/runai-mcp-server:2.26.27`. The image
+supports anonymous NGC guest pulls, so it does not require a separate NGC
+subscription or image-pull Secret. Other chart images may still require the
+registry access configured during installation.
+
+#### Create A Run:ai Service Account
+
+In the Run:ai user interface:
+
+1. Open **Access** and select **Service accounts**.
+2. Select **New service account**, enter a name, and create it.
+3. Copy the client ID and client secret. The secret is shown only once.
+4. Add access rules that grant the least-privileged roles and scopes required
+   for the intended read operations.
+
+See the Run:ai documentation for
+[service accounts](https://run-ai-docs.nvidia.com/self-hosted/infrastructure-setup/authentication/service-accounts)
+and [access rules](https://run-ai-docs.nvidia.com/self-hosted/infrastructure-setup/authentication/accessrules).
+
+#### Store The Credentials
+
+Create a Secret in the namespace containing the existing AI Factory Operations
+Agent release. Do not put either credential in a values file.
+
+```bash
+export MOSAIC_NAMESPACE=mosaic
+export RUNAI_BASE_URL='https://runai.example.com'
+read -rsp 'Run:ai client ID: ' RUNAI_CLIENT_ID; echo
+read -rsp 'Run:ai client secret: ' RUNAI_CLIENT_SECRET; echo
+
+kubectl -n "$MOSAIC_NAMESPACE" create secret generic runai-mcp-credentials \
+  --from-literal=clientId="$RUNAI_CLIENT_ID" \
+  --from-literal=clientSecret="$RUNAI_CLIENT_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+unset RUNAI_CLIENT_ID RUNAI_CLIENT_SECRET
+```
+
+#### Enable The Integration
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n "$MOSAIC_NAMESPACE" \
+  --reuse-values \
+  --set modules.execution.enabled=true \
+  --set modules.runai.enabled=true \
+  --set-string runaiMcp.baseUrl="$RUNAI_BASE_URL" \
+  --set runaiMcp.credentials.existingSecret=runai-mcp-credentials \
+  --wait \
+  --timeout 12m
+```
+
+Remove `--devel` for the latest stable chart, or replace it with
+`--version <VERSION>` to pin a release.
+
+#### Private Certificate Authorities
+
+When the Run:ai URL uses a private certificate authority, store the complete CA
+bundle and reference it during the upgrade:
+
+```bash
+export RUNAI_CA_BUNDLE=/path/to/runai-ca-bundle.pem
+
+kubectl -n "$MOSAIC_NAMESPACE" create secret generic runai-mcp-ca \
+  --from-file=ca.crt="$RUNAI_CA_BUNDLE" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n "$MOSAIC_NAMESPACE" \
+  --reuse-values \
+  --set runaiMcp.tls.existingSecret=runai-mcp-ca \
+  --wait \
+  --timeout 12m
+```
+
+#### Verify The Integration
+
+Confirm that the private MCP deployment and service are ready:
+
+```bash
+kubectl -n "$MOSAIC_NAMESPACE" rollout status deployment/runai-mcp
+kubectl -n "$MOSAIC_NAMESPACE" get deployment/runai-mcp service/runai-mcp
+```
+
+In AI Factory Operations Agent, ask:
+
+```text
+Using Run:ai, identify my service account and list the clusters I can inspect.
+```
+
+An authentication failure indicates an incorrect control-plane URL or service
+account credentials. A `403` response indicates that the service account lacks
+an access rule for the requested entity or scope. An `x509` error indicates
+that the private CA bundle is absent or incomplete.
+
+#### Security Boundary
+
+- The Run:ai MCP server is exposed only through a Kubernetes `ClusterIP`
+  service in the AI Factory Operations Agent namespace.
+- The service-account client secret is mounted into OpenClaw. OpenClaw exchanges
+  it for a short-lived Run:ai access token and sends that token to the MCP
+  server.
+- The chart starts the Run:ai MCP server with write tools disabled.
+- The OpenClaw bridge rejects every upstream tool that is not explicitly
+  annotated as read-only.
+- Kubernetes changes are separate from Run:ai MCP access. Workflows such as
+  planned node maintenance require the Kubernetes module and the corresponding
+  Edit-mode authorization.
+
+See the official
+[Run:ai MCP server documentation](https://run-ai-docs.nvidia.com/self-hosted/getting-started/mcp-server)
+for its tool catalog and control-plane compatibility.
+
+#### Disable The Integration
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n "$MOSAIC_NAMESPACE" \
+  --reuse-values \
+  --set modules.runai.enabled=false \
+  --wait \
+  --timeout 12m
+```
+
+Disabling the module removes the Run:ai MCP deployment and service. Delete the
+credential and CA Secrets separately if they are no longer needed.
+
 ### Terminal
 
 To enable the optional browser terminal service, run:

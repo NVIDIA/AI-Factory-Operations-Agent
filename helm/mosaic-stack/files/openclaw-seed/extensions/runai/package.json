@@ -1,0 +1,11 @@
+{
+  "name": "@mosaic/runai-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "OpenClaw bridge to the NVIDIA Run:ai MCP server",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}

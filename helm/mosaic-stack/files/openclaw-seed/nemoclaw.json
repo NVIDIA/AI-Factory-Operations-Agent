@@ -160,6 +160,7 @@
       "openshell",
       "observability",
       "remote-ssh",
+      "runai",
       "slurm",
       "llm"{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}
@@ -219,6 +220,18 @@
           "apiKey": "${IRAOP_API_KEY}",
           {{- end }}
           "timeoutMs": {{ default 240000 .Values.modules.research.timeoutMs }}
+        }
+      },
+      "runai": {
+        "enabled": {{ .Values.modules.runai.enabled }},
+        "config": {
+          "baseUrl": {{ .Values.runaiMcp.baseUrl | quote }},
+          "mcpUrl": {{ printf "http://%s:%v/mcp" .Values.runaiMcp.service.name .Values.runaiMcp.service.port | quote }},
+          {{- if .Values.modules.runai.enabled }}
+          "clientId": "${RUNAI_CLIENT_ID}",
+          "clientSecret": "${RUNAI_CLIENT_SECRET}",
+          {{- end }}
+          "timeoutMs": {{ .Values.runaiMcp.timeoutMs }}
         }
       },
       "bcm": {

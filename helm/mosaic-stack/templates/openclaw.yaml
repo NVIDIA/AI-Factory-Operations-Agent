@@ -27,6 +27,7 @@ spec:
       annotations:
         checksum/openclaw-seed: {{ include (print $.Template.BasePath "/openclaw-seed-configmap.yaml") . | sha256sum }}
         checksum/bcm-auth-config: {{ printf "%s:%s:%s" .Values.bcmMcp.authTokenSecretName .Values.bcmMcp.authTokenSecretKey .Values.bcmMcp.authToken | sha256sum }}
+        checksum/llm-credentials: {{ .Values.llm.external.credentialRevision | sha256sum }}
     spec:
       serviceAccountName: openclaw
       automountServiceAccountToken: {{ and .Values.modules.kubernetes.enabled .Values.kubernetes.local.enabled }}
@@ -125,6 +126,7 @@ spec:
                 /home/node/.openclaw/extensions/kubernetes \
                 /home/node/.openclaw/extensions/observability \
                 /home/node/.openclaw/extensions/remote-ssh \
+                /home/node/.openclaw/extensions/runai \
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/bcm \
                 /home/node/.openclaw/workspace/skills/grafana \
@@ -170,6 +172,9 @@ spec:
               {{- if .Values.modules.research.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/iraop
               mkdir -p /home/node/.openclaw/extensions/iraop
+              {{- end }}
+              {{- if .Values.modules.runai.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/runai
               {{- end }}
               {{- if .Values.modules.diagnostics.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/hardware-agent
@@ -233,6 +238,12 @@ spec:
               cp /seed/iraop.index.ts /home/node/.openclaw/extensions/iraop/index.ts
               cp /seed/iraop.openclaw.plugin.json /home/node/.openclaw/extensions/iraop/openclaw.plugin.json
               cp /seed/iraop.package.json /home/node/.openclaw/extensions/iraop/package.json
+              {{- end }}
+              {{- if .Values.modules.runai.enabled }}
+              cp /seed/runai.client.ts /home/node/.openclaw/extensions/runai/client.ts
+              cp /seed/runai.index.ts /home/node/.openclaw/extensions/runai/index.ts
+              cp /seed/runai.openclaw.plugin.json /home/node/.openclaw/extensions/runai/openclaw.plugin.json
+              cp /seed/runai.package.json /home/node/.openclaw/extensions/runai/package.json
               {{- end }}
               {{- if .Values.modules.diagnostics.enabled }}
               cp /seed/hardware-agent.SKILL.md /home/node/.openclaw/workspace/skills/hardware-agent/SKILL.md
@@ -546,6 +557,22 @@ spec:
                   name: {{ .Values.researchAgent.iraop.secretName }}
                   key: IRAOP_API_KEY
             {{- end }}
+            {{- if .Values.modules.runai.enabled }}
+            - name: RUNAI_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.runaiMcp.credentials.existingSecret | quote }}
+                  key: {{ .Values.runaiMcp.credentials.clientIdKey | quote }}
+            - name: RUNAI_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.runaiMcp.credentials.existingSecret | quote }}
+                  key: {{ .Values.runaiMcp.credentials.clientSecretKey | quote }}
+            {{- if .Values.runaiMcp.tls.existingSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ .Values.runaiMcp.tls.caMountPath | quote }}
+            {{- end }}
+            {{- end }}
             {{- if eq (include "mosaic-stack.slurmEvidenceEnabled" .) "true" }}
             - name: MOSAIC_SLURM_EVIDENCE_URL
               value: {{ printf "http://slurm-evidence-collector.%s.svc.cluster.local:%v" .Release.Namespace (default 8080 .Values.slurmEvidenceCollector.port) | quote }}
@@ -614,6 +641,12 @@ spec:
               mountPath: /var/run/mosaic-ssh
               readOnly: true
             {{- end }}
+            {{- if and .Values.modules.runai.enabled .Values.runaiMcp.tls.existingSecret }}
+            - name: runai-ca
+              mountPath: {{ .Values.runaiMcp.tls.caMountPath | quote }}
+              subPath: {{ .Values.runaiMcp.tls.caKey | quote }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: openclaw-home
           persistentVolumeClaim:
@@ -637,6 +670,11 @@ spec:
         - name: remote-ssh-credentials
           emptyDir:
             medium: Memory
+        {{- end }}
+        {{- if and .Values.modules.runai.enabled .Values.runaiMcp.tls.existingSecret }}
+        - name: runai-ca
+          secret:
+            secretName: {{ .Values.runaiMcp.tls.existingSecret | quote }}
         {{- end }}
         {{- if not .Values.openshell.server.disableTls }}
         - name: openshell-client-tls

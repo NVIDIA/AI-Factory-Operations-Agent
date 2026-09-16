@@ -1,0 +1,20 @@
+{
+  "id": "runai",
+  "name": "Run:ai MCP",
+  "description": "Read-only authenticated bridge to the NVIDIA Run:ai MCP server.",
+  "contracts": {
+    "tools": ["runai_list_tools", "runai_call_tool"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "baseUrl": { "type": "string" },
+      "mcpUrl": { "type": "string" },
+      "clientId": { "type": "string" },
+      "clientSecret": { "type": "string" },
+      "timeoutMs": { "type": "number", "minimum": 1000 }
+    }
+  }
+}

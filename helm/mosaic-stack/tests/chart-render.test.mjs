@@ -77,6 +77,14 @@ function renderDiagnostics(...args) {
   );
 }
 
+test("rolls OpenClaw when external LLM credentials change", () => {
+  const first = render("--set", "llm.external.credentialRevision=first", "--show-only", "templates/openclaw.yaml");
+  const second = render("--set", "llm.external.credentialRevision=second", "--show-only", "templates/openclaw.yaml");
+  const checksum = output => output.match(/checksum\/llm-credentials: ([a-f0-9]{64})/)?.[1];
+  assert.ok(checksum(first));
+  assert.notEqual(checksum(first), checksum(second));
+});
+
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
   const output = renderDiagnostics();
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);

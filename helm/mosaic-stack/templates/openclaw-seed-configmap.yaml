@@ -73,6 +73,16 @@ data:
   iraop.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/iraop/SKILL.md" | indent 4 }}
   {{- end }}
+  {{- if .Values.modules.runai.enabled }}
+  runai.client.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/runai/client.ts" | indent 4 }}
+  runai.index.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/runai/index.ts" | indent 4 }}
+  runai.openclaw.plugin.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/runai/openclaw.plugin.json" | indent 4 }}
+  runai.package.json: |-
+{{ .Files.Get "files/openclaw-seed/extensions/runai/package.json" | indent 4 }}
+  {{- end }}
   {{- if and .Values.modules.observability.enabled .Values.modules.grafana.enabled }}
   grafana.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/grafana/SKILL.md" | indent 4 }}

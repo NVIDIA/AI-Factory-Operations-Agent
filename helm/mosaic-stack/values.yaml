@@ -56,6 +56,8 @@ modules:
       create: false
       nvidiaApiKey: ""
       chatApiKey: EMPTY
+  runai:
+    enabled: false
   terminal:
     enabled: false
   clusters:
@@ -102,6 +104,7 @@ llm:
     model: ""
     existingSecret: ""
     apiKeySecretKey: apiKey
+    credentialRevision: ""
   vllm:
     profile: ultra-16gpu
     name: vllm-nemotron
@@ -378,6 +381,32 @@ bcmMcp:
     cmshSetupTimeout: "240"
     cmshExecTimeout: "120"
     cmshPath: /cm/local/apps/cmd/bin/cmsh
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+runaiMcp:
+  baseUrl: ""
+  timeoutMs: 60000
+  service:
+    name: runai-mcp
+    port: 8080
+  image:
+    repository: nvcr.io/nvidia/runai/runai-mcp-server
+    tag: 2.26.27
+    pullPolicy: IfNotPresent
+  credentials:
+    existingSecret: ""
+    clientIdKey: clientId
+    clientSecretKey: clientSecret
+  tls:
+    existingSecret: ""
+    caKey: ca.crt
+    caMountPath: /etc/runai/tls/ca.crt
   resources:
     requests:
       cpu: 100m
