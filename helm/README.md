@@ -345,6 +345,32 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 After installation the plugins of your choosing the installation process is done and you can reference the previous mentioned port-forward to open up the UI.
 
+### Run:ai
+
+The chart can deploy the public Run:ai MCP server and register its cluster-local
+endpoint with OpenClaw through the standard MCP configuration. Run:ai client
+credentials are mounted only in the MCP server pod, and write tools are disabled.
+
+```bash
+kubectl -n mosaic create secret generic runai-credentials \
+  --from-literal=clientId="$RUNAI_CLIENT_ID" \
+  --from-literal=clientSecret="$RUNAI_CLIENT_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.runai.enabled=true \
+  --set-string runaiMcp.baseUrl="https://runai.example.com" \
+  --set runaiMcp.credentials.existingSecret=runai-credentials \
+  --wait \
+  --timeout 12m
+```
+
+For a Run:ai endpoint signed by a private CA, create a Secret containing
+`ca.crt` and set `runaiMcp.tls.existingSecret` to its name.
+
 ## Upgrade An Existing Installation
 
 Retain the working site configuration with:

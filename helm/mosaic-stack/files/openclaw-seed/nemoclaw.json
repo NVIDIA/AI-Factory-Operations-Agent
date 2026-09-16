@@ -78,6 +78,16 @@
       }
     }
   },
+  {{- if .Values.modules.runai.enabled }}
+  "mcp": {
+    "servers": {
+      "runai": {
+        "url": {{ printf "http://%s:%v/mcp" .Values.runaiMcp.service.name .Values.runaiMcp.service.port | quote }},
+        "transport": "streamable-http"
+      }
+    }
+  },
+  {{- end }}
   {{- if .Values.openclaw.slack.enabled }}
   "channels": {
     "slack": {

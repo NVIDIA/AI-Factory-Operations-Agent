@@ -56,6 +56,8 @@ modules:
       create: false
       nvidiaApiKey: ""
       chatApiKey: EMPTY
+  runai:
+    enabled: false
   terminal:
     enabled: false
   clusters:
@@ -378,6 +380,32 @@ bcmMcp:
     cmshSetupTimeout: "240"
     cmshExecTimeout: "120"
     cmshPath: /cm/local/apps/cmd/bin/cmsh
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+runaiMcp:
+  baseUrl: ""
+  service:
+    name: runai-mcp
+    port: 8080
+  image:
+    repository: nvcr.io/nvidia/runai/runai-mcp-server
+    tag: 2.26.27
+    digest: sha256:4dfceb98443643f165136006a17b5488da6a98bdc5a5a146038accac305c3af0
+    pullPolicy: IfNotPresent
+  credentials:
+    existingSecret: ""
+    clientIdKey: clientId
+    clientSecretKey: clientSecret
+  tls:
+    existingSecret: ""
+    caKey: ca.crt
+    caMountPath: /etc/runai/tls/ca.crt
   resources:
     requests:
       cpu: 100m

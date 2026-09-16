@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.modules.runai.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.runaiMcp.service.name }}
+  labels:
+    app: {{ .Values.runaiMcp.service.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.runaiMcp.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.runaiMcp.service.name }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: runai-mcp
+          image: {{ include "mosaic-stack.image" .Values.runaiMcp.image | quote }}
+          imagePullPolicy: {{ .Values.runaiMcp.image.pullPolicy }}
+          env:
+            - name: RUNAI_BASE_URL
+              value: {{ .Values.runaiMcp.baseUrl | quote }}
+            - name: RUNAI_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.runaiMcp.credentials.existingSecret | quote }}
+                  key: {{ .Values.runaiMcp.credentials.clientIdKey | quote }}
+            - name: RUNAI_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.runaiMcp.credentials.existingSecret | quote }}
+                  key: {{ .Values.runaiMcp.credentials.clientSecretKey | quote }}
+            - name: RUNAI_TRANSPORT
+              value: "http"
+            - name: RUNAI_MCP_LISTEN_PORT
+              value: {{ .Values.runaiMcp.service.port | quote }}
+            - name: RUNAI_ALLOW_WRITE_TOOLS
+              value: "false"
+            {{- if .Values.runaiMcp.tls.existingSecret }}
+            - name: SSL_CERT_FILE
+              value: {{ .Values.runaiMcp.tls.caMountPath | quote }}
+            {{- end }}
+          ports:
+            - name: mcp
+              containerPort: {{ .Values.runaiMcp.service.port }}
+          readinessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.runaiMcp.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+          {{- if .Values.runaiMcp.tls.existingSecret }}
+          volumeMounts:
+            - name: runai-ca
+              mountPath: {{ .Values.runaiMcp.tls.caMountPath | quote }}
+              subPath: {{ .Values.runaiMcp.tls.caKey | quote }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.runaiMcp.tls.existingSecret }}
+      volumes:
+        - name: runai-ca
+          secret:
+            secretName: {{ .Values.runaiMcp.tls.existingSecret | quote }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.runaiMcp.service.name }}
+  labels:
+    app: {{ .Values.runaiMcp.service.name }}
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.runaiMcp.service.name }}
+  ports:
+    - name: mcp
+      port: {{ .Values.runaiMcp.service.port }}
+      targetPort: mcp
+  type: ClusterIP
+{{- end }}
