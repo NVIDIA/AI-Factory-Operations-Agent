@@ -123,6 +123,7 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   for (const tool of [
     "write", "edit", "apply_patch",
     "run_kubectl_admin", "bcm_execute_cmsh_admin", "bcm_add_note", "bcm_remove_note",
+    "request_mcp_connection",
   ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
   }

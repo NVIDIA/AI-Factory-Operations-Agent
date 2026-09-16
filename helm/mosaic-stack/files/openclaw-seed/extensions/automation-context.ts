@@ -11,6 +11,7 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "bcm_execute_cmsh_admin",
   "bcm_remove_note",
   "edit",
+  "request_mcp_connection",
   "run_kubectl_admin",
   "write",
 ]);

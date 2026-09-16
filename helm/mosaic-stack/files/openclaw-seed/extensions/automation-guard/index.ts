@@ -37,6 +37,11 @@ export default definePluginEntry({
       ? pluginConfig.approvalTimeoutMs
       : 120_000;
     configureMcpToolPolicies(pluginConfig.mcpToolPolicies);
+    const mcpConnectionRequestUrl = typeof pluginConfig.mcpConnectionRequestUrl === "string"
+      ? pluginConfig.mcpConnectionRequestUrl.endsWith("/")
+        ? pluginConfig.mcpConnectionRequestUrl.slice(0, -1)
+        : pluginConfig.mcpConnectionRequestUrl
+      : "";
     const slackEditUserIds = Array.isArray(pluginConfig.slackEditUserIds)
       ? pluginConfig.slackEditUserIds.filter((id): id is string => typeof id === "string" && id.length > 0)
       : [];
@@ -100,6 +105,55 @@ export default definePluginEntry({
             timeoutBehavior: "deny",
           },
         };
+      },
+    });
+    if (editEnabled && mcpConnectionRequestUrl) api.registerTool({
+      name: "request_mcp_connection",
+      label: "MCP connection",
+      description: "Open the generic MCP connection prompt when the operator asks to add or connect an MCP server. Supply the server name and any remote endpoint already known. The operator can enter credentials without adding them to chat, and this call waits until connection and tool discovery finish.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name"],
+        properties: {
+          name: { type: "string", description: "Short service name shown to the operator." },
+          url: { type: "string", description: "HTTPS MCP endpoint, if known." },
+        },
+      },
+      async execute(toolCallId: string, params: Record<string, unknown>) {
+        const token = process.env.OPENCLAW_GATEWAY_TOKEN || "";
+        if (!token) return { content: [{ type: "text", text: "MCP connection requests are unavailable." }], isError: true };
+        const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+        const created = await fetch(mcpConnectionRequestUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            id: toolCallId,
+            name: typeof params.name === "string" ? params.name : "MCP server",
+            url: typeof params.url === "string" ? params.url : "",
+          }),
+        });
+        if (!created.ok) return { content: [{ type: "text", text: `Could not open the secure connection prompt (${created.status}).` }], isError: true };
+        const deadline = Date.now() + 300_000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 750));
+          const response = await fetch(`${mcpConnectionRequestUrl}/${encodeURIComponent(toolCallId)}`, { headers });
+          if (!response.ok) continue;
+          const request = await response.json() as Record<string, unknown>;
+          if (request.status === "pending") continue;
+          if (request.status === "error") {
+            return { content: [{ type: "text", text: typeof request.error === "string" ? request.error : "MCP connection failed." }], isError: true };
+          }
+          const connection = request.connection as { name?: unknown; tools?: unknown } | undefined;
+          const tools = Array.isArray(connection?.tools) ? connection.tools.filter(tool => typeof tool === "string") : [];
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({ connected: true, name: connection?.name, toolCount: tools.length, tools }),
+            }],
+          };
+        }
+        return { content: [{ type: "text", text: "The secure connection prompt timed out." }], isError: true };
       },
     });
   },

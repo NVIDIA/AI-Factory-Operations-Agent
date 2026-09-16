@@ -1,6 +1,7 @@
 {
   "id": "automation-guard",
   "contracts": {
+    "tools": ["request_mcp_connection"],
     "trustedToolPolicies": ["session-access"]
   },
   "activation": {
@@ -44,6 +45,9 @@
             }
           }
         }
+      },
+      "mcpConnectionRequestUrl": {
+        "type": "string"
       }
     }
   }

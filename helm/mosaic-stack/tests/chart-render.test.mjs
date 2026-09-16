@@ -50,15 +50,24 @@ test("startup-loads the automation read-only guard", () => {
     readFileSync(new URL("../files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json", import.meta.url)),
   );
   assert.equal(manifest.activation?.onStartup, true);
+  assert.deepEqual(manifest.contracts?.tools, ["request_mcp_connection"]);
   assert.deepEqual(manifest.contracts?.trustedToolPolicies, ["session-access"]);
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"hooks":\s*{\s*"allowConversationAccess": true\s*},\s*"config":\s*{\s*"editEnabled": false/);
   assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);
   assert.match(seed, /automation-context\.ts: \|-/);
-  assert.match(seed, /"hitl": true,[\s\S]*"approvalTimeoutMs": 120000/);
+  assert.match(seed, /"hitl": true,[\s\S]*"approvalTimeoutMs": 120000,[\s\S]*"mcpConnectionRequestUrl": "http:\/\/mosaic-ui:3000\/api\/mcp\/requests"/);
+  assert.match(seed, /name: "request_mcp_connection"/);
   const runtime = render("--show-only", "templates/openclaw.yaml");
   assert.match(runtime, /cp \/seed\/automation-guard\.index\.ts/);
   assert.doesNotMatch(runtime, /cp \/seed\/(?:bcm|kubernetes)-policy\.ts/);
+});
+
+test("uses the UI machine credential for the external MCP boundary", () => {
+  const ui = render("--show-only", "templates/mosaic-ui.yaml");
+  assert.match(ui, /name: MOSAIC_UI_MACHINE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: mosaic-ui-auth\s+key: machineToken/);
+  assert.match(ui, /name: MOSAIC_MCP_PROXY_BASE_URL\s+value: "http:\/\/mosaic-ui:3000\/api\/mcp\/proxy"/);
+  assert.doesNotMatch(ui, /PAGERDUTY|MCP_TOKEN|API_TOKEN/);
 });
 
 function render(...args) {

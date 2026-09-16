@@ -74,6 +74,8 @@ spec:
                   key: machineToken
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
+            - name: MOSAIC_MCP_PROXY_BASE_URL
+              value: {{ printf "http://mosaic-ui:%v/api/mcp/proxy" .Values.mosaicUi.service.port | quote }}
             - name: MOSAIC_TERMINAL_ENABLED
               value: {{ .Values.modules.terminal.enabled | quote }}
             - name: MOSAIC_EDIT_ENABLED
