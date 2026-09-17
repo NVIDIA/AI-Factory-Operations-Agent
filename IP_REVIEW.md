@@ -1,6 +1,6 @@
 # IP Review
 
-NVIDIA maintainers must complete the [NVIDIA IP review process](https://nv/ip_review_process) before distributing project modifications or accepting third-party contributions. The linked process requires NVIDIA-internal access.
+NVIDIA maintainers must complete NVIDIA's internal IP review process before distributing project modifications or accepting third-party contributions.
 
 For every contribution, maintainers must:
 
