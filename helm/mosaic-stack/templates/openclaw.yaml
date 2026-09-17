@@ -479,6 +479,18 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.openclaw.secrets.name }}
                   key: OPENCLAW_GATEWAY_TOKEN
+            {{- range $name, $config := .Values.managedMcpServers.servers }}
+            {{- if $config.enabled }}
+            {{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config }}
+            {{- range $headerName, $secret := $server.mcp.secretHeaders }}
+            - name: {{ printf "MOSAIC_MCP_%s" (upper (trunc 16 (sha256sum (printf "%s:%s" $name $headerName)))) }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret.name | quote }}
+                  key: {{ $secret.key | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             - name: VLLM_API_KEY
               {{- if and (eq .Values.llm.mode "external") .Values.llm.external.existingSecret }}
               valueFrom:

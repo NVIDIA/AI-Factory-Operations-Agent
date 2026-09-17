@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   clearRunAccess,
   configureIdentityApprovalBroker,
+  configureMcpToolPolicies,
   contextAllowsEdit,
   contextAllowsMutation,
   contextSkipsApproval,
@@ -20,6 +21,7 @@ import {
   sessionAllowsEdit,
   sessionSkipsApproval,
   setRunAccess,
+  toolAccess,
   toolRequiresEdit,
 } from "../files/openclaw-seed/extensions/automation-context.ts";
 
@@ -127,8 +129,24 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
   assert.equal(toolRequiresEdit("observability_query"), false);
+  assert.equal(toolRequiresEdit("dashboard_create"), false);
+  assert.equal(toolRequiresEdit("grafana_dashboard_create"), false);
+  assert.equal(toolRequiresEdit("third_party_delete_cluster"), true);
+  assert.equal(toolAccess("third_party_delete_cluster"), "unknown");
   assert.equal(toolRequiresEdit("exec", { command: "nvidia-smi -L" }), false);
   assert.equal(toolRequiresEdit("exec", { command: "touch /tmp/changed" }), true);
   assert.equal(toolRequiresEdit("run_remote_ssh", { host: "node-1", argv: ["ipmitool", "mc", "info"] }), false);
   assert.equal(toolRequiresEdit("run_remote_ssh", { host: "node-1", argv: ["reboot"] }), true);
+});
+
+test("applies explicit per-server MCP tool access without trusting unknown servers", () => {
+  configureMcpToolPolicies({
+    readserver: { defaultAccess: "view", viewTools: [] },
+    mixed: { defaultAccess: "edit", viewTools: ["inspect"] },
+  });
+  assert.equal(toolAccess("readserver__future_tool"), "read");
+  assert.equal(toolAccess("mixed__inspect"), "read");
+  assert.equal(toolAccess("mixed__delete"), "edit");
+  assert.equal(toolAccess("unconfigured__inspect"), "unknown");
+  configureMcpToolPolicies(undefined);
 });

@@ -19,6 +19,31 @@
       "slackEditUserIds": {
         "type": "array",
         "items": { "type": "string" }
+      },
+      "hitl": {
+        "type": "boolean"
+      },
+      "approvalTimeoutMs": {
+        "type": "number",
+        "minimum": 1000
+      },
+      "mcpToolPolicies": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["defaultAccess", "viewTools"],
+          "properties": {
+            "defaultAccess": {
+              "type": "string",
+              "enum": ["view", "edit"]
+            },
+            "viewTools": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
       }
     }
   }

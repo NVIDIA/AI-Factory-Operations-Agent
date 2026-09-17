@@ -55,6 +55,7 @@ test("startup-loads the automation read-only guard", () => {
   assert.match(seed, /"automation-guard":\s*{\s*"enabled": true,\s*"hooks":\s*{\s*"allowConversationAccess": true\s*},\s*"config":\s*{\s*"editEnabled": false/);
   assert.match(render("--set", "modules.edit.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml"), /"editEnabled": true/);
   assert.match(seed, /automation-context\.ts: \|-/);
+  assert.match(seed, /"hitl": true,[\s\S]*"approvalTimeoutMs": 120000/);
   const runtime = render("--show-only", "templates/openclaw.yaml");
   assert.match(runtime, /cp \/seed\/automation-guard\.index\.ts/);
   assert.doesNotMatch(runtime, /cp \/seed\/(?:bcm|kubernetes)-policy\.ts/);

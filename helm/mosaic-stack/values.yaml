@@ -386,6 +386,36 @@ bcmMcp:
       cpu: 500m
       memory: 512Mi
 
+managedMcpServers:
+  defaults:
+    port: 8080
+    path: /mcp
+    transport: streamable-http
+    args: []
+    image:
+      pullPolicy: IfNotPresent
+    env: {}
+    secretEnv: {}
+    mcp:
+      headers: {}
+      secretHeaders: {}
+    toolPolicy:
+      defaultAccess: edit
+      viewTools: []
+    tls:
+      existingSecret: ""
+      key: ca.crt
+      mountPath: /etc/mcp/tls/ca.crt
+      envName: SSL_CERT_FILE
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  servers: {}
+
 mosaicTerminal:
   service:
     port: 3002
