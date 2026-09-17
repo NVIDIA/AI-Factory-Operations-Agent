@@ -15,6 +15,68 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "write",
 ]);
 
+const READ_ONLY_TOOLS = new Set([
+  "agents_list",
+  "bcm_execute_cmsh",
+  "bcm_execute_tool",
+  "bcm_get_info",
+  "bcm_health",
+  "bcm_list_notes",
+  "bcm_node_health_summary",
+  "bcm_search_notes",
+  "bcm_search_tools",
+  "dashboard_create",
+  "dashboard_list",
+  "dashboard_open",
+  "dcgm_current",
+  "dcgm_health",
+  "dcgm_metric_names",
+  "dcgm_raw_metric",
+  "dcgm_top",
+  "find",
+  "get_goal",
+  "glob",
+  "grafana_dashboard_create",
+  "grafana_dashboard_health",
+  "grafana_dashboard_open",
+  "grafana_dashboard_presets",
+  "grafana_dashboard_validate",
+  "hardware_analyze_dut",
+  "hardware_health",
+  "hardware_triage_list",
+  "hardware_triage_report",
+  "hardware_triage_status",
+  "image",
+  "iraop_get_document",
+  "iraop_list_collections",
+  "iraop_list_documents",
+  "iraop_query",
+  "grep",
+  "ls",
+  "memory_get",
+  "memory_search",
+  "node_grep_files",
+  "node_read_file",
+  "observability_metric_names",
+  "observability_query",
+  "observability_range_query",
+  "pdf",
+  "read",
+  "run_kubectl",
+  "search",
+  "sessions_history",
+  "sessions_list",
+  "slurm_job_evidence",
+  "tool_describe",
+  "tool_search",
+  "update_plan",
+  "web_fetch",
+  "web_search",
+  "x_search",
+]);
+
+export type ToolAccess = "read" | "edit" | "unknown";
+
 export type AccessMode = "view" | "edit" | "auto";
 
 export type RunAccess = {
@@ -40,8 +102,31 @@ export type ApprovalRequest = {
 
 export type ApprovalDecision = "allow" | "deny" | "timeout";
 
+type McpToolPolicy = {
+  defaultAccess: "read" | "edit";
+  viewTools: Set<string>;
+};
+
 const runAccess = new Map<string, RunAccess>();
+const mcpToolPolicies = new Map<string, McpToolPolicy>();
 let identityApprovalBroker: ((access: RunAccess, request: ApprovalRequest) => Promise<ApprovalDecision>) | undefined;
+
+export function configureMcpToolPolicies(value: unknown) {
+  mcpToolPolicies.clear();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  for (const [server, raw] of Object.entries(value)) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const policy = raw as { defaultAccess?: unknown; viewTools?: unknown };
+    mcpToolPolicies.set(`${server.toLowerCase()}__`, {
+      defaultAccess: policy.defaultAccess === "view" ? "read" : "edit",
+      viewTools: new Set(
+        Array.isArray(policy.viewTools)
+          ? policy.viewTools.filter((tool): tool is string => typeof tool === "string").map(tool => tool.toLowerCase())
+          : [],
+      ),
+    });
+  }
+}
 
 export function readonlyAutomationSource(sessionKey: unknown) {
   if (typeof sessionKey !== "string") return undefined;
@@ -114,15 +199,26 @@ export function contextSkipsApproval(context: ToolContext) {
   return !isReadonlyAutomationSession(context.sessionKey) && runAccessMode(context) === "auto";
 }
 
-export function toolRequiresEdit(toolName: unknown, params?: unknown) {
-  if (typeof toolName !== "string") return false;
+export function toolAccess(toolName: unknown, params?: unknown): ToolAccess {
+  if (typeof toolName !== "string") return "unknown";
   const normalized = toolName.trim().toLowerCase();
-  if (normalized === "exec") return diagnosticExecArgv(params) === undefined;
+  if (normalized === "exec") return diagnosticExecArgv(params) === undefined ? "edit" : "read";
   if (normalized === "run_remote_ssh") {
     const argv = params && typeof params === "object" && !Array.isArray(params)
       ? (params as { argv?: unknown }).argv
       : undefined;
-    return !isAllowedDiagnosticArgv(argv);
+    return isAllowedDiagnosticArgv(argv) ? "read" : "edit";
   }
-  return ALWAYS_MUTATING_TOOLS.has(normalized);
+  if (ALWAYS_MUTATING_TOOLS.has(normalized)) return "edit";
+  if (READ_ONLY_TOOLS.has(normalized)) return "read";
+  for (const [prefix, policy] of mcpToolPolicies) {
+    if (!normalized.startsWith(prefix)) continue;
+    const tool = normalized.slice(prefix.length);
+    return policy.defaultAccess === "read" || policy.viewTools.has(tool) ? "read" : "edit";
+  }
+  return "unknown";
+}
+
+export function toolRequiresEdit(toolName: unknown, params?: unknown) {
+  return toolAccess(toolName, params) !== "read";
 }

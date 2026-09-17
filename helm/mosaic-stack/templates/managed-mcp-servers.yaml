@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- range $name, $config := .Values.managedMcpServers.servers }}
+{{- if $config.enabled }}
+{{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config }}
+{{- $resourceName := printf "mcp-%s" $name }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $resourceName }}
+  labels:
+    app: {{ $resourceName }}
+    {{- include "mosaic-stack.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $resourceName }}
+  template:
+    metadata:
+      labels:
+        app: {{ $resourceName }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "mosaic-stack.imagePullSecrets" $ | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" $ | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" $ | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $resourceName }}
+          image: {{ include "mosaic-stack.image" $server.image | quote }}
+          imagePullPolicy: {{ $server.image.pullPolicy }}
+          {{- with $server.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or $server.env $server.secretEnv $server.tls.existingSecret }}
+          env:
+            {{- range $envName, $value := $server.env }}
+            - name: {{ $envName }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $envName, $secret := $server.secretEnv }}
+            - name: {{ $envName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret.name | quote }}
+                  key: {{ $secret.key | quote }}
+            {{- end }}
+            {{- if $server.tls.existingSecret }}
+            - name: {{ $server.tls.envName }}
+              value: {{ $server.tls.mountPath | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: mcp
+              containerPort: {{ $server.port }}
+          readinessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml $server.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          {{- if $server.tls.existingSecret }}
+          volumeMounts:
+            - name: server-ca
+              mountPath: {{ $server.tls.mountPath | quote }}
+              subPath: {{ $server.tls.key | quote }}
+              readOnly: true
+          {{- end }}
+      {{- if $server.tls.existingSecret }}
+      volumes:
+        - name: server-ca
+          secret:
+            secretName: {{ $server.tls.existingSecret | quote }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $resourceName }}
+  labels:
+    app: {{ $resourceName }}
+    {{- include "mosaic-stack.labels" $ | nindent 4 }}
+spec:
+  selector:
+    app: {{ $resourceName }}
+  ports:
+    - name: mcp
+      port: {{ $server.port }}
+      targetPort: mcp
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $resourceName }}
+  labels:
+    app: {{ $resourceName }}
+    {{- include "mosaic-stack.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $resourceName }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: openclaw
+      ports:
+        - protocol: TCP
+          port: {{ $server.port }}
+---
+{{- end }}
+{{- end }}
