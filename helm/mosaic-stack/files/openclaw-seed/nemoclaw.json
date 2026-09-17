@@ -1,3 +1,24 @@
+{{- $managedMcpServers := dict -}}
+{{- range $name, $config := .Values.managedMcpServers.servers -}}
+{{- if $config.enabled -}}
+{{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config -}}
+{{- $mcp := deepCopy $server.mcp -}}
+{{- $headers := deepCopy $mcp.headers -}}
+{{- range $headerName, $secret := $mcp.secretHeaders -}}
+{{- $envName := printf "MOSAIC_MCP_%s" (upper (trunc 16 (sha256sum (printf "%s:%s" $name $headerName)))) -}}
+{{- $_ := set $headers $headerName (printf "%s${%s}" (default "" $secret.prefix) $envName) -}}
+{{- end -}}
+{{- $_ := unset $mcp "secretHeaders" -}}
+{{- if $headers -}}
+{{- $_ := set $mcp "headers" $headers -}}
+{{- else -}}
+{{- $_ := unset $mcp "headers" -}}
+{{- end -}}
+{{- $_ := set $mcp "url" (printf "http://mcp-%s:%v%s" $name $server.port $server.path) -}}
+{{- $_ := set $mcp "transport" $server.transport -}}
+{{- $_ := set $managedMcpServers $name $mcp -}}
+{{- end -}}
+{{- end -}}
 {
   "gateway": {
     "mode": "local",
@@ -78,6 +99,11 @@
       }
     }
   },
+  {{- if $managedMcpServers }}
+  "mcp": {
+    "servers": {{ $managedMcpServers | toJson }}
+  },
+  {{- end }}
   {{- if .Values.openclaw.slack.enabled }}
   "channels": {
     "slack": {
@@ -172,6 +198,19 @@
         },
         "config": {
           "editEnabled": {{ .Values.modules.edit.enabled }},
+          "hitl": {{ .Values.modules.edit.hitl }},
+          "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
+          "mcpToolPolicies": {
+            {{- $firstPolicy := true -}}
+            {{- range $name, $config := .Values.managedMcpServers.servers -}}
+            {{- if $config.enabled -}}
+            {{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config -}}
+            {{- if not $firstPolicy }},{{ end }}
+            {{ $name | quote }}: {{ $server.toolPolicy | toJson }}
+            {{- $firstPolicy = false -}}
+            {{- end -}}
+            {{- end }}
+          },
           "slackEnabled": {{ .Values.openclaw.slack.enabled }},
           "slackEditUserIds": {{ .Values.openclaw.slack.editUserIds | toJson }}
         }

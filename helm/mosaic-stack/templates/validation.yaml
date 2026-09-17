@@ -66,6 +66,86 @@
 {{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
 {{- fail "global.registryCredentials.password is required when global.registryCredentials.create=true" -}}
 {{- end -}}
+{{- range $name, $config := .Values.managedMcpServers.servers -}}
+{{- if $config.enabled -}}
+{{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config -}}
+{{- if or (gt (len $name) 30) (not (regexMatch "^[a-z]([-a-z0-9]*[a-z0-9])?$" $name)) -}}
+{{- fail (printf "managedMcpServers.servers.%s has an invalid name" $name) -}}
+{{- end -}}
+{{- if not $.Values.modules.execution.enabled -}}
+{{- fail (printf "managed MCP server %s requires modules.execution.enabled=true" $name) -}}
+{{- end -}}
+{{- if not $.Values.openclaw.enabled -}}
+{{- fail (printf "managed MCP server %s requires openclaw.enabled=true" $name) -}}
+{{- end -}}
+{{- if not $server.image.repository -}}
+{{- fail (printf "managedMcpServers.servers.%s.image.repository is required" $name) -}}
+{{- end -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" (default "" $server.image.digest)) -}}
+{{- fail (printf "managedMcpServers.servers.%s.image.digest must be a sha256 digest" $name) -}}
+{{- end -}}
+{{- if or (lt (int $server.port) 1) (gt (int $server.port) 65535) -}}
+{{- fail (printf "managedMcpServers.servers.%s.port must be between 1 and 65535" $name) -}}
+{{- end -}}
+{{- if not (has $server.transport (list "streamable-http" "sse")) -}}
+{{- fail (printf "managedMcpServers.servers.%s.transport must be streamable-http or sse" $name) -}}
+{{- end -}}
+{{- if not (hasPrefix "/" $server.path) -}}
+{{- fail (printf "managedMcpServers.servers.%s.path must start with /" $name) -}}
+{{- end -}}
+{{- if not (kindIs "slice" $server.args) -}}
+{{- fail (printf "managedMcpServers.servers.%s.args must be a list" $name) -}}
+{{- end -}}
+{{- range $argument := $server.args -}}
+{{- if not (kindIs "string" $argument) -}}
+{{- fail (printf "managedMcpServers.servers.%s.args must contain only strings" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- range $envName, $_ := $server.env -}}
+{{- if not (regexMatch "^[A-Za-z_][A-Za-z0-9_]*$" $envName) -}}
+{{- fail (printf "managedMcpServers.servers.%s.env contains invalid name %s" $name $envName) -}}
+{{- end -}}
+{{- end -}}
+{{- range $envName, $secret := $server.secretEnv -}}
+{{- if not (regexMatch "^[A-Za-z_][A-Za-z0-9_]*$" $envName) -}}
+{{- fail (printf "managedMcpServers.servers.%s.secretEnv contains invalid name %s" $name $envName) -}}
+{{- end -}}
+{{- if or (not $secret.name) (not $secret.key) -}}
+{{- fail (printf "managedMcpServers.servers.%s.secretEnv.%s requires name and key" $name $envName) -}}
+{{- end -}}
+{{- end -}}
+{{- range $headerName, $value := $server.mcp.headers -}}
+{{- if not (regexMatch "^[A-Za-z][A-Za-z0-9-]*$" $headerName) -}}
+{{- fail (printf "managedMcpServers.servers.%s.mcp.headers contains invalid name %s" $name $headerName) -}}
+{{- end -}}
+{{- if not (kindIs "string" $value) -}}
+{{- fail (printf "managedMcpServers.servers.%s.mcp.headers.%s must be a string" $name $headerName) -}}
+{{- end -}}
+{{- end -}}
+{{- range $headerName, $secret := $server.mcp.secretHeaders -}}
+{{- if not (regexMatch "^[A-Za-z][A-Za-z0-9-]*$" $headerName) -}}
+{{- fail (printf "managedMcpServers.servers.%s.mcp.secretHeaders contains invalid name %s" $name $headerName) -}}
+{{- end -}}
+{{- if hasKey $server.mcp.headers $headerName -}}
+{{- fail (printf "managedMcpServers.servers.%s MCP header %s cannot be both literal and secret-backed" $name $headerName) -}}
+{{- end -}}
+{{- if or (not $secret.name) (not $secret.key) -}}
+{{- fail (printf "managedMcpServers.servers.%s.mcp.secretHeaders.%s requires name and key" $name $headerName) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (has $server.toolPolicy.defaultAccess (list "view" "edit")) -}}
+{{- fail (printf "managedMcpServers.servers.%s.toolPolicy.defaultAccess must be view or edit" $name) -}}
+{{- end -}}
+{{- range $toolName := $server.toolPolicy.viewTools -}}
+{{- if not (regexMatch "^[A-Za-z][A-Za-z0-9_-]*$" $toolName) -}}
+{{- fail (printf "managedMcpServers.servers.%s.toolPolicy.viewTools contains invalid tool %s" $name $toolName) -}}
+{{- end -}}
+{{- end -}}
+{{- if and $server.tls.existingSecret (or (not $server.tls.key) (not $server.tls.envName) (not (hasPrefix "/" $server.tls.mountPath))) -}}
+{{- fail (printf "managedMcpServers.servers.%s TLS requires key, envName, and an absolute mountPath" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- if and .Values.modules.terminal.enabled (not .Values.modules.ui.enabled) -}}
 {{- fail "modules.terminal.enabled=true requires modules.ui.enabled=true" -}}
 {{- end -}}

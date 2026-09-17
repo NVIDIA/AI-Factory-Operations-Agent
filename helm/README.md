@@ -269,6 +269,82 @@ Privileges are attached to separate tools and credentials. Read-only tools and t
 
 Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
 
+### Managed MCP servers
+
+The chart can deploy private MCP services and register their cluster-local
+endpoints with OpenClaw. Each enabled server uses a digest-pinned image,
+ClusterIP Service, hardened pod security settings, and existing Kubernetes
+Secrets for credentials. An ingress policy limits the service to OpenClaw.
+
+```yaml
+managedMcpServers:
+  servers:
+    example:
+      enabled: true
+      image:
+        repository: registry.example.com/example-mcp
+        digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      args: ["--read-only"]
+      env:
+        API_BASE_URL: https://api.example.com
+      secretEnv:
+        API_TOKEN:
+          name: example-mcp-credentials
+          key: token
+      mcp:
+        headers:
+          X-Organization: operations
+        secretHeaders:
+          Authorization:
+            name: example-mcp-caller
+            key: token
+            prefix: "Bearer "
+      toolPolicy:
+        defaultAccess: edit
+        viewTools: [status, search]
+```
+
+The resulting endpoint is registered as `example` at
+`http://mcp-example:8080/mcp`. Use `port`, `path`, or `transport` to override
+those connection defaults. For a private CA, set `tls.existingSecret`; the
+Secret must contain `ca.crt` unless `tls.key` is overridden. Do not place
+credentials in `env`.
+
+`args` are passed to the container entrypoint. `mcp.headers` use OpenClaw's
+native HTTP MCP configuration. Put sensitive header values in
+`mcp.secretHeaders`; the chart injects the referenced Secret only into OpenClaw
+and substitutes it into the header at startup. Managed-server tools require Edit
+by default. Set `toolPolicy.defaultAccess: view` only when every tool exposed by
+the server is safe in View, or list individual safe tool names in `viewTools`.
+Tools from unconfigured servers remain fail-closed.
+
+#### Run:ai
+
+Run:ai is included as a disabled managed MCP module. Create its credential
+Secret and enable it with the Run:ai HTTPS endpoint:
+
+```bash
+kubectl -n mosaic create secret generic runai-credentials \
+  --from-literal=clientId="$RUNAI_CLIENT_ID" \
+  --from-literal=clientSecret="$RUNAI_CLIENT_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set managedMcpServers.servers.runai.enabled=true \
+  --set-string managedMcpServers.servers.runai.env.RUNAI_BASE_URL="https://runai.example.com" \
+  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_ID.name=runai-credentials \
+  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_SECRET.name=runai-credentials \
+  --wait \
+  --timeout 12m
+```
+
+The Run:ai server exposes only read tools. For a private CA, set
+`managedMcpServers.servers.runai.tls.existingSecret` to a Secret containing
+`ca.crt`.
+
 ### BCM
 
 To enable the BCM extension, provide the BCM head host and SSH key:
