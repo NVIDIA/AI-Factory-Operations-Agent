@@ -343,7 +343,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 ```
 
-After installation the plugins of your choosing the installation process is done and you can reference the previous mentioned port-forward to open up the UI.
+After enabling the required plugins, use the earlier port-forward to open the UI.
 
 ## Upgrade An Existing Installation
 

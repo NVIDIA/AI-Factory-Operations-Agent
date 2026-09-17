@@ -2,7 +2,7 @@
 
 All notable changes to AI Factory Operations Agent will be documented in this file.
 
-## 0.0.1 - 2026-07-06
+## 0.0.1 - 2026-09-25
 
 ### New Features
 
