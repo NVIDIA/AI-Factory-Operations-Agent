@@ -12,6 +12,13 @@ For an NVIDIA Mission Control managed cluster, follow the complete [NMC installa
 
 ### 1. Create The Namespace And Registry Access
 
+Ask your NVIDIA contact to invite the email address you will use with NGC to
+the AI Factory Operations Agent private registry. Accept the invitation while
+signed in with that account; use a private browser window if another NGC
+account is already signed in. Then create an NGC personal API key from
+[NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys) with the
+Private Registry service enabled.
+
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
