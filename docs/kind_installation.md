@@ -13,7 +13,7 @@ helm version
 kubectl version --client
 ```
 
-Create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and ensure the account has pull access to the required private registry artifacts.
+Ask your NVIDIA contact to invite the email address you will use with NGC to the AI Factory Operations Agent private registry. Accept the invitation while signed in with that account; use a private browser window if another NGC account is already signed in. Then create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and confirm that the account can pull the required private registry artifacts.
 
 Obtain an API key, `/v1/chat/completions` base URL, and model name from the same OpenAI-compatible LLM provider.
 
