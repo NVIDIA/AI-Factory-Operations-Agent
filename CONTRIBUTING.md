@@ -29,10 +29,10 @@ Open an issue before substantial implementation work so maintainers can confirm 
 
 ## Developer Certificate Of Origin
 
-External contributions require agreement to the [Developer Certificate of Origin 1.1](DCO.md). Sign off every commit with:
+External contributions require agreement to the [Developer Certificate of Origin 1.1](DCO.md). Every commit must include a `Signed-off-by` line. Add it automatically with the `-s` option:
 
 ```bash
-git commit --signoff
+git commit -s -m "Describe the change"
 ```
 
 The sign-off adds a `Signed-off-by: Name <email@example.com>` line and certifies the contribution under the DCO. Pull requests containing unsigned commits cannot be merged.
