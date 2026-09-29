@@ -33,7 +33,7 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 
 # Getting Started
 
-In the early access stage, the published Helm chart and container images require an early access invitation to the private NGC registry; `nvcr.io` login alone does not grant pull access. Please ask your NVIDIA account team for an invitation before installing.
+In the early access stage, the published Helm chart and container images require an early access invitation to the private NGC registry; `nvcr.io` login alone does not grant pull access. To request access before installing, [complete the onboarding form](https://forms.gle/toVA2noFzz5UR2gr5) or email [ai-factory-operations-agent@nvidia.com](mailto:ai-factory-operations-agent@nvidia.com). You can also contact your NVIDIA account team.
 
 Use the complete installation guide for your environment:
 
