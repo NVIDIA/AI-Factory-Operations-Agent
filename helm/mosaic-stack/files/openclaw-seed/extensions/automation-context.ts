@@ -70,7 +70,6 @@ const READ_ONLY_TOOLS = new Set([
   "update_plan",
   "web_fetch",
   "web_search",
-  "x_search",
 ]);
 
 export type ToolAccess = "read" | "edit" | "unknown";
