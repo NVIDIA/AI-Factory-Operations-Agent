@@ -39,6 +39,7 @@ const READ_ONLY_TOOLS = new Set([
   "grafana_dashboard_open",
   "grafana_dashboard_presets",
   "grafana_dashboard_validate",
+  // Hardware collection is read-only; rate-limit requests separately instead of requiring Edit.
   "hardware_analyze_dut",
   "hardware_health",
   "hardware_triage_list",
