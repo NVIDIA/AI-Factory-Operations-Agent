@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import fsPromises, { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -59,6 +60,18 @@ test("reads only the last MAX_FILE_BYTES of a large file", async () => {
   process.env.EVIDENCE_AUTH_TOKEN = "test-token";
   process.env.MAX_FILE_BYTES = String(tail.length);
   process.env.EVIDENCE_TEST_MODE = "1";
+  const originalOpen = fsPromises.open;
+  const originalReadFile = fsPromises.readFile;
+  fsPromises.open = async (...args) => {
+    const handle = await originalOpen(...args);
+    return {
+      stat: () => handle.stat(),
+      read: (buffer, offset, length, position) => handle.read(buffer, offset, Math.min(length, 3), position),
+      close: () => handle.close(),
+    };
+  };
+  fsPromises.readFile = async () => { throw new Error("whole-file read"); };
+  syncBuiltinESMExports();
   const { createEvidenceServer } = await import(`../files/slurm-evidence/server.mjs?${Date.now()}`);
   const server = createEvidenceServer().listen(0, "127.0.0.1");
   await new Promise(resolve => server.once("listening", resolve));
@@ -74,6 +87,9 @@ test("reads only the last MAX_FILE_BYTES of a large file", async () => {
     assert.equal(body.truncated, true);
   } finally {
     server.close();
+    fsPromises.open = originalOpen;
+    fsPromises.readFile = originalReadFile;
+    syncBuiltinESMExports();
     delete process.env.MAX_FILE_BYTES;
     await rm(host, { recursive: true, force: true });
   }

@@ -63,8 +63,13 @@ async function readTail(fullPath, limit = maxFileBytes) {
     const { size } = await handle.stat();
     const length = Math.min(size, limit);
     const buffer = Buffer.alloc(length);
-    if (length > 0) await handle.read(buffer, 0, length, size - length);
-    return { text: buffer.toString('utf8'), truncated: size > limit };
+    let bytesRead = 0;
+    while (bytesRead < length) {
+      const { bytesRead: count } = await handle.read(buffer, bytesRead, length - bytesRead, size - length + bytesRead);
+      if (count === 0) break;
+      bytesRead += count;
+    }
+    return { text: buffer.subarray(0, bytesRead).toString('utf8'), truncated: size > limit };
   } finally {
     await handle.close();
   }
