@@ -123,14 +123,13 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   for (const tool of [
     "write", "edit", "apply_patch",
     "run_kubectl_admin", "bcm_execute_cmsh_admin", "bcm_add_note", "bcm_remove_note",
+    "dashboard_create", "grafana_dashboard_create",
   ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
   }
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
   assert.equal(toolRequiresEdit("observability_query"), false);
-  assert.equal(toolRequiresEdit("dashboard_create"), false);
-  assert.equal(toolRequiresEdit("grafana_dashboard_create"), false);
   assert.equal(toolRequiresEdit("third_party_delete_cluster"), true);
   assert.equal(toolAccess("third_party_delete_cluster"), "unknown");
   assert.equal(toolRequiresEdit("exec", { command: "nvidia-smi -L" }), false);
