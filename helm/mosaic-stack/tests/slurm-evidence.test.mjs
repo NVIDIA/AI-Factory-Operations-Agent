@@ -44,3 +44,37 @@ test("authenticates evidence reads and rejects symlink escapes", async () => {
     await rm(host, { recursive: true, force: true });
   }
 });
+
+test("reads only the last MAX_FILE_BYTES of a large file", async () => {
+  const host = await mkdtemp(path.join(tmpdir(), "slurm-evidence-tail-"));
+  const logRoot = path.join(host, "var/log");
+  await mkdir(logRoot, { recursive: true });
+  // A file far larger than the read window: the reader must return only its
+  // tail without buffering the whole file into memory.
+  const head = "H".repeat(4 * 1024 * 1024);
+  const tail = "\nTAIL-MARKER-END\n";
+  await writeFile(path.join(logRoot, "big.log"), head + tail);
+  process.env.HOST_ROOT = host;
+  process.env.EVIDENCE_ROOTS = "/var/log";
+  process.env.EVIDENCE_AUTH_TOKEN = "test-token";
+  process.env.MAX_FILE_BYTES = String(tail.length);
+  process.env.EVIDENCE_TEST_MODE = "1";
+  const { createEvidenceServer } = await import(`../files/slurm-evidence/server.mjs?${Date.now()}`);
+  const server = createEvidenceServer().listen(0, "127.0.0.1");
+  await new Promise(resolve => server.once("listening", resolve));
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/read?path=/var/log/big.log`, {
+      headers: { authorization: "Bearer test-token" },
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.text, tail);
+    assert.equal(body.truncated, true);
+  } finally {
+    server.close();
+    delete process.env.MAX_FILE_BYTES;
+    await rm(host, { recursive: true, force: true });
+  }
+});
