@@ -11,6 +11,7 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "bcm_execute_cmsh_admin",
   "bcm_remove_note",
   "edit",
+  "hardware_analyze_dut",
   "run_kubectl_admin",
   "write",
 ]);
@@ -39,7 +40,6 @@ const READ_ONLY_TOOLS = new Set([
   "grafana_dashboard_open",
   "grafana_dashboard_presets",
   "grafana_dashboard_validate",
-  "hardware_analyze_dut",
   "hardware_health",
   "hardware_triage_list",
   "hardware_triage_report",
