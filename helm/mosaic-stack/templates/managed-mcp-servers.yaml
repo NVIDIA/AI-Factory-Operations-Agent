@@ -19,6 +19,10 @@ spec:
       app: {{ $resourceName }}
   template:
     metadata:
+      {{- if $server.oauth.enabled }}
+      annotations:
+        checksum/oauth-proxy: {{ $.Files.Get "files/mcp-oauth-proxy.mjs" | sha256sum }}
+      {{- end }}
       labels:
         app: {{ $resourceName }}
     spec:
@@ -57,16 +61,16 @@ spec:
             {{- end }}
           {{- end }}
           ports:
-            - name: mcp
+            - name: {{ ternary "upstream" "mcp" $server.oauth.enabled }}
               containerPort: {{ $server.port }}
           readinessProbe:
             tcpSocket:
-              port: mcp
+              port: {{ ternary "upstream" "mcp" $server.oauth.enabled }}
             initialDelaySeconds: 2
             periodSeconds: 5
           livenessProbe:
             tcpSocket:
-              port: mcp
+              port: {{ ternary "upstream" "mcp" $server.oauth.enabled }}
             initialDelaySeconds: 10
             periodSeconds: 10
           resources:
@@ -84,11 +88,68 @@ spec:
               subPath: {{ $server.tls.key | quote }}
               readOnly: true
           {{- end }}
-      {{- if $server.tls.existingSecret }}
+        {{- if $server.oauth.enabled }}
+        - name: oauth
+          image: {{ include "mosaic-stack.image" $.Values.mosaicUi.image | quote }}
+          command: ["node", "/oauth/proxy.mjs"]
+          env:
+            - name: PORT
+              value: {{ add1 (int $server.port) | quote }}
+            - name: UPSTREAM_PORT
+              value: {{ $server.port | quote }}
+            - name: MCP_PATH
+              value: {{ $server.path | quote }}
+            - name: OAUTH_TOKEN_URL
+              value: {{ $server.oauth.tokenUrl | quote }}
+            - name: OAUTH_SCOPE
+              value: {{ $server.oauth.scope | quote }}
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef: {{ toJson $server.oauth.clientIdSecret }}
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: {{ toJson $server.oauth.clientSecretSecret }}
+            {{- if $server.tls.existingSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: {{ $server.tls.mountPath | quote }}
+            {{- end }}
+          ports:
+            - name: mcp
+              containerPort: {{ add1 (int $server.port) }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: mcp}
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - name: oauth-proxy
+              mountPath: /oauth
+              readOnly: true
+            {{- if $server.tls.existingSecret }}
+            - name: server-ca
+              mountPath: {{ $server.tls.mountPath | quote }}
+              subPath: {{ $server.tls.key | quote }}
+              readOnly: true
+            {{- end }}
+        {{- end }}
+      {{- if or $server.tls.existingSecret $server.oauth.enabled }}
       volumes:
+        {{- if $server.oauth.enabled }}
+        - name: oauth-proxy
+          configMap:
+            name: {{ $resourceName }}-oauth
+        {{- end }}
+        {{- if $server.tls.existingSecret }}
         - name: server-ca
           secret:
             secretName: {{ $server.tls.existingSecret | quote }}
+        {{- end }}
       {{- end }}
 ---
 apiVersion: v1
@@ -127,7 +188,17 @@ spec:
               app: openclaw
       ports:
         - protocol: TCP
-          port: {{ $server.port }}
+          port: {{ ternary (add1 (int $server.port)) (int $server.port) $server.oauth.enabled }}
 ---
+{{- if $server.oauth.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $resourceName }}-oauth
+data:
+  proxy.mjs: |
+{{ $.Files.Get "files/mcp-oauth-proxy.mjs" | indent 4 }}
+---
+{{- end }}
 {{- end }}
 {{- end }}

@@ -491,6 +491,15 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
+            {{- range $name, $server := .Values.externalMcpServers }}
+            {{- range $headerName, $secret := $server.secretHeaders }}
+            - name: {{ printf "MOSAIC_MCP_%s" (upper (trunc 16 (sha256sum (printf "%s:%s" $name $headerName)))) }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret.name | quote }}
+                  key: {{ $secret.key | quote }}
+            {{- end }}
+            {{- end }}
             - name: VLLM_API_KEY
               {{- if and (eq .Values.llm.mode "external") .Values.llm.external.existingSecret }}
               valueFrom:

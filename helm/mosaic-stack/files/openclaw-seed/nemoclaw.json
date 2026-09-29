@@ -19,6 +19,18 @@
 {{- $_ := set $managedMcpServers $name $mcp -}}
 {{- end -}}
 {{- end -}}
+{{- range $name, $server := .Values.externalMcpServers -}}
+{{- $mcp := dict "url" $server.url "transport" (default "streamable-http" $server.transport) -}}
+{{- $headers := deepCopy (default (dict) $server.headers) -}}
+{{- range $headerName, $secret := $server.secretHeaders -}}
+{{- $envName := printf "MOSAIC_MCP_%s" (upper (trunc 16 (sha256sum (printf "%s:%s" $name $headerName)))) -}}
+{{- $_ := set $headers $headerName (printf "%s${%s}" (default "" $secret.prefix) $envName) -}}
+{{- end -}}
+{{- if $headers -}}
+{{- $_ := set $mcp "headers" $headers -}}
+{{- end -}}
+{{- $_ := set $managedMcpServers $name $mcp -}}
+{{- end -}}
 {
   "gateway": {
     "mode": "local",
@@ -209,6 +221,11 @@
             {{ $name | quote }}: {{ $server.toolPolicy | toJson }}
             {{- $firstPolicy = false -}}
             {{- end -}}
+            {{- end }}
+            {{- range $name, $server := .Values.externalMcpServers -}}
+            {{- if not $firstPolicy }},{{ end }}
+            {{ $name | quote }}: {{ (mergeOverwrite (dict "defaultAccess" "edit" "viewTools" (list)) (default (dict) $server.toolPolicy)) | toJson }}
+            {{- $firstPolicy = false -}}
             {{- end }}
           },
           "slackEnabled": {{ .Values.openclaw.slack.enabled }},

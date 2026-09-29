@@ -13,4 +13,7 @@
 {{- if or (ne (toString $server.env.RUNAI_TRANSPORT) "http") (ne (toString $server.env.RUNAI_MCP_LISTEN_PORT) (toString $server.port)) -}}
 {{- fail "managedMcpServers.servers.runai transport and listen port must match its managed service" -}}
 {{- end -}}
+{{- if not $server.oauth.enabled -}}
+{{- fail "managedMcpServers.servers.runai.oauth.enabled must remain true" -}}
+{{- end -}}
 {{- end -}}

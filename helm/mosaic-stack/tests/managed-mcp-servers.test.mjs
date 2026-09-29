@@ -95,3 +95,62 @@ test("rejects unsafe or incomplete managed MCP definitions", () => {
     assert.match(result.stderr, expected);
   }
 });
+
+test("registers installer-defined external MCP without deploying a server or changing the UI", () => {
+  const settings = [
+    "--set-string", "externalMcpServers.inventory.url=https://mcp.example.com/mcp",
+    "--set", "externalMcpServers.inventory.secretHeaders.Authorization.name=inventory-credentials",
+    "--set", "externalMcpServers.inventory.secretHeaders.Authorization.key=token",
+    "--set-string", "externalMcpServers.inventory.secretHeaders.Authorization.prefix=Bearer ",
+    "--set", "externalMcpServers.inventory.toolPolicy.viewTools[0]=lookup",
+  ];
+  const config = render(...settings, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const openclaw = render(...settings, "--show-only", "templates/openclaw.yaml");
+  const ui = render(...settings, "--show-only", "templates/mosaic-ui.yaml");
+
+  assert.match(config, /"inventory":\{"headers":\{"Authorization":"Bearer \$\{MOSAIC_MCP_[A-F0-9]{16}\}"\},"transport":"streamable-http","url":"https:\/\/mcp\.example\.com\/mcp"\}/);
+  assert.match(config, /"inventory": \{"defaultAccess":"edit","viewTools":\["lookup"\]\}/);
+  assert.doesNotMatch(config, /inventory-credentials/);
+  assert.match(openclaw, /name: MOSAIC_MCP_[A-F0-9]{16}[\s\S]*?name: "inventory-credentials"[\s\S]*?key: "token"/);
+  assert.doesNotMatch(ui, /MCP_|inventory-credentials|mcp\.example\.com/);
+  assert.doesNotMatch(render(...settings), /name: mcp-inventory/);
+});
+
+test("rejects unsafe external MCP definitions", () => {
+  for (const [setting, expected] of [
+    ["externalMcpServers.inventory.url=http://mcp.example.com/mcp", /url must use HTTPS/],
+    ["externalMcpServers.inventory.url=https://user:pass@mcp.example.com/mcp", /url must use HTTPS/],
+    ["externalMcpServers.inventory.url=https://mcp.example.com/mcp?token=secret", /url must use HTTPS/],
+    ["externalMcpServers.inventory.transport=stdio", /transport must be streamable-http or sse/],
+    ["externalMcpServers.inventory.toolPolicy.defaultAccess=auto", /defaultAccess must be view or edit/],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", "--set-string", "externalMcpServers.inventory.url=https://mcp.example.com/mcp", "--set-string", setting], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+  }
+});
+
+test("accepts an in-cluster external MCP service", () => {
+  const config = render(
+    "--set-string", "externalMcpServers.inventory.url=http://inventory.tools.svc.cluster.local:8080/mcp",
+    "--show-only", "templates/openclaw-seed-configmap.yaml",
+  );
+  assert.match(config, /http:\/\/inventory\.tools\.svc\.cluster\.local:8080\/mcp/);
+});
+
+test("registers Run:ai and external MCP with separate installer policies", () => {
+  const config = render(
+    "--set", "managedMcpServers.servers.runai.enabled=true",
+    "--set", "managedMcpServers.servers.runai.env.RUNAI_BASE_URL=https://runai.example.com",
+    "--set", "managedMcpServers.servers.runai.oauth.tokenUrl=https://runai.example.com/auth/token",
+    "--set", "managedMcpServers.servers.runai.oauth.clientIdSecret.name=runai-credentials",
+    "--set", "managedMcpServers.servers.runai.oauth.clientSecretSecret.name=runai-credentials",
+    "--set-string", "externalMcpServers.inventory.url=https://mcp.example.com/mcp",
+    "--show-only", "templates/openclaw-seed-configmap.yaml",
+  );
+
+  assert.match(config, /"runai":\{"transport":"streamable-http","url":"http:\/\/mcp-runai:8080\/mcp"\}/);
+  assert.match(config, /"inventory":\{"transport":"streamable-http","url":"https:\/\/mcp\.example\.com\/mcp"\}/);
+  assert.match(config, /"runai": \{"defaultAccess":"view","viewTools":\[\]\}/);
+  assert.match(config, /"inventory": \{"defaultAccess":"edit","viewTools":\[\]\}/);
+});

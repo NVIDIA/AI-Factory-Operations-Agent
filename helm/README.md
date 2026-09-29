@@ -325,30 +325,57 @@ by default. Set `toolPolicy.defaultAccess: view` only when every tool exposed by
 the server is safe in View, or list individual safe tool names in `viewTools`.
 Tools from unconfigured servers remain fail-closed.
 
-#### Run:ai
+### Externally managed MCP servers
 
-Run:ai is included as a disabled managed MCP module. Create its credential
-Secret and enable it with the Run:ai HTTPS endpoint:
+Installers can register an existing MCP endpoint without deploying it or
+changing the UI image. Add the connection to the Helm values file and keep
+credentials in an existing Kubernetes Secret:
 
-```bash
-kubectl -n mosaic create secret generic runai-credentials \
-  --from-literal=clientId="$RUNAI_CLIENT_ID" \
-  --from-literal=clientSecret="$RUNAI_CLIENT_SECRET" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
-  -n mosaic \
-  --reuse-values \
-  --set managedMcpServers.servers.runai.enabled=true \
-  --set-string managedMcpServers.servers.runai.env.RUNAI_BASE_URL="https://runai.example.com" \
-  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_ID.name=runai-credentials \
-  --set managedMcpServers.servers.runai.secretEnv.RUNAI_CLIENT_SECRET.name=runai-credentials \
-  --wait \
-  --timeout 12m
+```yaml
+externalMcpServers:
+  inventory:
+    url: https://mcp.example.com/mcp
+    transport: streamable-http
+    secretHeaders:
+      Authorization:
+        name: inventory-credentials
+        key: token
+        prefix: "Bearer "
+    toolPolicy:
+      defaultAccess: edit
+      viewTools: [lookup]
 ```
 
-The Run:ai server exposes only read tools. For a private CA, set
+The chart injects the Secret value only into OpenClaw and references it in the
+MCP header. External tools require Edit by default. List verified read-only
+tools in `viewTools`, or set `defaultAccess: view` only when every tool is safe
+in View. URLs must use HTTPS, except for cluster-local service URLs under
+`svc.cluster.local`; credentials and query strings are not permitted in URLs.
+The chart does not create, proxy, or authenticate the external server itself.
+
+#### Run:ai
+
+Run:ai is included as a disabled managed MCP module. Provision a dedicated
+Viewer application's `clientId` and `clientSecret` as a Kubernetes Secret,
+then enable it in the installer's tracked values file:
+
+```yaml
+managedMcpServers:
+  servers:
+    runai:
+      enabled: true
+      env:
+        RUNAI_BASE_URL: https://runai.example.com
+      oauth:
+        tokenUrl: https://runai.example.com/auth/realms/runai/protocol/openid-connect/token
+        clientIdSecret:
+          name: runai-credentials
+        clientSecretSecret:
+          name: runai-credentials
+```
+
+The chart's sidecar renews a Viewer application's OAuth token; the Run:ai
+server exposes only read tools. For a private CA, set
 `managedMcpServers.servers.runai.tls.existingSecret` to a Secret containing
 `ca.crt`.
 
