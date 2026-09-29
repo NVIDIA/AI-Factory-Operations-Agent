@@ -3,7 +3,7 @@
 
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
-import { readdir, readFile, realpath, stat } from 'node:fs/promises';
+import { open, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 const hostRoot = await realpath(process.env.HOST_ROOT || '/host');
@@ -58,9 +58,21 @@ async function* walk(root, counter) {
 }
 
 async function readTail(fullPath, limit = maxFileBytes) {
-  const data = await readFile(fullPath);
-  const truncated = data.length > limit;
-  return { text: data.subarray(Math.max(0, data.length - limit)).toString('utf8'), truncated };
+  const handle = await open(fullPath, 'r');
+  try {
+    const { size } = await handle.stat();
+    const length = Math.min(size, limit);
+    const buffer = Buffer.alloc(length);
+    let bytesRead = 0;
+    while (bytesRead < length) {
+      const { bytesRead: count } = await handle.read(buffer, bytesRead, length - bytesRead, size - length + bytesRead);
+      if (count === 0) break;
+      bytesRead += count;
+    }
+    return { text: buffer.subarray(0, bytesRead).toString('utf8'), truncated: size > limit };
+  } finally {
+    await handle.close();
+  }
 }
 
 async function findJobFiles(jobId) {
