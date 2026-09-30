@@ -1,6 +1,6 @@
 ---
 name: iraop
-description: "Research NVIDIA DGX, SuperPOD, GB200, NVLink, BlueField, Base Command Manager, and on-prem infrastructure documentation through the IRA/Sequoia retrieval agent. Use when the user asks to research docs, deployment policy, operational guidance, or newly uploaded knowledge-base documents."
+description: "Research NVIDIA DGX, SuperPOD, GB200, NVLink, BlueField, Base Command Manager (BCM), and on-prem infrastructure documentation through the IRA/Sequoia retrieval agent. Use when the user asks to research docs, deployment policy, operational guidance, or newly uploaded knowledge-base documents."
 metadata:
   {
     "openclaw":

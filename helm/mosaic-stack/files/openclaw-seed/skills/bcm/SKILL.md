@@ -1,6 +1,6 @@
 ---
 name: bcm
-description: Inspect Base Command Manager inventory and health evidence, and make explicitly requested changes when Base Command Manager edit mode is enabled.
+description: Inspect Base Command Manager (BCM) inventory and health evidence, and make explicitly requested changes when Base Command Manager edit mode is enabled.
 ---
 
 <!--
@@ -8,7 +8,7 @@ SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All 
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Base Command Manager Cluster Inspection
+# Base Command Manager (BCM) Cluster Inspection
 
 Use this skill when a user asks about node inventory, node categories, cluster health, or why a node is or was unavailable.
 
