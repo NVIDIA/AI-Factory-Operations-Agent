@@ -1,6 +1,6 @@
 ---
 name: grafana
-description: "Create and open Grafana dashboards for cluster metrics. Use when the user asks for a dashboard, visualization, chart, panel, or graph of GPU, Base Command Manager, node, network, InfiniBand, or Prometheus metrics."
+description: "Create and open Grafana dashboards for cluster metrics. Use when the user asks for a dashboard, visualization, chart, panel, or graph of GPU, Base Command Manager (BCM), node, network, InfiniBand, or Prometheus metrics."
 metadata:
   {
     "openclaw":

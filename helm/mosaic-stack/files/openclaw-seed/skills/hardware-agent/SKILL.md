@@ -41,7 +41,7 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 5–30 minutes.
 
 1. POST returns `202 Accepted` with a `triage_id`.
-2. Backend runs Base Command Manager lookup, nvdebug collection, and diagnosis.
+2. Backend runs Base Command Manager (BCM) lookup, nvdebug collection, and diagnosis.
 3. The tool returns the `triage_id` immediately. Do not wait or poll in the same turn.
 
 ## Mandatory duration disclosure

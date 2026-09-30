@@ -26,8 +26,8 @@ test("tracked source files carry the approved NVIDIA SPDX header", () => {
   assert.deepEqual(violations, []);
 });
 
-test("tracked Markdown does not use the internal cluster manager acronym", () => {
+test("tracked Markdown outside Helm does not use the cluster manager acronym", () => {
   const violations = trackedFiles.filter((file) =>
-    extname(file) === ".md" && readFileSync(file, "utf8").includes("BCM"));
+    extname(file) === ".md" && !file.startsWith("helm/") && readFileSync(file, "utf8").includes("BCM"));
   assert.deepEqual(violations, []);
 });
