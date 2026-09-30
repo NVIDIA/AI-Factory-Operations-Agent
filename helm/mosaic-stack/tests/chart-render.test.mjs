@@ -78,6 +78,78 @@ function renderDiagnostics(...args) {
   );
 }
 
+test("preserves memory maintenance with embedding-free indexed recall", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(seed, /"memorySearch":\s*\{\s*"provider": "none"/);
+  assert.match(seed, /"vector":\s*\{\s*"enabled": false/);
+  assert.doesNotMatch(seed, /"slots":\s*\{\s*"memory": "none"/);
+  assert.match(seed, /Use connected operational systems as the source of truth/);
+});
+
+test("native memory indexes Markdown and preserves appended notes across restarts", {
+  skip: !process.env.OPENCLAW_RUNTIME_ROOT,
+}, () => {
+  const directory = mkdtempSync(join(tmpdir(), "mosaic-memory-test-"));
+  try {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import assert from "node:assert/strict";
+      import fs from "node:fs";
+      import path from "node:path";
+      import { pathToFileURL } from "node:url";
+      let networkCalls = 0;
+      globalThis.fetch = async () => {
+        networkCalls += 1;
+        throw new Error("Network is unavailable in this test");
+      };
+      const { MemoryIndexManager } = await import(pathToFileURL(path.join(
+        process.env.OPENCLAW_RUNTIME_ROOT, "dist/extensions/memory-core/manager-runtime.js",
+      )));
+      const workspace = path.join(process.env.OPENCLAW_STATE_DIR, "workspace");
+      fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
+      const file = path.join(workspace, "memory", "2026-01-01.md");
+      const entries = [
+        { text: "The storage maintenance window starts Tuesday.", query: "storage maintenance" },
+        { text: "The fabric inspection is scheduled Friday.", query: "fabric inspection" },
+      ];
+      fs.writeFileSync(file, entries[0].text + "\\n");
+      const cfg = { agents: {
+        defaults: { workspace, memorySearch: {
+          provider: "none", store: { vector: { enabled: false } },
+          sync: { onSessionStart: false, watch: false },
+        } },
+        list: [{ id: "test", workspace }],
+      } };
+      let manager = await MemoryIndexManager.get({ cfg, agentId: "test", purpose: "cli" });
+      try {
+        assert.ok((await manager.search(entries[0].query)).some(hit => hit.snippet.includes(entries[0].text)));
+        fs.appendFileSync(file, entries[1].text + "\\n");
+        await manager.sync({ force: true, reason: "cli" });
+        await manager.close();
+        manager = await MemoryIndexManager.get({ cfg, agentId: "test", purpose: "cli" });
+        for (const entry of entries) {
+          assert.ok((await manager.search(entry.query)).some(hit => hit.snippet.includes(entry.text)));
+        }
+        assert.equal(networkCalls, 0);
+      } finally {
+        await manager.close();
+      }
+    `], {
+      encoding: "utf8",
+      timeout: 60000,
+      env: {
+        PATH: process.env.PATH,
+        HOME: directory,
+        OPENCLAW_STATE_DIR: directory,
+        OPENCLAW_CONFIG_PATH: join(directory, "openclaw.json"),
+        OPENCLAW_RUNTIME_ROOT: process.env.OPENCLAW_RUNTIME_ROOT,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
   const output = renderDiagnostics();
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);

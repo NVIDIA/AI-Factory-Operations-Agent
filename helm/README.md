@@ -175,6 +175,12 @@ The minimal installation includes the UI, headless interfaces, OpenClaw, and Ope
 
 ## Extensions
 
+### Workspace Memory
+
+OpenClaw keeps Markdown memory and automatic pre-compaction saving enabled. Memory search uses a local full-text index with `agents.defaults.memorySearch.provider=none` and vector storage disabled, so it does not require an embedding model or inference API key. It searches keywords rather than semantic similarity. New notes are indexed by the native memory synchronization; existing notes remain on the OpenClaw home PVC.
+
+Operational history comes from the configured infrastructure integrations. Conversation-memory availability must not block those queries.
+
 All module changes below update an existing AI Factory Operations Agent release and preserve its current site configuration.
 
 ### Observability
