@@ -188,6 +188,9 @@
     "enabled": false
   },
   "plugins": {
+    "slots": {
+      "memory": "none"
+    },
     "allow": [
       "automation-guard",
       "bcm",

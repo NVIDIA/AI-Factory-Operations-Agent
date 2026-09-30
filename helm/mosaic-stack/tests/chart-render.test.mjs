@@ -78,6 +78,11 @@ function renderDiagnostics(...args) {
   );
 }
 
+test("disables conversational memory when no memory index is configured", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(seed, /"plugins":\s*\{\s*"slots":\s*\{\s*"memory": "none"/);
+});
+
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
   const output = renderDiagnostics();
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);
