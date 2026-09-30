@@ -1,6 +1,6 @@
 # Kind Installation
 
-This guide installs AI Factory Operations Agent on a disposable local Kind cluster for development and evaluation. It uses an external OpenAI-compatible LLM and enables the local read-only Kubernetes integration. BCM, Slurm, Grafana, Prometheus, Research Agent, and Hardware Agent integrations are disabled because a fresh Kind cluster does not provide those services.
+This guide installs AI Factory Operations Agent on a disposable local Kind cluster for development and evaluation. It uses an external OpenAI-compatible LLM and enables the local read-only Kubernetes integration. Base Command Manager, Slurm, Grafana, Prometheus, Research Agent, and Hardware Agent integrations are disabled because a fresh Kind cluster does not provide those services.
 
 ## 1. Prerequisites
 

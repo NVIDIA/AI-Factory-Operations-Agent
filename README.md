@@ -21,7 +21,7 @@ Supported workflows include:
 
 ![AI Factory Operations Agent architecture](https://assets.ngc.nvidia.com/products/api-catalog/operate-ai-factories-with-agents/diagram.jpg)
 
-OpenShell isolates general agent command execution. Kubernetes, observability, Slurm, and BCM access use module-specific server-side tools and the credentials explicitly configured for those modules. Browser and MCP clients do not receive cluster credentials. Kubernetes Secrets remain mounted only in the pods that require them.
+OpenShell isolates general agent command execution. Kubernetes, observability, Slurm, and Base Command Manager access use module-specific server-side tools and the credentials explicitly configured for those modules. Browser and MCP clients do not receive cluster credentials. Kubernetes Secrets remain mounted only in the pods that require them.
 
 # Requirements
 
@@ -33,12 +33,12 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 
 # Getting Started
 
-In the early access stage, the published Helm chart and container images require an early access invitation to the private NGC registry; `nvcr.io` login alone does not grant pull access. Please ask your NVIDIA account team for an invitation before installing.
+In the early access stage, the published Helm chart and container images require an early access invitation to the private NGC registry; `nvcr.io` login alone does not grant pull access. To request access before installing, [complete the onboarding form](https://forms.gle/toVA2noFzz5UR2gr5) or email [ai-factory-operations-agent@nvidia.com](mailto:ai-factory-operations-agent@nvidia.com). You can also contact your NVIDIA account team.
 
 Use the complete installation guide for your environment:
 
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
-- [BCM installation without Kubernetes](docs/bcm.md)
+- [Base Command Manager installation without Kubernetes](docs/bcm.md)
 - [Kind installation](docs/kind_installation.md)
 - [Custom installation and module configuration](helm/README.md)
 

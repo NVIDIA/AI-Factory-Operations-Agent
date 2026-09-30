@@ -4,7 +4,7 @@ AI Factory Operations Agent separates observation from mutation at the tool, cre
 
 ## Deployment Default
 
-`modules.edit.enabled` defaults to `false`. The default deployment exposes read-only Kubernetes and BCM tools and does not install the edit Kubernetes credential, BCM admin tool, or remote SSH tool.
+`modules.edit.enabled` defaults to `false`. The default deployment exposes read-only Kubernetes and Base Command Manager tools and does not install the edit Kubernetes credential, Base Command Manager admin tool, or remote SSH tool.
 
 When the Edit module is enabled, every new interactive conversation still starts in View mode. Access is selected per conversation:
 
@@ -30,14 +30,14 @@ Read and write operations use separate tools and Kubernetes credentials:
 
 Kubernetes RBAC remains authoritative in every mode. Auto bypasses approval, not RBAC or request validation.
 
-## BCM Boundaries
+## Base Command Manager Boundaries
 
-The read-only and administrative BCM paths use separate identities and tools:
+The read-only and administrative Base Command Manager paths use separate identities and tools:
 
-- `bcm_execute_cmsh` uses the dedicated BCM read-only identity and never requests approval.
-- `bcm_execute_cmsh_admin`, `bcm_add_note`, and `bcm_remove_note` are installed only when BCM editing is enabled. They are blocked in View, approval-gated in Edit, and automatic in Auto.
+- `bcm_execute_cmsh` uses the dedicated Base Command Manager read-only identity and never requests approval.
+- `bcm_execute_cmsh_admin`, `bcm_add_note`, and `bcm_remove_note` are installed only when Base Command Manager editing is enabled. They are blocked in View, approval-gated in Edit, and automatic in Auto.
 
-BCM's configured profile remains authoritative. Enabling BCM administration requires an operator-provided credential with the intended cluster permissions.
+Base Command Manager's configured profile remains authoritative. Enabling Base Command Manager administration requires an operator-provided credential with the intended cluster permissions.
 
 ## Diagnostic Commands And SSH
 
@@ -58,7 +58,7 @@ Read-only execution is not a confidentiality boundary. A diagnostic command can 
 
 With `modules.edit.hitl=true`, Edit-mode mutations pause before execution and expose the exact operation to the user. Denial, expiration, or an unavailable approval service fails closed. Approval is scoped to one operation and does not change the conversation mode.
 
-Auto presents a warning before activation, then executes the same validated mutation tools without approval. The warning is a user acknowledgement, not the enforcement mechanism. Server-side session state, tool validators, Kubernetes RBAC, BCM credentials, configured SSH hosts, and audit records continue to apply.
+Auto presents a warning before activation, then executes the same validated mutation tools without approval. The warning is a user acknowledgement, not the enforcement mechanism. Server-side session state, tool validators, Kubernetes RBAC, Base Command Manager credentials, configured SSH hosts, and audit records continue to apply.
 
 ## Automation, Sandboxing, And Audit
 
@@ -69,4 +69,4 @@ Auto presents a warning before activation, then executes the same validated muta
 
 ## Operator Responsibility
 
-Enabling Edit expands the assistant's authority. Before enabling it, review the generated RBAC, any custom ClusterRole, BCM profiles, SSH host list, mounted credentials, and who can access the UI. Auto should be restricted to users trusted to exercise those configured permissions without per-operation review.
+Enabling Edit expands the assistant's authority. Before enabling it, review the generated RBAC, any custom ClusterRole, Base Command Manager profiles, SSH host list, mounted credentials, and who can access the UI. Auto should be restricted to users trusted to exercise those configured permissions without per-operation review.

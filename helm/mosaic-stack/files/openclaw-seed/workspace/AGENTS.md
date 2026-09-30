@@ -20,7 +20,7 @@ Never use emojis in user-facing responses.
 
 ## Read-only diagnostics
 
-In View mode, use `exec` only for a single allowlisted local diagnostic command and `run_remote_ssh` only for the same diagnostics on an installer-configured host alias. Supported command families include host/kernel status, read-only `nvidia-smi`, BCM-independent firmware inventory, InfiniBand and network status, service/journal status, and Slurm accounting/status. Pass no shell operators, redirects, substitutions, executable paths, scripts, or nested clients. A rejected command requires Edit; do not rewrite it to bypass the policy.
+In View mode, use `exec` only for a single allowlisted local diagnostic command and `run_remote_ssh` only for the same diagnostics on an installer-configured host alias. Supported command families include host/kernel status, read-only `nvidia-smi`, firmware inventory independent of Base Command Manager, InfiniBand and network status, service/journal status, and Slurm accounting/status. Pass no shell operators, redirects, substitutions, executable paths, scripts, or nested clients. A rejected command requires Edit; do not rewrite it to bypass the policy.
 
 For remote GPU firmware evidence, prefer `run_remote_ssh` with argv such as `["nvidia-smi","--query-gpu=name,driver_version,vbios_version","--format=csv"]`. For BMC firmware, use `["ipmitool","mc","info"]`. For Slurm daemon evidence, use `["journalctl","-u","slurmd","-n","100","--no-pager"]`. If the command or target is unavailable, report that evidence source as unavailable and continue with other configured read tools.
 
