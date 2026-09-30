@@ -73,7 +73,7 @@ Tools exposed:
 - `ai_factory_operations_agent_chat`: investigate or operate using configured agents.
 - `ai_factory_operations_agent_history`: read conversation history.
 - `ai_factory_operations_agent_commands`: list slash commands and agent entrypoints.
-- Every OpenClaw tool available to the deployed agent, including BCM, Kubernetes, observability, Slurm, and shell tools when enabled by the chart.
+- Every OpenClaw tool available to the deployed agent, including Base Command Manager, Kubernetes, observability, Slurm, and shell tools when enabled by the chart.
 
 Add the service to Claude Code with a local bridge that points at the UI service:
 
@@ -106,7 +106,7 @@ Quick direct-tool check after restart:
 call bcm_execute_cmsh with commands: kubernetes; list
 ```
 
-Expected output is a read-only BCM CMSH result listing Kubernetes clusters for the target environment.
+Expected output is a read-only Base Command Manager CMSH result listing Kubernetes clusters for the target environment.
 
 Prefer `ai_factory_operations_agent_chat` for open-ended operational questions. Use direct tools such as `bcm_execute_cmsh` when you already know the exact tool you want to call.
 
@@ -114,13 +114,13 @@ Prefer `ai_factory_operations_agent_chat` for open-ended operational questions. 
 
 Use the deployed agents for cluster investigations where they have relevant evidence:
 
-- `/cluster-management use BCM health checks to find hardware with health-check problems, then identify the clearest root cause and evidence.`
+- `/cluster-management use Base Command Manager health checks to find hardware with health-check problems, then identify the clearest root cause and evidence.`
 - `/k8s summarize whether the deployment is healthy and call out unhealthy pods, restarts, and recent events.`
 - `/observability check GPU temperatures for the cluster over the last hour and report whether any GPU is hot.`
 - `/observability give me a Grafana dashboard for GPU temperatures.`
 - `/slurm job 339 failed. Use the Slurm logs and summarize the root cause.`
 
-For BCM health RCA, prefer broad read-only status first. Ask for explicit status evidence such as `INSTALLER_FAILED`, `CLOSED (DOWN)`, `restart required`, or parenthesized BCM failure reasons.
+For Base Command Manager health RCA, prefer broad read-only status first. Ask for explicit status evidence such as `INSTALLER_FAILED`, `CLOSED (DOWN)`, `restart required`, or parenthesized Base Command Manager failure reasons.
 
 ## Deploy If It Is Not Running
 

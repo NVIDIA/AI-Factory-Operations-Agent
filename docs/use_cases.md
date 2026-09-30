@@ -32,16 +32,16 @@ Action: The assistant opens the alert context, preserves the relevant operator s
 ### Use Case 6. Node Schedulability Investigation
 Summary: An operator wants to know whether a DGX node is currently schedulable and why it was previously unavailable.
 Problem: A node may appear idle now, but earlier failures, drain events, or scheduler state may have affected workloads.
-Action: The assistant invokes the Cluster Management Agent to check current schedulability, Slurm state, BCM inventory, node category, and recent health context, then summarizes whether the node is safe to use now.
+Action: The assistant invokes the Cluster Management Agent to check current schedulability, Slurm state, Base Command Manager inventory, node category, and recent health context, then summarizes whether the node is safe to use now.
 
 ### Use Case 7. Hardware RCA For A Problem Node
 Summary: An operator needs to understand why a node previously showed hardware or installation problems.
 Problem: A node such as dgx-13 may have been unhealthy before, but the current Slurm state alone does not explain root cause.
-Action: The assistant uses BCM and available cluster evidence to review node health, inventory, and historical failure context, then explains what likely caused the earlier issue.
+Action: The assistant uses Base Command Manager and available cluster evidence to review node health, inventory, and historical failure context, then explains what likely caused the earlier issue.
 
 ### Use Case 8. Cluster Health Triage
 Summary: An operator needs a quick view of which machines are healthy, down, installer-failed, or failing health checks.
-Problem: BCM, Kubernetes, Slurm, and diagnostic tools each expose different fragments of cluster state.
+Problem: Base Command Manager, Kubernetes, Slurm, and diagnostic tools each expose different fragments of cluster state.
 Action: The assistant queries cluster management and diagnostic tools, normalizes the status into a concise summary, and calls out which nodes need provisioning, repair, or exclusion from scheduling.
 
 ### Use Case 9. Observability Dashboard Creation

@@ -272,21 +272,21 @@ Every interactive conversation starts in **View**. Users can switch that convers
 
 Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions.
 
-Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, BCM, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
+Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
 Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
 
-### BCM
+### Base Command Manager
 
-To enable the BCM extension, provide the BCM head host and SSH key:
+To enable the Base Command Manager extension, provide the Base Command Manager head host and SSH key:
 
 ```bash
-export BCM_HEAD_HOST='bcm-head.example.com'
-export BCM_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
-test -r "$BCM_SSH_KEY_PATH"
+export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
+export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
+test -r "$CLUSTER_MANAGER_SSH_KEY_PATH"
 
 kubectl -n mosaic create secret generic bcm-host-ssh-key \
-  --from-file=id_ecdsa="$BCM_SSH_KEY_PATH" \
+  --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
@@ -296,7 +296,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --set modules.bcm.enabled=true \
   --set bcmMcp.enabled=true \
   --set bcmMcp.mode=ssh-adapter \
-  --set-string bcmMcp.headHost="$BCM_HEAD_HOST" \
+  --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
   --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
   --wait \
   --timeout 12m
@@ -337,7 +337,7 @@ unset NVIDIA_API_KEY IRAOP_API_KEY
 
 ### Hardware Agent
 
-The Hardware Agent reuses the BCM head address and `bcm-host-ssh-key` configured above. The chart exposes the required BCM lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
+The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
@@ -445,9 +445,9 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-The Slurm backend defaults to `auto`. When BCM and Slurm are both enabled, AI Factory Operations Agent uses BCM WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without BCM, it uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
+The Slurm backend defaults to `auto`. When Base Command Manager and Slurm are both enabled, AI Factory Operations Agent uses Base Command Manager WLM's read-only job metadata, stdout, and stderr interface and does not deploy the node-local collector. Without Base Command Manager, it uses the vanilla collector. Set `modules.slurm.backend` to `bcm` or `vanilla` only to require one backend explicitly.
 
-After enabling the BCM extension, enable BCM-backed Slurm with:
+After enabling the Base Command Manager extension, enable Slurm through it with:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
