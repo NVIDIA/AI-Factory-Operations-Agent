@@ -41,7 +41,7 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 5–30 minutes.
 
 1. POST returns `202 Accepted` with a `triage_id`.
-2. Backend runs BCM lookup, nvdebug collection, and diagnosis.
+2. Backend runs Base Command Manager lookup, nvdebug collection, and diagnosis.
 3. The tool returns the `triage_id` immediately. Do not wait or poll in the same turn.
 
 ## Mandatory duration disclosure
@@ -86,12 +86,12 @@ subagent card in the UI. The Hardware Agent backend owns NVDebug collection,
 collection validation, retry policy, RCA generation, and completion notification.
 
 After the user confirms a fresh collection, use only `hardware_analyze_dut`
-for the turn. Do not call BCM, Kubernetes, Prometheus, Grafana, DCGM,
+for the turn. Do not call Base Command Manager, Kubernetes, Prometheus, Grafana, DCGM,
 observability, or other tools before or after the NVDebug RCA unless the user
 asks for those follow-up checks in a separate message.
 
 For a fresh RCA, call `hardware_analyze_dut` once and return the queued triage id. Do not
-call `bcm_*`, `bcm_execute_cmsh`, or other BCM tools for prerequisite lookup:
+call `bcm_*`, `bcm_execute_cmsh`, or other Base Command Manager tools for prerequisite lookup:
 the Hardware Agent backend performs the DUT lookup and NVDebug orchestration.
 Use `hardware_triage_status` and `hardware_triage_report` only for a triage
 returned by `hardware_triage_list` or an id supplied by the user.
@@ -124,7 +124,7 @@ by the UI. Pass the value as `ai_factory_operations_agent_chat_session_key` on
 
 If the conversation already contains user-provided or tool-provided hardware
 evidence, include that evidence in `event_text`. Do not fetch additional context
-through BCM from this skill. The user-facing answer must be based on the
+through Base Command Manager from this skill. The user-facing answer must be based on the
 Hardware Agent status/report returned by the backend; do not synthesize a root
 cause that is not present in the Hardware Agent result.
 
@@ -169,12 +169,12 @@ Payload:
 }
 ```
 
-- `dut.id` is the hostname as known to BCM.
+- `dut.id` is the hostname as known to Base Command Manager.
 - `dut.baseboard` should use the nvdebug catalog baseboard name. For DGX/HGX B200 systems, use `Blackwell-HGX-8-GPU` rather than the informal shorthand `HGX B200`.
 - `dut.bmc.ip` is optional; normally omit it so the Hardware Agent resolves the target.
 - `event_text` is the dmesg/fault line or a free-text description.
 
-Never include BMC passwords in the payload. The backend resolves them from BCM.
+Never include BMC passwords in the payload. The backend resolves them from Base Command Manager.
 
 Check status later when requested:
 

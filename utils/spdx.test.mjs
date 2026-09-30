@@ -13,16 +13,21 @@ const sourceExtensions = new Set([
 ]);
 const copyright = "SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.";
 const license = "SPDX-License-Identifier: Apache-2.0";
+const trackedFiles = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
 
 test("tracked source files carry the approved NVIDIA SPDX header", () => {
-  const files = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
-    .split("\0")
-    .filter((file) => sourceExtensions.has(extname(file)));
+  const files = trackedFiles.filter((file) => sourceExtensions.has(extname(file)));
   const violations = files.flatMap((file) => {
     const header = readFileSync(file, "utf8").split("\n").slice(0, 12);
     const copyrightLine = header.findIndex((line) => line.includes(copyright));
     const licenseLine = header.findIndex((line) => line.includes(license));
     return copyrightLine >= 0 && licenseLine > copyrightLine ? [] : [file];
   });
+  assert.deepEqual(violations, []);
+});
+
+test("tracked Markdown does not use the internal cluster manager acronym", () => {
+  const violations = trackedFiles.filter((file) =>
+    extname(file) === ".md" && readFileSync(file, "utf8").includes("BCM"));
   assert.deepEqual(violations, []);
 });

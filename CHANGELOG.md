@@ -7,5 +7,5 @@ All notable changes to AI Factory Operations Agent will be documented in this fi
 ### New Features
 
 - Initial modular Helm deployment for AI Factory Operations Agent.
-- Read-only Kubernetes, BCM, Slurm, observability, and Grafana workflows.
+- Read-only Kubernetes, Base Command Manager, Slurm, observability, and Grafana workflows.
 - OpenClaw execution through an upstream OpenShell sandbox.
