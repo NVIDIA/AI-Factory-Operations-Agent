@@ -22,7 +22,7 @@ cmsh -c 'device; list'
 ```
 
 Ask your NVIDIA contact to invite the email address you will use with NGC to
-the AI Factory Operations Agent private registry. Accept the invitation while
+the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while
 signed in with that account; use a private browser window if another NGC
 account is already signed in. Then create an NGC personal API key from
 [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the
@@ -163,7 +163,7 @@ export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
 export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 export CLUSTER_MANAGER_HEAD_HOST="$KIND_GATEWAY"
 export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
-export MOSAIC_CHART='oci://nvcr.io/0948643769302270/mosaic-stack'
+export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
@@ -194,9 +194,8 @@ This installation enables the UI, local Kubernetes inspection, and read-only
 Base Command Manager inspection. Other cluster integrations remain disabled.
 
 ```bash
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --create-namespace \
   --set global.registryCredentials.create=true \

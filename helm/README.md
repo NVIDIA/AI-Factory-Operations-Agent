@@ -13,15 +13,14 @@ For an NVIDIA Mission Control managed cluster, follow the complete [NMC installa
 ### 1. Create The Namespace And Registry Access
 
 Ask your NVIDIA contact to invite the email address you will use with NGC to
-the AI Factory Operations Agent private registry. Accept the invitation while
+the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while
 signed in with that account; use a private browser window if another NGC
 account is already signed in. Then create an NGC personal API key from
 [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys) with the
 Private Registry service enabled.
 
 ```bash
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
@@ -52,7 +51,7 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set llm.mode=external \
@@ -92,7 +91,7 @@ For chart-managed vLLM profiles, unpack the published chart once:
 ```bash
 MOSAIC_CHART_WORKDIR=$(mktemp -d)
 helm pull "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   --untar \
   --untardir "$MOSAIC_CHART_WORKDIR"
 MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
@@ -184,7 +183,7 @@ To connect AI Factory Operations Agent to an existing Prometheus service, run:
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.observability.enabled=true \
@@ -200,7 +199,7 @@ AI Factory Operations Agent defaults to the Alertmanager service installed by NM
 ```bash
 export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set-string observability.alertmanagerUrl="$ALERTMANAGER_URL" \
@@ -226,7 +225,7 @@ kubectl -n mosaic create secret generic mosaic-grafana-auth \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.grafana.enabled=true \
@@ -247,7 +246,7 @@ To enable the optional browser terminal service, run:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.terminal.enabled=true \
@@ -393,7 +392,7 @@ kubectl -n mosaic create secret generic bcm-host-ssh-key \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.bcm.enabled=true \
@@ -425,7 +424,7 @@ kubectl -n mosaic create secret generic iraop-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.research.enabled=true \
@@ -444,7 +443,7 @@ The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ss
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.diagnostics.enabled=true \
@@ -460,10 +459,9 @@ After enabling the required plugins, use the earlier port-forward to open the UI
 Retain the working site configuration with:
 
 ```bash
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --atomic \
@@ -538,7 +536,7 @@ To use the vanilla collector with a site-specific evidence root, run:
 ```bash
 export SLURM_EVIDENCE_ROOT='/shared/slurm'
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -554,7 +552,7 @@ After enabling the Base Command Manager extension, enable Slurm through it with:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.slurm.enabled=true \
@@ -573,7 +571,7 @@ Enable read-only access to the local cluster with:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -592,7 +590,7 @@ Register that Secret with AI Factory Operations Agent by running:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
@@ -614,7 +612,7 @@ If the cluster already provides a compatible `agent-sandbox` installation, run:
 
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
+  --version 0.0.1 \
   -n mosaic \
   --reuse-values \
   --set agentSandbox.install=false \
