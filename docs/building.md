@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Building the documentation
 
 The documentation site uses NVIDIA's Sphinx theme and renders the Markdown guides directly. Edit the original guides rather than creating separate HTML content.

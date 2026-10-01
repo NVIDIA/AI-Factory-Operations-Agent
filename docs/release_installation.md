@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Release installation
 
 Use this guide for a team-scoped early access evaluation on an existing Kubernetes cluster, including a DGX environment. Trial charts are published under the `afoa-release` team. An organization-level chart path will return `401 Unauthorized` for a team-only account.

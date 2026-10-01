@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # AI Factory Operations Agent documentation
 
 Deploy specialized agents to investigate cluster issues, correlate operational evidence, and integrate your AI factory systems.
