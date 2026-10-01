@@ -29,11 +29,11 @@ Kind creates the default `standard` storage class used by AI Factory Operations 
 
 ## 3. Configure Credentials And Dependencies
 
-Replace the endpoint and model together when using OpenAI or another provider.
+The [NVIDIA API Catalog](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/deploy) uses the public endpoint and model below. Replace the endpoint and model together when using OpenAI or another provider.
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo

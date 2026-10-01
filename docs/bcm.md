@@ -142,7 +142,7 @@ kubectl run shorewall-egress-check --rm -i --restart=Never \
   --image=curlimages/curl:8.15.0 -- \
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
   -w 'http=%{http_code} tls=%{ssl_verify_result}\n' \
-  https://inference-api.nvidia.com/v1/models
+  https://integrate.api.nvidia.com/v1/models
 
 systemctl restart shorewall
 kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
@@ -159,8 +159,8 @@ SSH preflight must return `0`, confirming root access through the same network
 path the Base Command Manager adapter will use:
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 export CLUSTER_MANAGER_HEAD_HOST="$KIND_GATEWAY"
 export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
 export MOSAIC_CHART='oci://nvcr.io/0948643769302270/mosaic-stack'
