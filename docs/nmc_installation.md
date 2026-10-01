@@ -46,8 +46,9 @@ kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-grafana-auth \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --version 0.0.1 \
+  --devel \
   -n "$MOSAIC_NAMESPACE" \
   --create-namespace \
   --set global.registryCredentials.create=true \

@@ -50,9 +50,11 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
 
 ## 4. Install AI Factory Operations Agent
 
+
 ```bash
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --version 0.0.1 \
+  --devel \
   -n mosaic \
   --create-namespace \
   --set global.registryCredentials.create=true \

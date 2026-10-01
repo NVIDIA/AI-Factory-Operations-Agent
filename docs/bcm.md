@@ -194,8 +194,9 @@ This installation enables the UI, local Kubernetes inspection, and read-only
 Base Command Manager inspection. Other cluster integrations remain disabled.
 
 ```bash
+# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
-  --version 0.0.1 \
+  --devel \
   -n mosaic \
   --create-namespace \
   --set global.registryCredentials.create=true \
