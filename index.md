@@ -56,7 +56,7 @@ CONTRIBUTING
 GOVERNANCE
 MAINTAINERS
 CODE_OF_CONDUCT
-Developer Certificate of Origin <docs/dco>
+Developer Certificate of Origin <DCO>
 IP_REVIEW
 Building the documentation <docs/building>
 ```

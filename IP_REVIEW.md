@@ -9,7 +9,7 @@ For every contribution, maintainers must:
 3. Preserve third-party copyright, license, source, and modification notices.
 4. Add or update [LICENSE-3rd-party.txt](LICENSE-3rd-party.txt) when dependencies change.
 5. Verify NVIDIA-authored source carries the approved NVIDIA copyright and `SPDX-License-Identifier: Apache-2.0` header.
-6. Verify external commits are signed off under the [Developer Certificate of Origin](docs/dco.md).
+6. Verify external commits are signed off under the [Developer Certificate of Origin](DCO.md).
 7. Complete the NVIDIA IP review before merge or distribution.
 
 This checklist supplements rather than replaces the NVIDIA IP review process.

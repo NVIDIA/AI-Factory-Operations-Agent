@@ -29,7 +29,7 @@ Open an issue before substantial implementation work so maintainers can confirm 
 
 ## Developer Certificate Of Origin
 
-External contributions require agreement to the [Developer Certificate of Origin 1.1](docs/dco.md). Every commit must include a `Signed-off-by` line. Add it automatically with the `-s` option:
+External contributions require agreement to the [Developer Certificate of Origin 1.1](DCO.md). Every commit must include a `Signed-off-by` line. Add it automatically with the `-s` option:
 
 ```bash
 git commit -s -m "Describe the change"

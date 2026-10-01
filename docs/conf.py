@@ -23,4 +23,14 @@ html_context = {
 }
 myst_enable_extensions = ["colon_fence", "strikethrough", "tasklist"]
 myst_heading_anchors = 4
-exclude_patterns = [".git", ".github", "docs/.venv", "docs/_build", "helm/mosaic-stack", "AGENTS.md", "DCO.md"]
+exclude_patterns = [".git", ".github", "docs/.venv", "docs/_build", "helm/mosaic-stack", "AGENTS.md"]
+
+
+def render_dco(app, docname, source):
+    """Render the plain-text certificate without modifying its source file."""
+    if docname == "DCO":
+        source[0] = "# Developer Certificate of Origin\n\n```text\n" + source[0] + "\n```\n"
+
+
+def setup(app):
+    app.connect("source-read", render_dco)

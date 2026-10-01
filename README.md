@@ -95,7 +95,7 @@ Invoke the installed skill when an agent needs to discover an AI Factory Operati
 
 - Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 - Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-- Sign external contributions under the [Developer Certificate of Origin](docs/dco.md).
+- Sign external contributions under the [Developer Certificate of Origin](DCO.md).
 - Build and validate the Helm chart as described in the contribution guide.
 
 ## Governance & Maintainers

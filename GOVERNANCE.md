@@ -6,4 +6,4 @@ Project changes are proposed through GitHub issues and pull requests. Maintainer
 
 Changes require maintainer approval and successful required checks before merge. Security-sensitive discussions follow [SECURITY.md](SECURITY.md).
 
-Before merging or distributing modifications, maintainers must complete the project [IP review process](IP_REVIEW.md). External contributions must also satisfy the [Developer Certificate of Origin](docs/dco.md).
+Before merging or distributing modifications, maintainers must complete the project [IP review process](IP_REVIEW.md). External contributions must also satisfy the [Developer Certificate of Origin](DCO.md).
