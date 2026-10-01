@@ -43,8 +43,8 @@ unset NGC_API_KEY
 To install AI Factory Operations Agent with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
 kubectl -n mosaic create secret generic mosaic-external-llm \
@@ -79,7 +79,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 unset EXTERNAL_LLM_API_KEY
 ```
 
-For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
+The [NVIDIA API Catalog example](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/deploy) uses the public API base URL above. `build.nvidia.com` hosts the catalog; it is not the inference API base URL. Hosted inference requires your explicitly approved NVIDIA API key. For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
 AI Factory Operations Agent requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
 
@@ -415,7 +415,7 @@ model, and corpus path, then run:
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
 export IRAOP_API_KEY="$(openssl rand -hex 32)"
-export MOSAIC_CHAT_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export MOSAIC_CHAT_MODEL='nvidia/nemotron-3-super-120b-a12b'
 export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
 
 kubectl -n mosaic create secret generic iraop-secrets \
