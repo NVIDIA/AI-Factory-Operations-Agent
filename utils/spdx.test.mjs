@@ -8,8 +8,8 @@ import { execFileSync } from "node:child_process";
 import test from "node:test";
 
 const sourceExtensions = new Set([
-  ".c", ".cc", ".cjs", ".cpp", ".cu", ".cuh", ".h", ".hpp",
-  ".js", ".jsx", ".mjs", ".py", ".sh", ".ts", ".tsx",
+  ".c", ".cc", ".cjs", ".cpp", ".css", ".cu", ".cuh", ".h", ".hpp",
+  ".js", ".jsx", ".mjs", ".py", ".sh", ".toml", ".ts", ".tsx",
 ]);
 const copyright = "SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.";
 const license = "SPDX-License-Identifier: Apache-2.0";
