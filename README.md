@@ -42,7 +42,7 @@ Use the complete installation guide for your environment:
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
 - [Base Command Manager installation without Kubernetes](docs/bcm.md)
 - [Kind installation](docs/kind_installation.md)
-- [Custom installation and module configuration](helm/README.md)
+- [Custom installation and module configuration](docs/installation.md)
 
 ## Usage
 
@@ -81,7 +81,7 @@ install -m 0644 docs/skills/ai-factory-operations-agent-headless/SKILL.md \
 
 Invoke the installed skill when an agent needs to discover an AI Factory Operations Agent service, ask an operational question, or configure the MCP bridge.
 
-- More examples and deployment options: [helm/README.md](helm/README.md)
+- More examples and deployment options: [docs/installation.md](docs/installation.md)
 - Use cases: [docs/use_cases.md](docs/use_cases.md)
 - Slurm RCA reference: [docs/slurm_rca.md](docs/slurm_rca.md)
 - Headless agent integration: [docs/skills/ai-factory-operations-agent-headless/SKILL.md](docs/skills/ai-factory-operations-agent-headless/SKILL.md)
