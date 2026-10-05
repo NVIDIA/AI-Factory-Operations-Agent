@@ -62,6 +62,7 @@ spec:
                 aarch64|arm64) architecture=arm64; sha={{ .Values.kubernetes.kubectlSha256.arm64 | quote }} ;;
                 *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
               esac
+              rm -f /tools/kubectl
               curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
                 "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
               printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
