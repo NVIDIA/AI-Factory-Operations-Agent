@@ -49,6 +49,14 @@
   },
   "agents": {
     "defaults": {
+      "memorySearch": {
+        "provider": "none",
+        "store": {
+          "vector": {
+            "enabled": false
+          }
+        }
+      },
       "workspace": "~/.openclaw/workspace",
       "model": {
         "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
