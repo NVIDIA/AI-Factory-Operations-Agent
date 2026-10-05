@@ -26,6 +26,12 @@ The vendored files retain source-level SPDX copyright and license identifiers. N
 | Node.js | Runtime for the Slurm evidence collector and optional terminal service | Node.js contributors and bundled component authors | Node.js and bundled notices (full text below) | [nodejs/node](https://github.com/nodejs/node) |
 | Python | Runtime for BCM documentation and metrics helpers | Python Software Foundation and historical contributors | PSF and historical license terms (full text below) | [python/cpython](https://github.com/python/cpython) |
 
+## Documentation Build Dependencies
+
+The documentation build uses Sphinx 9.1.0 (BSD-2-Clause), NVIDIA Sphinx Theme 0.0.9.post1 (NVIDIA License Agreement), MyST Parser 5.1.0 (MIT), Sphinx Copybutton 0.5.2 (MIT), and PyData Sphinx Theme 0.22.0 (BSD-3-Clause). Dependencies are resolved in `docs/uv.lock`. The generated site preserves their license texts and bundled JavaScript notices in `docs/_static/third-party-licenses.txt`.
+
+Sources: https://www.sphinx-doc.org/, https://pypi.org/project/nvidia-sphinx-theme/, https://github.com/executablebooks/MyST-Parser, https://github.com/executablebooks/sphinx-copybutton, https://github.com/pydata/pydata-sphinx-theme.
+
 ## Container Image Scope
 
 The AI Factory Operations Agent repository distributes Helm source and configuration, not copies of the upstream container images referenced by the chart. Those images are pulled separately from their registries and may contain additional transitive operating-system packages. Image-level notices and source offers distributed inside or alongside those images remain applicable and are not replaced by this file.

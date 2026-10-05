@@ -4,23 +4,23 @@ AI Factory Operations Agent is installed with Helm. This guide documents the sha
 
 ## Install AI Factory Operations Agent
 
-For a bare Kubernetes cluster, follow the complete [Kind installation guide](../docs/kind_installation.md).
+For a bare Kubernetes cluster, follow the complete [Kind installation guide](kind_installation.md).
 
-For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](../docs/nmc_installation.md).
+For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](nmc_installation.md).
 
 ## Custom Installation
 
 ### 1. Create The Namespace And Registry Access
 
 Ask your NVIDIA contact to invite the email address you will use with NGC to
-the AI Factory Operations Agent private registry. Accept the invitation while
+the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while
 signed in with that account; use a private browser window if another NGC
 account is already signed in. Then create an NGC personal API key from
 [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys) with the
 Private Registry service enabled.
 
 ```bash
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
@@ -43,8 +43,8 @@ unset NGC_API_KEY
 To install AI Factory Operations Agent with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
 kubectl -n mosaic create secret generic mosaic-external-llm \
@@ -79,7 +79,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 unset EXTERNAL_LLM_API_KEY
 ```
 
-For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
+The [NVIDIA API Catalog example](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/deploy) uses the public API base URL above. `build.nvidia.com` hosts the catalog; it is not the inference API base URL. Hosted inference requires your explicitly approved NVIDIA API key. For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
 AI Factory Operations Agent requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
 
@@ -280,7 +280,7 @@ Native Slack users remain read-only unless their verified Slack user ID is liste
 
 Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
-Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
+Read [the AI Factory Operations Agent security model](security_model.md) before enabling Edit or Auto.
 
 ### Managed MCP servers
 
@@ -421,7 +421,7 @@ model, and corpus path, then run:
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
 export IRAOP_API_KEY="$(openssl rand -hex 32)"
-export MOSAIC_CHAT_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export MOSAIC_CHAT_MODEL='nvidia/nemotron-3-super-120b-a12b'
 export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
 
 kubectl -n mosaic create secret generic iraop-secrets \
@@ -466,7 +466,7 @@ After enabling the required plugins, use the earlier port-forward to open the UI
 Retain the working site configuration with:
 
 ```bash
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
