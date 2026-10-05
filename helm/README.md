@@ -623,3 +623,20 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 ```
 
 The packaged chart includes the tracked `agent-sandbox` CRD and controller templates.
+
+### Configuring model reasoning
+
+Reasoning remains disabled by default. For an endpoint that supports reasoning,
+set `llm.reasoning.enabled: true` and choose `llm.reasoning.effort` for the agent.
+Set endpoint-specific request fields through
+`llm.requestCompatibility.requestOverrides`; these fields override the incoming
+request. The default override is `reasoning_effort: none`, so an endpoint that
+uses this field also needs an explicit override when enabling reasoning.
+
+For endpoints that return reasoning and the answer in a single content field,
+`llm.requestCompatibility.reasoningDelimiter` selects the documented boundary.
+Leave it empty for endpoints with native structured reasoning. When configured,
+the compatibility proxy buffers the completion and separates reasoning from
+visible content before returning completion events. This delays first-token
+streaming. A missing required boundary in a final text response is an error.
+Changing these compatibility settings rolls the proxy deployment.
