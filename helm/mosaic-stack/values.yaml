@@ -103,17 +103,17 @@ llm:
     existingSecret: ""
     apiKeySecretKey: apiKey
   vllm:
-    profile: ultra-16gpu
+    profile: super-1gpu
     name: vllm-nemotron
     replicaCount: 1
     image:
       repository: vllm/vllm-openai
       digest: sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f
       pullPolicy: IfNotPresent
-    model: nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4
-    servedModelName: nemotron-ultra-550b
-    tensorParallelSize: 16
-    gpuCount: 8
+    model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+    servedModelName: nemotron-super-120b
+    tensorParallelSize: 1
+    gpuCount: 1
     port: 8000
     runtimeClassName: nvidia
     existingSecret: ""
@@ -122,43 +122,26 @@ llm:
       create: false
       hfToken: ""
     modelCache:
-      size: 2Ti
+      size: 500Gi
       storageClassName: ""
     shmSize: 64Gi
     nodeSelector: {}
     tolerations: []
-    distributed:
-      enabled: true
-      workerReplicaCount: 1
-      workerGpuCount: 8
-      rayPort: 6379
-      dashboardPort: 8265
-      expectedGpuCount: 16
     extraArgs:
-      - --kv-cache-dtype=fp8
       - --max-num-seqs=16
       - --max-model-len=262144
       - --gpu-memory-utilization=0.90
-      - --disable-custom-all-reduce
-      - --enforce-eager
-      - --max-num-batched-tokens=32768
-      - --enable-expert-parallel
-      - --mamba-backend=flashinfer
-      - --mamba-ssm-cache-dtype=float16
-      - --reasoning-parser=nemotron_v3
-      - --model-loader-extra-config
-      - '{"enable_multithread_load":true}'
       - --trust-remote-code
       - --enable-auto-tool-choice
       - --tool-call-parser
       - qwen3_coder
     resources:
       requests:
-        cpu: "64"
-        memory: 512Gi
+        cpu: "8"
+        memory: 64Gi
       limits:
-        cpu: "128"
-        memory: 1Ti
+        cpu: "16"
+        memory: 128Gi
     compatibilityService:
       enabled: false
       namespace: mosaic

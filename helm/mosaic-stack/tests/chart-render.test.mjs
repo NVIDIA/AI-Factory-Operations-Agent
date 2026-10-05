@@ -387,9 +387,42 @@ test("configures chart-managed vLLM for non-thinking generation", () => {
   for (const args of [
     [],
     ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
+    ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")],
   ]) {
     const output = render(...args, "--show-only", "templates/vllm.yaml");
     assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
+  }
+});
+
+test("defaults to a single Super inference pod with one GPU", () => {
+  const output = render("--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
+  assert.match(output, /NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=1/);
+  assert.equal((output.match(/nvidia.com\/gpu: "1"/g) ?? []).length, 2);
+  assert.match(output, /memory: 64Gi/);
+  assert.match(output, /storage: 500Gi/);
+  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
+});
+
+test("the Ultra profile uses four GPUs in a single inference pod", () => {
+  const output = render("--values", join(chart, "profiles/vllm-ultra-4gpu.yaml"), "--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
+  assert.match(output, /NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=4/);
+  assert.equal((output.match(/nvidia.com\/gpu: "4"/g) ?? []).length, 2);
+  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
+});
+
+test("rejects removed distributed inference and mismatched GPU allocation", () => {
+  for (const [setting, message] of [
+    ["llm.vllm.profile=ultra-16gpu", /profile must be one of/],
+    ["llm.vllm.distributed.enabled=true", /distributed has been removed/],
+    ["llm.vllm.gpuCount=2", /tensorParallelSize must equal/],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, "--set", setting], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, message);
   }
 });
 

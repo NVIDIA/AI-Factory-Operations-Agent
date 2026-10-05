@@ -174,7 +174,7 @@
         "models": [
           {
             "id": {{ include "mosaic-stack.llmModel" . | quote }},
-            "name": "Nemotron Ultra 550B A55B (NVFP4)",
+            "name": {{ include "mosaic-stack.llmModel" . | quote }},
             "reasoning": false,
             "input": [
               "text"
