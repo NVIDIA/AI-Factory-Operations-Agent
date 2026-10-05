@@ -4,9 +4,9 @@ AI Factory Operations Agent is installed with Helm. This guide documents the sha
 
 ## Install AI Factory Operations Agent
 
-For a bare Kubernetes cluster, follow the complete [Kind installation guide](../docs/kind_installation.md).
+For a bare Kubernetes cluster, follow the complete [Kind installation guide](kind_installation.md).
 
-For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](../docs/nmc_installation.md).
+For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](nmc_installation.md).
 
 ## Custom Installation
 
@@ -274,7 +274,7 @@ Native Slack users remain read-only unless their verified Slack user ID is liste
 
 Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
-Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
+Read [the AI Factory Operations Agent security model](security_model.md) before enabling Edit or Auto.
 
 ### Managed MCP servers
 
