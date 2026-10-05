@@ -1,10 +1,10 @@
 # NMC Installation
 
-This guide installs AI Factory Operations Agent on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](../helm/README.md).
+This guide installs AI Factory Operations Agent on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](installation.md).
 
 Run this flow from the Base Command Manager head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
 
-Ask your NVIDIA contact to invite the email address you will use with NGC to the AI Factory Operations Agent private registry. Accept the invitation while signed in with that account; use a private browser window if another NGC account is already signed in. Then create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and confirm that the account can pull the required private registry artifacts. NGC displays a newly generated key only once. Run the command in a login shell where `module load` is available.
+Ask your NVIDIA contact to invite the email address you will use with NGC to the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while signed in with that account; use a private browser window if another NGC account is already signed in. Then create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and confirm that the account can pull the required private registry artifacts. NGC displays a newly generated key only once. Run the command in a login shell where `module load` is available.
 
 The command selects the NMC `k8s-admin` cluster, connects AI Factory Operations Agent to the existing `kube-prometheus-stack` services, enables Slurm through Base Command Manager, and installs the AgentSandbox CRD and controller from the chart.
 
@@ -17,7 +17,7 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
 MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 CLUSTER_MANAGER_HEAD_HOST=${CLUSTER_MANAGER_HEAD_HOST:-$(hostname -s)}
 CLUSTER_MANAGER_SSH_KEY_PATH=${CLUSTER_MANAGER_SSH_KEY_PATH:-/root/.ssh/id_ecdsa}
 

@@ -13,7 +13,7 @@ helm version
 kubectl version --client
 ```
 
-Ask your NVIDIA contact to invite the email address you will use with NGC to the AI Factory Operations Agent private registry. Accept the invitation while signed in with that account; use a private browser window if another NGC account is already signed in. Then create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and confirm that the account can pull the required private registry artifacts.
+Ask your NVIDIA contact to invite the email address you will use with NGC to the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while signed in with that account; use a private browser window if another NGC account is already signed in. Then create an NGC personal API key from [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the Private Registry service, and confirm that the account can pull the required private registry artifacts.
 
 Obtain an API key, `/v1/chat/completions` base URL, and model name from the same OpenAI-compatible LLM provider.
 
@@ -29,12 +29,12 @@ Kind creates the default `standard` storage class used by AI Factory Operations 
 
 ## 3. Configure Credentials And Dependencies
 
-Replace the endpoint and model together when using OpenAI or another provider.
+The [NVIDIA API Catalog](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/deploy) uses the public endpoint and model below. Replace the endpoint and model together when using OpenAI or another provider.
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
-MOSAIC_CHART=oci://nvcr.io/0948643769302270/mosaic-stack
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
+MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
@@ -80,7 +80,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 unset NGC_API_KEY EXTERNAL_LLM_API_KEY
 ```
 
-For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](../helm/README.md).
+For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](installation.md).
 
 ## 5. Delete The Cluster
 

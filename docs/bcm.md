@@ -6,7 +6,7 @@ single-node Kind cluster on the head node and enables read-only Base Command Man
 SSH. Kind remains independent of Base Command Manager's `cm-kubernetes-setup` inventory.
 
 For upgrades, UI access, and module configuration, see the
-[shared Helm guide](../helm/README.md).
+[shared Helm guide](installation.md).
 
 ## 1. Prerequisites
 
@@ -22,7 +22,7 @@ cmsh -c 'device; list'
 ```
 
 Ask your NVIDIA contact to invite the email address you will use with NGC to
-the AI Factory Operations Agent private registry. Accept the invitation while
+the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while
 signed in with that account; use a private browser window if another NGC
 account is already signed in. Then create an NGC personal API key from
 [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the
@@ -142,7 +142,7 @@ kubectl run shorewall-egress-check --rm -i --restart=Never \
   --image=curlimages/curl:8.15.0 -- \
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
   -w 'http=%{http_code} tls=%{ssl_verify_result}\n' \
-  https://inference-api.nvidia.com/v1/models
+  https://integrate.api.nvidia.com/v1/models
 
 systemctl restart shorewall
 kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
@@ -159,11 +159,11 @@ SSH preflight must return `0`, confirming root access through the same network
 path the Base Command Manager adapter will use:
 
 ```bash
-export EXTERNAL_LLM_BASE_URL='https://inference-api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='aws/anthropic/bedrock-claude-sonnet-4-6'
+export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
 export CLUSTER_MANAGER_HEAD_HOST="$KIND_GATEWAY"
 export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
-export MOSAIC_CHART='oci://nvcr.io/0948643769302270/mosaic-stack'
+export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo

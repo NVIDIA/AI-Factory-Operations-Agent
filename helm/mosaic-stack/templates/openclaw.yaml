@@ -52,6 +52,7 @@ spec:
                 aarch64|arm64) architecture=arm64; sha={{ .Values.kubernetes.kubectlSha256.arm64 | quote }} ;;
                 *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
               esac
+              rm -f /tools/kubectl
               curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
                 "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
               printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
@@ -83,6 +84,7 @@ spec:
               cp /usr/bin/ssh /usr/bin/scp /usr/bin/sftp "$root/usr/bin/"
               loader=$(basename /lib/ld-musl-*.so.1)
               for command in ssh scp sftp; do
+                rm -f "/tools/$command"
                 printf '#!/bin/sh\nexec /tools/openssh/lib/%s --library-path /tools/openssh/usr/lib:/tools/openssh/lib /tools/openssh/usr/bin/%s "$@"\n' "$loader" "$command" > "/tools/$command"
                 chmod 0555 "/tools/$command"
               done
@@ -348,6 +350,7 @@ spec:
               curl -fsSL --retry 5 --retry-all-errors -o "$cli" \
                 "https://github.com/NVIDIA/OpenShell/releases/download/{{ .Values.openclaw.openshell.cliVersion }}/openshell-$target.tar.gz"
               printf '%s  %s\n' "$sha" "$cli" | sha256sum -c -
+              rm -f /tools/openshell /tools/openshell.real
               tar -xzf "$cli" -C /tools
               mv /tools/openshell /tools/openshell.real
               chmod 0555 /tools/openshell.real
