@@ -93,8 +93,14 @@ kubernetes:
 
 llm:
   mode: vllm
+  reasoning:
+    enabled: false
+    effort: low
   requestCompatibility:
     enabled: true
+    reasoningDelimiter: ""
+    requestOverrides:
+      reasoning_effort: none
     name: llm-openai-compat
     port: 8000
   external:

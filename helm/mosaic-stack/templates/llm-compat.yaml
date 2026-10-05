@@ -11,9 +11,13 @@ metadata:
     app: {{ $c.name }}
     {{- include "mosaic-stack.labels" . | nindent 4 }}
 data:
+  response.cjs: |
+{{ .Files.Get "files/llm-compat-response.cjs" | indent 4 }}
   server.js: |
     const http = require('http');
     const https = require('https');
+    const {separateReasoning, completionEvents} = require('./response.cjs');
+    const delimiter = {{ $c.reasoningDelimiter | toJson }};
     const upstream = new URL(process.env.UPSTREAM_BASE_URL);
     const port = Number(process.env.PORT || {{ $c.port }});
 
@@ -30,7 +34,8 @@ data:
       if (req.method !== 'POST' || !req.url.endsWith('/chat/completions')) return body;
       try {
         const json = JSON.parse(body.toString('utf8'));
-        json.reasoning_effort = 'none';
+        Object.assign(json, {{ $c.requestOverrides | toJson }});
+        if (delimiter) json.stream = false;
         return Buffer.from(JSON.stringify(json));
       } catch {
         return body;
@@ -39,13 +44,26 @@ data:
 
     http.createServer(async (req, res) => {
       if (req.url === '/health') return res.writeHead(200).end('ok');
-      const body = patchBody(req, await readBody(req));
+      const original = await readBody(req);
+      const body = patchBody(req, original);
+      const adapt = delimiter && req.method === 'POST' && req.url.endsWith('/chat/completions');
       const target = new URL(req.url, upstream);
       const headers = { ...req.headers, host: target.host, 'content-length': String(body.length) };
       const client = target.protocol === 'https:' ? https : http;
       const out = client.request(target, { method: req.method, headers }, upstreamRes => {
-        res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
-        upstreamRes.pipe(res);
+        if (!adapt || upstreamRes.statusCode !== 200) {
+          res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+          return upstreamRes.pipe(res);
+        }
+        readBody(upstreamRes).then(raw => {
+          const completion = separateReasoning(JSON.parse(raw), delimiter);
+          const stream = JSON.parse(original).stream === true;
+          res.writeHead(200, {'content-type': stream ? 'text/event-stream' : 'application/json'});
+          res.end(stream ? completionEvents(completion) : JSON.stringify(completion));
+        }).catch(error => {
+          res.writeHead(502, {'content-type': 'application/json'});
+          res.end(JSON.stringify({error: error.message}));
+        });
       });
       out.on('error', error => {
         res.writeHead(502, { 'content-type': 'application/json' });
@@ -71,7 +89,7 @@ spec:
       labels:
         app: {{ $c.name }}
       annotations:
-        checksum/config: {{ printf "%s-%s-%s" .Chart.Version $c.name (include "mosaic-stack.llmUpstreamBaseUrl" .) | sha256sum }}
+        checksum/config: {{ printf "%s-%s-%s-%s" .Chart.Version ($c | toJson) (include "mosaic-stack.llmUpstreamBaseUrl" .) (.Files.Get "files/llm-compat-response.cjs") | sha256sum }}
     spec:
       {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}

@@ -60,7 +60,7 @@
         "observability",
         "slurm"
       ],
-      "thinkingDefault": "off",
+      "thinkingDefault": {{ ternary .Values.llm.reasoning.effort "off" .Values.llm.reasoning.enabled | quote }},
       "reasoningDefault": "off",
       {{- if .Values.openclaw.slack.enabled }}
       "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
@@ -77,7 +77,7 @@
         "id": "default",
         "name": "OpenClaw Assistant",
         "workspace": "~/.openclaw/workspace",
-        "thinkingDefault": "off",
+        "thinkingDefault": {{ ternary .Values.llm.reasoning.effort "off" .Values.llm.reasoning.enabled | quote }},
         "reasoningDefault": "off"
       }
     ]
@@ -166,8 +166,8 @@
         "models": [
           {
             "id": {{ include "mosaic-stack.llmModel" . | quote }},
-            "name": "Nemotron Ultra 550B A55B (NVFP4)",
-            "reasoning": false,
+            "name": {{ include "mosaic-stack.llmModel" . | quote }},
+            "reasoning": {{ .Values.llm.reasoning.enabled }},
             "input": [
               "text"
             ],
