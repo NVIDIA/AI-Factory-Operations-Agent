@@ -9,7 +9,7 @@
 pre, .admonition, .search-button { border-radius: 0; }
 .bd-article .admonition { box-shadow: none; }
 .bd-article .admonition.note { border-left-color: #76b900; }
-.bd-article .admonition.note > .admonition-title { background: #f4f6f0; }
+.bd-article .admonition.note > .admonition-title { background: var(--pst-color-surface); }
 @media (max-width: 767px) {
   .bd-header .navbar-brand { min-width: 0; max-width: calc(100vw - 140px); }
   .bd-header .logo__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
