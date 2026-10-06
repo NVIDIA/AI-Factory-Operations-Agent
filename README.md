@@ -2,7 +2,7 @@
 
 Deploy specialized AI agents to investigate cluster issues and streamline governed AI factory operations.
 
-# Overview
+## Overview
 
 > [!NOTE]
 > This is an experimental release. Please reference [SUPPORT.md](./SUPPORT.md) prior to installation.
@@ -17,13 +17,13 @@ Supported workflows include:
 - Optional cluster-management integrations.
 - Sandboxed command execution with an auditable agent workflow.
 
-# Architecture
+## Architecture
 
 ![AI Factory Operations Agent architecture](https://assets.ngc.nvidia.com/products/api-catalog/operate-ai-factories-with-agents/diagram.jpg)
 
 OpenShell isolates general agent command execution. Kubernetes, observability, Slurm, and Base Command Manager access use module-specific server-side tools and the credentials explicitly configured for those modules. Browser and MCP clients do not receive cluster credentials. Kubernetes Secrets remain mounted only in the pods that require them.
 
-# Requirements
+## Requirements
 
 - OS/architecture: a Kubernetes environment compatible with the container images selected in Helm values.
 - Runtime: Kubernetes, `kubectl`, and Helm 3.
@@ -31,7 +31,9 @@ OpenShell isolates general agent command execution. Kubernetes, observability, S
 - GPU/driver: required only when deploying chart-managed vLLM; requirements depend on the selected model profile.
 - Optional services: Prometheus, Grafana, Slurm, or cluster-management endpoints for the corresponding modules.
 
-# Getting Started
+## Getting Started
+
+The documentation site can be built locally from the guides in this repository. See [Building the documentation](docs/building.md).
 
 In the early access stage, the published Helm chart and container images require an early access invitation to the private NGC registry; `nvcr.io` login alone does not grant pull access. To request access before installing, [complete the onboarding form](https://forms.gle/toVA2noFzz5UR2gr5) or email [ai-factory-operations-agent@nvidia.com](mailto:ai-factory-operations-agent@nvidia.com). You can also contact your NVIDIA account team.
 
@@ -40,9 +42,9 @@ Use the complete installation guide for your environment:
 - [NVIDIA Mission Control installation](docs/nmc_installation.md)
 - [Base Command Manager installation without Kubernetes](docs/bcm.md)
 - [Kind installation](docs/kind_installation.md)
-- [Custom installation and module configuration](helm/README.md)
+- [Custom installation and module configuration](docs/installation.md)
 
-# Usage
+## Usage
 
 After installation, forward the AI Factory Operations Agent UI service:
 
@@ -79,17 +81,17 @@ install -m 0644 docs/skills/ai-factory-operations-agent-headless/SKILL.md \
 
 Invoke the installed skill when an agent needs to discover an AI Factory Operations Agent service, ask an operational question, or configure the MCP bridge.
 
-- More examples and deployment options: [helm/README.md](helm/README.md)
+- More examples and deployment options: [docs/installation.md](docs/installation.md)
 - Use cases: [docs/use_cases.md](docs/use_cases.md)
 - Slurm RCA reference: [docs/slurm_rca.md](docs/slurm_rca.md)
 - Headless agent integration: [docs/skills/ai-factory-operations-agent-headless/SKILL.md](docs/skills/ai-factory-operations-agent-headless/SKILL.md)
 
-# Releases & Roadmap
+## Releases & Roadmap
 
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Planned work is tracked through [GitHub issues](https://github.com/NVIDIA/AI-Factory-Operations-Agent/issues).
 
-# Contribution Guidelines
+## Contribution Guidelines
 
 - Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 - Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -113,18 +115,18 @@ Invoke the installed skill when an agent needs to discover an AI Factory Operati
 - Support policy: [SUPPORT.md](SUPPORT.md)
 - Use [GitHub issues](https://github.com/NVIDIA/AI-Factory-Operations-Agent/issues) for non-security problems and feature requests.
 
-# Community
+## Community
 
 Use GitHub issues and pull requests for project discussions and collaboration. Participation is governed by the project [Code of Conduct](CODE_OF_CONDUCT.md).
 
-# References
+## References
 
 - [OpenClaw](https://github.com/openclaw/openclaw)
 - [OpenShell](https://github.com/NVIDIA/OpenShell)
 - [Helm](https://helm.sh/)
 - [Kubernetes](https://kubernetes.io/)
 
-# License
+## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
 

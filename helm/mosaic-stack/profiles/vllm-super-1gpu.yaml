@@ -10,8 +10,6 @@ llm:
     servedModelName: nemotron-super-120b
     gpuCount: 1
     tensorParallelSize: 1
-    distributed:
-      enabled: false
     modelCache:
       size: 500Gi
     resources:

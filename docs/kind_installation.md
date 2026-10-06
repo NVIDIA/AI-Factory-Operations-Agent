@@ -80,7 +80,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 unset NGC_API_KEY EXTERNAL_LLM_API_KEY
 ```
 
-For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](../helm/README.md).
+For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](installation.md).
 
 ## 5. Delete The Cluster
 

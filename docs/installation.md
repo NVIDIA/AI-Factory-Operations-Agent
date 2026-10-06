@@ -4,9 +4,9 @@ AI Factory Operations Agent is installed with Helm. This guide documents the sha
 
 ## Install AI Factory Operations Agent
 
-For a bare Kubernetes cluster, follow the complete [Kind installation guide](../docs/kind_installation.md).
+For a bare Kubernetes cluster, follow the complete [Kind installation guide](kind_installation.md).
 
-For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](../docs/nmc_installation.md).
+For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](nmc_installation.md).
 
 ## Custom Installation
 
@@ -98,6 +98,8 @@ helm pull "$MOSAIC_CHART" \
 MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
 ```
 
+The chart defaults to Nemotron Super on one GPU, with 64 GiB of requested host memory and a 500 GiB model cache. GPU count alone does not establish compatibility: verify the GPU memory, architecture, driver, and pinned runtime against the model requirements.
+
 To install AI Factory Operations Agent with Nemotron Super running on 1 GPU in vLLM, run:
 
 ```bash
@@ -123,12 +125,16 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
-To install AI Factory Operations Agent with Nemotron Ultra running on 16 GPUs in vLLM, run:
+To install AI Factory Operations Agent with Nemotron Ultra running on four Blackwell GPUs on one node, run:
+
+The [Ultra model card](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b/modelcard) specifies four B200/GB200/B300/GB300 GPUs or eight H100 GPUs as the minimum. For H100, override both `llm.vllm.gpuCount=8` and `llm.vllm.tensorParallelSize=8` on one node. Set `llm.vllm.nodeSelector` to keep inference on compatible hardware in mixed clusters. The distributed Ray option and `vllm-ultra-16gpu.yaml` profile have been removed; replace old values instead of reusing them during upgrades.
+
+When upgrading an existing release, preserve its `llm.vllm.modelCache.size` override. Kubernetes does not allow changing the StatefulSet volume claim template in place, and the smaller Super default does not shrink an existing cache.
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   -n mosaic \
-  -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-16gpu.yaml" \
+  -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-4gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set modules.ui.enabled=true \
   --set modules.execution.enabled=true \
@@ -174,6 +180,12 @@ Open `http://localhost:3000`.
 The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Add only the extensions needed for the target cluster using the commands below.
 
 ## Extensions
+
+### Workspace Memory
+
+OpenClaw keeps Markdown memory and automatic pre-compaction saving enabled. Memory search uses a local full-text index with `agents.defaults.memorySearch.provider=none` and vector storage disabled, so it does not require an embedding model or inference API key. It searches keywords rather than semantic similarity. New notes are indexed by the native memory synchronization; existing notes remain on the OpenClaw home PVC.
+
+Operational history comes from the configured infrastructure integrations. Conversation-memory availability must not block those queries.
 
 All module changes below update an existing AI Factory Operations Agent release and preserve its current site configuration.
 
@@ -274,7 +286,7 @@ Native Slack users remain read-only unless their verified Slack user ID is liste
 
 Privileges are attached to separate tools and credentials. Read-only tools and the local and remote diagnostic command allowlist run automatically in View. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 
-Read [the AI Factory Operations Agent security model](../docs/security_model.md) before enabling Edit or Auto.
+Read [the AI Factory Operations Agent security model](security_model.md) before enabling Edit or Auto.
 
 ### Managed MCP servers
 

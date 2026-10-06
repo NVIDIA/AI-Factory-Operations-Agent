@@ -50,8 +50,8 @@
 {{- end -}}
 {{- end -}}
 {{- if eq .Values.llm.mode "vllm" -}}
-{{- if not (has .Values.llm.vllm.profile (list "super-1gpu" "ultra-16gpu")) -}}
-{{- fail "llm.vllm.profile must be one of: super-1gpu, ultra-16gpu" -}}
+{{- if not (has .Values.llm.vllm.profile (list "super-1gpu" "ultra-4gpu")) -}}
+{{- fail "llm.vllm.profile must be one of: super-1gpu, ultra-4gpu" -}}
 {{- end -}}
 {{- if lt (int .Values.llm.vllm.gpuCount) 1 -}}
 {{- fail "llm.vllm.gpuCount must be at least 1" -}}
@@ -59,8 +59,11 @@
 {{- if lt (int .Values.llm.vllm.replicaCount) 1 -}}
 {{- fail "llm.vllm.replicaCount must be at least 1" -}}
 {{- end -}}
-{{- if and (eq (toString .Values.llm.vllm.distributed.enabled) "true") (ne (int .Values.llm.vllm.replicaCount) 1) -}}
-{{- fail "llm.vllm.replicaCount must be 1 when distributed vLLM is enabled" -}}
+{{- if hasKey .Values.llm.vllm "distributed" -}}
+{{- fail "llm.vllm.distributed has been removed; use a single-node profile or llm.mode=external" -}}
+{{- end -}}
+{{- if ne (int .Values.llm.vllm.tensorParallelSize) (int .Values.llm.vllm.gpuCount) -}}
+{{- fail "llm.vllm.tensorParallelSize must equal llm.vllm.gpuCount for single-node inference" -}}
 {{- end -}}
 {{- end -}}
 {{- if and .Values.global.registryCredentials.create (not .Values.global.registryCredentials.password) -}}
