@@ -40,6 +40,13 @@ unset NGC_API_KEY
 
 ### 2. Choose An LLM
 
+Choose one inference path below. Both paths install the same agent stack.
+
+- [External inference](#external-inference): use an existing OpenAI-compatible endpoint, whether hosted by a provider or on your own infrastructure.
+- [On-prem inference](#on-prem-inference): deploy a model with vLLM through this chart on your cluster GPUs.
+
+#### External Inference
+
 To install AI Factory Operations Agent with an external OpenAI-compatible LLM, set the provider URL and model, enter its API key, and run:
 
 ```bash
@@ -87,6 +94,12 @@ AI Factory Operations Agent requests `reasoning_effort: none` from external endp
 vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
 ```
 
+After installing with your external endpoint, skip the on-prem inference instructions and continue to [3. Add Extensions](#3-add-extensions).
+
+#### On-Prem Inference
+
+This path deploys the inference server on your cluster. Choose one model profile below. If you already have an inference endpoint, use [External inference](#external-inference) instead.
+
 For chart-managed vLLM profiles, unpack the published chart once:
 
 ```bash
@@ -99,6 +112,8 @@ MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
 ```
 
 The chart defaults to Nemotron Super on one GPU, with 64 GiB of requested host memory and a 500 GiB model cache. GPU count alone does not establish compatibility: verify the GPU memory, architecture, driver, and pinned runtime against the model requirements.
+
+##### Nemotron Super
 
 To install AI Factory Operations Agent with Nemotron Super running on 1 GPU in vLLM, run:
 
@@ -124,6 +139,8 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --wait \
   --timeout 30m
 ```
+
+##### Nemotron Ultra
 
 To install AI Factory Operations Agent with Nemotron Ultra running on four Blackwell GPUs on one node, run:
 
@@ -154,7 +171,13 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
-After this point you will be able to open up the UI by running this:
+### 3. Add Extensions
+
+The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Configure the modules needed for your cluster using the [Extensions](#extensions) instructions, then continue to [Usage](#usage).
+
+## Usage
+
+After installing with either inference path, open the UI by running:
 
 ```bash
 kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
@@ -174,10 +197,6 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 `mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 
 Open `http://localhost:3000`.
-
-### 3. Add Extensions
-
-The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Add only the extensions needed for the target cluster using the commands below.
 
 ## Extensions
 
