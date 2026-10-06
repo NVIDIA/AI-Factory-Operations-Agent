@@ -94,7 +94,7 @@ AI Factory Operations Agent requests `reasoning_effort: none` from external endp
 vllm serve MODEL --default-chat-template-kwargs '{"enable_thinking":false}'
 ```
 
-After installing with your external endpoint, skip the on-prem inference instructions and continue to [Usage](#usage).
+After installing with your external endpoint, skip the on-prem inference instructions and continue to [3. Add Extensions](#3-add-extensions).
 
 #### On-Prem Inference
 
@@ -171,6 +171,10 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
+### 3. Add Extensions
+
+The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Configure the modules needed for your cluster using the [Extensions](#extensions) instructions, then continue to [Usage](#usage).
+
 ## Usage
 
 After installing with either inference path, open the UI by running:
@@ -195,8 +199,6 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 Open `http://localhost:3000`.
 
 ## Extensions
-
-The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Add only the extensions needed for the target cluster using the commands below.
 
 ### Workspace Memory
 
