@@ -49,6 +49,14 @@
   },
   "agents": {
     "defaults": {
+      "memorySearch": {
+        "provider": "none",
+        "store": {
+          "vector": {
+            "enabled": false
+          }
+        }
+      },
       "workspace": "~/.openclaw/workspace",
       "model": {
         "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
@@ -166,7 +174,7 @@
         "models": [
           {
             "id": {{ include "mosaic-stack.llmModel" . | quote }},
-            "name": "Nemotron Ultra 550B A55B (NVFP4)",
+            "name": {{ include "mosaic-stack.llmModel" . | quote }},
             "reasoning": false,
             "input": [
               "text"

@@ -6,7 +6,7 @@ single-node Kind cluster on the head node and enables read-only Base Command Man
 SSH. Kind remains independent of Base Command Manager's `cm-kubernetes-setup` inventory.
 
 For upgrades, UI access, and module configuration, see the
-[shared Helm guide](../helm/README.md).
+[shared Helm guide](installation.md).
 
 ## 1. Prerequisites
 

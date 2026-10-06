@@ -78,6 +78,78 @@ function renderDiagnostics(...args) {
   );
 }
 
+test("preserves memory maintenance with embedding-free indexed recall", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  assert.match(seed, /"memorySearch":\s*\{\s*"provider": "none"/);
+  assert.match(seed, /"vector":\s*\{\s*"enabled": false/);
+  assert.doesNotMatch(seed, /"slots":\s*\{\s*"memory": "none"/);
+  assert.match(seed, /Use connected operational systems as the source of truth/);
+});
+
+test("native memory indexes Markdown and preserves appended notes across restarts", {
+  skip: !process.env.OPENCLAW_RUNTIME_ROOT,
+}, () => {
+  const directory = mkdtempSync(join(tmpdir(), "mosaic-memory-test-"));
+  try {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import assert from "node:assert/strict";
+      import fs from "node:fs";
+      import path from "node:path";
+      import { pathToFileURL } from "node:url";
+      let networkCalls = 0;
+      globalThis.fetch = async () => {
+        networkCalls += 1;
+        throw new Error("Network is unavailable in this test");
+      };
+      const { MemoryIndexManager } = await import(pathToFileURL(path.join(
+        process.env.OPENCLAW_RUNTIME_ROOT, "dist/extensions/memory-core/manager-runtime.js",
+      )));
+      const workspace = path.join(process.env.OPENCLAW_STATE_DIR, "workspace");
+      fs.mkdirSync(path.join(workspace, "memory"), { recursive: true });
+      const file = path.join(workspace, "memory", "2026-01-01.md");
+      const entries = [
+        { text: "The storage maintenance window starts Tuesday.", query: "storage maintenance" },
+        { text: "The fabric inspection is scheduled Friday.", query: "fabric inspection" },
+      ];
+      fs.writeFileSync(file, entries[0].text + "\\n");
+      const cfg = { agents: {
+        defaults: { workspace, memorySearch: {
+          provider: "none", store: { vector: { enabled: false } },
+          sync: { onSessionStart: false, watch: false },
+        } },
+        list: [{ id: "test", workspace }],
+      } };
+      let manager = await MemoryIndexManager.get({ cfg, agentId: "test", purpose: "cli" });
+      try {
+        assert.ok((await manager.search(entries[0].query)).some(hit => hit.snippet.includes(entries[0].text)));
+        fs.appendFileSync(file, entries[1].text + "\\n");
+        await manager.sync({ force: true, reason: "cli" });
+        await manager.close();
+        manager = await MemoryIndexManager.get({ cfg, agentId: "test", purpose: "cli" });
+        for (const entry of entries) {
+          assert.ok((await manager.search(entry.query)).some(hit => hit.snippet.includes(entry.text)));
+        }
+        assert.equal(networkCalls, 0);
+      } finally {
+        await manager.close();
+      }
+    `], {
+      encoding: "utf8",
+      timeout: 60000,
+      env: {
+        PATH: process.env.PATH,
+        HOME: directory,
+        OPENCLAW_STATE_DIR: directory,
+        OPENCLAW_CONFIG_PATH: join(directory, "openclaw.json"),
+        OPENCLAW_RUNTIME_ROOT: process.env.OPENCLAW_RUNTIME_ROOT,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("generates one internal Hardware Agent credential for the service and OpenClaw", () => {
   const output = renderDiagnostics();
   const apiKey = output.match(/name: diagnostic-agent-auth[\s\S]*?API_KEY: "([A-Za-z0-9]{48})"/);
@@ -315,9 +387,42 @@ test("configures chart-managed vLLM for non-thinking generation", () => {
   for (const args of [
     [],
     ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
+    ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")],
   ]) {
     const output = render(...args, "--show-only", "templates/vllm.yaml");
     assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
+  }
+});
+
+test("defaults to a single Super inference pod with one GPU", () => {
+  const output = render("--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
+  assert.match(output, /NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=1/);
+  assert.equal((output.match(/nvidia.com\/gpu: "1"/g) ?? []).length, 2);
+  assert.match(output, /memory: 64Gi/);
+  assert.match(output, /storage: 500Gi/);
+  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
+});
+
+test("the Ultra profile uses four GPUs in a single inference pod", () => {
+  const output = render("--values", join(chart, "profiles/vllm-ultra-4gpu.yaml"), "--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
+  assert.match(output, /NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=4/);
+  assert.equal((output.match(/nvidia.com\/gpu: "4"/g) ?? []).length, 2);
+  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
+});
+
+test("rejects removed distributed inference and mismatched GPU allocation", () => {
+  for (const [setting, message] of [
+    ["llm.vllm.profile=ultra-16gpu", /profile must be one of/],
+    ["llm.vllm.distributed.enabled=true", /distributed has been removed/],
+    ["llm.vllm.gpuCount=2", /tensorParallelSize must equal/],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, "--set", setting], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, message);
   }
 });
 
