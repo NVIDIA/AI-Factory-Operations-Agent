@@ -31,3 +31,6 @@ pre, .admonition, .search-button { border-radius: 0; }
 @media (max-width: 600px) { #install-command-builder .builder-settings, .builder-modules { grid-template-columns: 1fr; } }
 
 #install-command-builder .builder-settings > label:has(input[type=checkbox]) { flex-direction: row; align-items: center; grid-column: 1 / -1; }
+.builder-sizing-table { overflow-x: auto; }
+.builder-sizing table { width: 100%; min-width: 720px; font-size: .85rem; }
+.builder-sizing th, .builder-sizing td { padding: .4rem; text-align: left; }

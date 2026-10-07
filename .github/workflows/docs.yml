@@ -26,8 +26,23 @@ jobs:
       - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with:
           version: 0.12.6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - name: Prepare public chart footprint dependencies
+        run: |
+          chart=helm/mosaic-stack
+          mkdir -p "$chart/charts"
+          openshell_version="$(helm dependency list "$chart" | awk '$1 == "helm-chart" { print $2 }')"
+          iraop_version="$(helm dependency list "$chart" | awk '$1 == "iraop-stack" { print $2 }')"
+          helm pull oci://ghcr.io/nvidia/openshell/helm-chart --version "$openshell_version" --destination "$chart/charts"
+          stub="$(mktemp -d)"
+          printf 'apiVersion: v2\nname: iraop-stack\nversion: %s\n' "$iraop_version" >"$stub/Chart.yaml"
+          helm package "$stub" --destination "$chart/charts"
       - name: Build documentation
         run: uv run --project docs --locked sphinx-build -W --keep-going -b html -c docs . docs/_build/html
+      - name: Validate footprint composition
+        run: node --test tests/docs/*.test.mjs
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: docs/_build/html

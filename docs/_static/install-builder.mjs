@@ -114,7 +114,13 @@ if (root) {
   const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy command';
   const status = document.createElement('span'); status.setAttribute('role', 'status');
   copy.addEventListener('click', async () => {try {await navigator.clipboard.writeText(code.textContent); status.textContent = 'Copied';} catch {status.textContent = 'Select the command text to copy it.';}});
-  root.replaceChildren(form, heading, copy, status, output);
+  const sizing = document.createElement('section'); sizing.className = 'builder-sizing';
+  let catalog;
+  root.replaceChildren(form, sizing, heading, copy, status, output);
+  fetch(new URL('sizing-data.json', import.meta.url)).then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }).then(data => {catalog = data; update(false);}).catch(error => {sizing.textContent = `Deployment footprint unavailable: ${error.message}`;});
   function update(renderSettings) {
     const enabled = enabledModules(state);
     for (const [name, input] of inputs) {input.checked = enabled.has(name); input.disabled = enabled.has(name) && !state.modules.includes(name);}
@@ -144,6 +150,87 @@ if (root) {
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';
+    if (catalog) renderSizing(sizing, catalog, state, enabled);
   }
   update(true);
+}
+export function selectedComponents(catalog, state, enabled) {
+  const selections = [...enabled].filter(name => name !== 'slurm');
+  if (enabled.has('slurm')) selections.push(state.slurmBackend === 'vanilla' ? 'slurm-vanilla' : 'slurm');
+  if (!state.sandboxInstalled) selections.push('sandbox');
+  if (state.inference !== 'external') selections.push(state.inference);
+  const components = {};
+  for (const group of [catalog.base, ...selections.map(name => catalog.variants[name])]) {
+    for (const [key, component] of Object.entries(group)) {
+      const previous = components[key];
+      components[key] = {...component};
+      for (const field of ['containers', 'initContainers']) {
+        if (component[field]) components[key][field] = Object.values(Object.fromEntries([...(previous?.[field] || []), ...component[field]].map(container => [container.name, container])));
+      }
+    }
+  }
+  return Object.values(components);
+}
+
+export function quantity(value, resource) {
+  const match = String(value).match(/^([0-9.]+)([a-zA-Z]*)$/);
+  if (!match) throw new Error(`Unsupported resource quantity: ${value}`);
+  const factors = resource === 'cpu' ? {'': 1, m: .001, u: .000001, n: .000000001} : {'': 1, Ki: 1024, Mi: 1024 ** 2, Gi: 1024 ** 3, Ti: 1024 ** 4, k: 1000, M: 1000 ** 2, G: 1000 ** 3, T: 1000 ** 4};
+  if (!(match[2] in factors)) throw new Error(`Unsupported resource unit: ${match[2]}`);
+  return Number(match[1]) * factors[match[2]];
+}
+
+export function footprint(component, field, resource) {
+  const amount = container => quantity(container.resources[field]?.[resource] || 0, resource);
+  const running = (component.containers || []).reduce((sum, container) => sum + amount(container), 0);
+  const initializing = Math.max(0, ...(component.initContainers || []).map(amount));
+  return Math.max(running, initializing) * component.count;
+}
+
+export function renderSizing(panel, catalog, state, enabled) {
+  panel.replaceChildren();
+  const title = document.createElement('h3'); title.textContent = 'Deployment footprint'; panel.append(title);
+  const note = document.createElement('p');
+  note.textContent = `Rendered chart ${catalog.version}, source ${catalog.revision.slice(0, 12)}. Configured resources, not measured capacity. Only valid for this source version; channel, pinned-version and site overrides may differ.`;
+  panel.append(note);
+  const components = selectedComponents(catalog, state, enabled);
+  const table = document.createElement('table');
+  const header = table.createTHead().insertRow();
+  for (const text of ['Component', 'CPU request / limit', 'Memory request / limit', 'GPU request / limit', 'Storage']) {const cell = document.createElement('th'); cell.textContent = text; header.append(cell);}
+  const body = table.createTBody();
+  const format = (amount, resource) => resource === 'memory' ? `${Number((amount / 1024 ** 3).toFixed(3))} GiB` : `${Number(amount.toFixed(3))}`;
+  const warnings = ['Dynamic execution sandboxes, existing inference services, observability backends and corpus storage are not included. GPU memory compatibility and workload concurrency require separate validation.'];
+  for (const component of components) {
+    const row = body.insertRow();
+    row.insertCell().textContent = `${component.name}${component.kind === 'DaemonSet' ? ' (per matching node)' : component.kind === 'Job' ? ' (setup job)' : ''}`;
+    for (const resource of ['cpu', 'memory', 'nvidia.com/gpu']) {
+      const values = ['requests', 'limits'].map(field => {
+        const containers = [...(component.containers || []), ...(component.initContainers || [])];
+        const amount = footprint(component, field, resource);
+        if (resource !== 'nvidia.com/gpu' && containers.some(container => container.resources[field]?.[resource] === undefined)) return amount ? `≥ ${format(amount, resource)}` : 'Unspecified';
+        return format(amount, resource);
+      });
+      row.insertCell().textContent = component.kind === 'PersistentVolumeClaim' ? '—' : values.join(' / ');
+    }
+    const storage = typeof component.storage === 'string' ? [component.storage] : component.storage || [];
+    row.insertCell().textContent = storage.length ? format(storage.reduce((sum, value) => sum + quantity(value, 'memory'), 0) * component.count, 'memory') : '—';
+    if (Object.keys(component.nodeSelector || {}).length) warnings.push(`${component.name} placement: ${JSON.stringify(component.nodeSelector)}.`);
+  }
+  const subtotal = body.insertRow(); subtotal.insertCell().textContent = 'Known fixed-workload subtotal (partial)';
+  const fixed = components.filter(component => ['Deployment', 'StatefulSet', 'Sandbox'].includes(component.kind));
+  for (const resource of ['cpu', 'memory', 'nvidia.com/gpu']) {
+    subtotal.insertCell().textContent = ['requests', 'limits'].map(field => `≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, field, resource), 0), resource)}`).join(' / ');
+  }
+  subtotal.insertCell().textContent = format(components.reduce((sum, component) => {
+    const storage = typeof component.storage === 'string' ? [component.storage] : component.storage || [];
+    return sum + storage.reduce((amount, value) => amount + quantity(value, 'memory'), 0) * component.count;
+  }, 0), 'memory');
+  warnings.push('Subtotal excludes setup jobs and per-node collectors; unspecified requests/limits are not counted. PVC subtotal excludes pre-existing and dynamically allocated storage.');
+  if (enabled.has('research') && !catalog.researchAvailable) warnings.push('Research dependency workloads are unavailable in this documentation build; the footprint is incomplete.');
+  if (state.inference !== 'external') warnings.push('Model-server GPU requests must fit on one compatible node. Storage includes model-cache PVC capacity, not download size.');
+  const summary = document.createElement('p');
+  summary.textContent = `Known fixed-workload requests: ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'cpu'), 0), 'cpu')} CPU cores; ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'memory'), 0), 'memory')} memory; ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'nvidia.com/gpu'), 0), 'nvidia.com/gpu')} GPUs. Partial footprint; see component details below.`;
+  const details = document.createElement('div'); details.className = 'builder-sizing-table'; details.append(table);
+  panel.append(summary, details);
+  const caveat = document.createElement('p'); caveat.textContent = warnings.join(' '); panel.append(caveat);
 }
