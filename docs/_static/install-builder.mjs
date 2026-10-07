@@ -189,9 +189,10 @@ export function footprint(component, field, resource) {
 
 export function renderSizing(panel, catalog, state, enabled) {
   panel.replaceChildren();
-  const title = document.createElement('h3'); title.textContent = 'Deployment footprint'; panel.append(title);
+  const title = document.createElement('h3'); title.textContent = 'Resources for your selections'; panel.append(title);
   const note = document.createElement('p');
-  note.textContent = `Rendered chart ${catalog.version}, source ${catalog.revision.slice(0, 12)}. Configured resources, not measured capacity. Only valid for this source version; channel, pinned-version and site overrides may differ.`;
+  const inference = state.inference === 'external' ? 'Existing endpoint (cloud or separately hosted)' : state.inference === 'super' ? 'On-prem Nemotron Super' : 'On-prem Nemotron Ultra';
+  note.textContent = `Updates automatically from the form above. Inference: ${inference}. Enabled modules, including dependencies: ${[...enabled].join(', ') || 'none'}.`;
   panel.append(note);
   const components = selectedComponents(catalog, state, enabled);
   const table = document.createElement('table');
@@ -207,7 +208,7 @@ export function renderSizing(panel, catalog, state, enabled) {
       const values = ['requests', 'limits'].map(field => {
         const containers = [...(component.containers || []), ...(component.initContainers || [])];
         const amount = footprint(component, field, resource);
-        if (resource !== 'nvidia.com/gpu' && containers.some(container => container.resources[field]?.[resource] === undefined)) return amount ? `≥ ${format(amount, resource)}` : 'Unspecified';
+        if (resource !== 'nvidia.com/gpu' && containers.some(container => container.resources[field]?.[resource] === undefined)) return amount ? `≥ ${format(amount, resource)}` : 'Not set in chart';
         return format(amount, resource);
       });
       row.insertCell().textContent = component.kind === 'PersistentVolumeClaim' ? '—' : values.join(' / ');
@@ -216,21 +217,24 @@ export function renderSizing(panel, catalog, state, enabled) {
     row.insertCell().textContent = storage.length ? format(storage.reduce((sum, value) => sum + quantity(value, 'memory'), 0) * component.count, 'memory') : '—';
     if (Object.keys(component.nodeSelector || {}).length) warnings.push(`${component.name} placement: ${JSON.stringify(component.nodeSelector)}.`);
   }
-  const subtotal = body.insertRow(); subtotal.insertCell().textContent = 'Known fixed-workload subtotal (partial)';
+  const subtotal = body.insertRow(); subtotal.insertCell().textContent = 'Configured subtotal (partial)';
   const fixed = components.filter(component => ['Deployment', 'StatefulSet', 'Sandbox'].includes(component.kind));
   for (const resource of ['cpu', 'memory', 'nvidia.com/gpu']) {
-    subtotal.insertCell().textContent = ['requests', 'limits'].map(field => `≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, field, resource), 0), resource)}`).join(' / ');
+    subtotal.insertCell().textContent = ['requests', 'limits'].map(field => `${resource === 'nvidia.com/gpu' ? '' : '≥ '}${format(fixed.reduce((sum, component) => sum + footprint(component, field, resource), 0), resource)}`).join(' / ');
   }
   subtotal.insertCell().textContent = format(components.reduce((sum, component) => {
     const storage = typeof component.storage === 'string' ? [component.storage] : component.storage || [];
     return sum + storage.reduce((amount, value) => amount + quantity(value, 'memory'), 0) * component.count;
   }, 0), 'memory');
-  warnings.push('Subtotal excludes setup jobs and per-node collectors; unspecified requests/limits are not counted. PVC subtotal excludes pre-existing and dynamically allocated storage.');
+  warnings.push('CPU and memory are partial configured totals, not recommended production sizing. “Not set in chart” means the chart does not declare that request or limit; it does not mean zero usage. Subtotal excludes setup jobs and per-node collectors. PVC subtotal excludes pre-existing and dynamically allocated storage. Different chart versions and site overrides may change these values.');
   if (enabled.has('research') && !catalog.researchAvailable) warnings.push('Research dependency workloads are unavailable in this documentation build; the footprint is incomplete.');
   if (state.inference !== 'external') warnings.push('Model-server GPU requests must fit on one compatible node. Storage includes model-cache PVC capacity, not download size.');
   const summary = document.createElement('p');
-  summary.textContent = `Known fixed-workload requests: ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'cpu'), 0), 'cpu')} CPU cores; ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'memory'), 0), 'memory')} memory; ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'nvidia.com/gpu'), 0), 'nvidia.com/gpu')} GPUs. Partial footprint; see component details below.`;
+  const gpus = fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'nvidia.com/gpu'), 0);
+  summary.textContent = `Local GPU requests: ${format(gpus, 'nvidia.com/gpu')}${state.inference === 'external' ? ' (no local model server)' : ''}. Configured CPU requests: ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'cpu'), 0), 'cpu')} cores. Configured memory requests: ≥ ${format(fixed.reduce((sum, component) => sum + footprint(component, 'requests', 'memory'), 0), 'memory')}. CPU and memory totals are incomplete where the chart has no resource settings.`;
   const details = document.createElement('div'); details.className = 'builder-sizing-table'; details.append(table);
-  panel.append(summary, details);
-  const caveat = document.createElement('p'); caveat.textContent = warnings.join(' '); panel.append(caveat);
+  const expanded = document.createElement('details');
+  const label = document.createElement('summary'); label.textContent = 'Component resource settings'; expanded.append(label, details);
+  panel.append(summary, expanded);
+  const caveat = document.createElement('p'); caveat.textContent = warnings.join(' '); expanded.append(caveat);
 }
