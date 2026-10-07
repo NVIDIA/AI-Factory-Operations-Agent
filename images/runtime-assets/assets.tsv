@@ -1,0 +1,5 @@
+amd64	kubectl	7721f265e18709862655affba5343e85e1980639395d5754473dafaadcaa69e3	https://dl.k8s.io/release/v1.34.1/bin/linux/amd64/kubectl
+arm64	kubectl	420e6110e3ba7ee5a3927b5af868d18df17aae36b720529ffa4e9e945aa95450	https://dl.k8s.io/release/v1.34.1/bin/linux/arm64/kubectl
+amd64	openshell-cli.tar.gz	9b9331644d0b6350030c521047490314b594591547b4ca28ef105b7adad73eb8	https://github.com/NVIDIA/OpenShell/releases/download/v0.0.75/openshell-x86_64-unknown-linux-musl.tar.gz
+arm64	openshell-cli.tar.gz	c7bf758ed864ef375ba3358d39b4d6e4b80da9e451b67a47ae1341df82c362e0	https://github.com/NVIDIA/OpenShell/releases/download/v0.0.75/openshell-aarch64-unknown-linux-musl.tar.gz
+all	openshell-plugin.tar.gz	1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33	https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz
