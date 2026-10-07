@@ -8,6 +8,8 @@ For a bare Kubernetes cluster, follow the complete [Kind installation guide](kin
 
 For an NVIDIA Mission Control managed cluster, follow the complete [NMC installation guide](nmc_installation.md).
 
+Optionally, use the [installation builder](installation_builder.md) to select modules and generate your Helm command.
+
 ## Custom Installation
 
 ### 1. Create The Namespace And Registry Access
