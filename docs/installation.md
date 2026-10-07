@@ -21,7 +21,7 @@ Private Registry service enabled.
 
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
+# Use --devel for the latest trial build, or --version 0.0.2-dev.20261007.4aa6442 to pin the validated default-storage build.
 
 read -rsp 'NGC API key: ' NGC_API_KEY; echo
 printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \

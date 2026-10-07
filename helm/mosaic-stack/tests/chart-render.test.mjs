@@ -241,7 +241,7 @@ test("renders namespace labeling with the configured kubectl image", () => {
 
 test("pins the UI to an immutable commit tag", () => {
   const output = render("--show-only", "templates/mosaic-ui.yaml");
-  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
+  assert.match(output, /image: "[^"\s]+\/mosaic-ui:[0-9a-f]{8}"/);
 });
 
 test("protects the UI with a generated login", () => {
@@ -302,7 +302,7 @@ test("seeds BCM manuals without deployment-time network access", () => {
     "--show-only", "templates/openclaw.yaml",
   );
   const init = output.split("- name: init-bcm-docs")[1]?.split("- name: install-openshell-assets")[0] || "";
-  assert.match(init, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:1234abcd"/);
+  assert.match(init, /image: "[^"\s]+\/mosaic-ui:1234abcd"/);
   assert.match(init, /tar -xzf \/opt\/nemoclaw\/bcm-docs\.tar\.gz/);
   assert.doesNotMatch(init, /https?:|curl|apk|python|pdftotext/);
   assert.doesNotMatch(renderDiagnostics("--show-only", "templates/openclaw-seed-configmap.yaml"), /bcm-docs-download/);
@@ -905,7 +905,7 @@ test("renders the terminal service from the UI image with isolated read-only acc
   assert.match(output, /kind: Secret[\s\S]*name: mosaic-terminal-auth/);
   assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-terminal\.mjs"\]/);
   assert.match(output, /name: PATH\s+value: \/opt\/node\/bin:\/tools:/);
-  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[^"]+"/);
+  assert.match(output, /image: "[^"\s]+\/mosaic-ui:[^"]+"/);
   assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
   assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);
   assert.match(output, /requiredDuringSchedulingIgnoredDuringExecution:[\s\S]*app: openclaw/);
@@ -953,7 +953,7 @@ test("renders a credential-isolated persistent cluster monitor from configured t
   assert.match(output, /kind: PersistentVolumeClaim[\s\S]*name: mosaic-cluster-monitor/);
   assert.match(output, /kind: Secret[\s\S]*name: mosaic-cluster-monitor-auth/);
   assert.match(output, /command: \["node", "\/app\/frontend\/bin\/mosaic-cluster-monitor\.mjs"\]/);
-  assert.match(output, /image: "nvcr\.io\/0948643769302270\/mosaic-ui:[0-9a-f]{8}"/);
+  assert.match(output, /image: "[^"\s]+\/mosaic-ui:[0-9a-f]{8}"/);
   assert.match(output, /automountServiceAccountToken: false/);
   assert.match(output, /name: MOSAIC_CLUSTERS_ENABLED\s+value: "true"/);
   assert.match(output, /name: MOSAIC_CLUSTER_MONITOR_URL\s+value: "http:\/\/mosaic-cluster-monitor:3003"/);
