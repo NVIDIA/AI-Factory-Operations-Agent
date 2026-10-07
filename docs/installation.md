@@ -38,6 +38,8 @@ kubectl -n mosaic create secret docker-registry nvcr-image-pull-secret \
 unset NGC_API_KEY
 ```
 
+Persistent storage must be available through the cluster’s default StorageClass. The chart uses that default for the agent workspace and UI audit log; set `openclaw.pvc.storageClassName` or `mosaicUi.auditPvc.storageClassName` only when selecting another class.
+
 ### 2. Choose An LLM
 
 Choose one inference path below. Both paths install the same agent stack.
@@ -76,8 +78,6 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
   --set modules.diagnostics.enabled=false \
   --set modules.research.enabled=false \
   --set modules.terminal.enabled=false \
-  --set-string openclaw.pvc.storageClassName='' \
-  --set-string mosaicUi.auditPvc.storageClassName='' \
   --reset-values \
   --atomic \
   --wait \
@@ -132,8 +132,6 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --set modules.diagnostics.enabled=false \
   --set modules.research.enabled=false \
   --set modules.terminal.enabled=false \
-  --set-string openclaw.pvc.storageClassName='' \
-  --set-string mosaicUi.auditPvc.storageClassName='' \
   --reset-values \
   --atomic \
   --wait \
@@ -163,8 +161,6 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --set modules.diagnostics.enabled=false \
   --set modules.research.enabled=false \
   --set modules.terminal.enabled=false \
-  --set-string openclaw.pvc.storageClassName='' \
-  --set-string mosaicUi.auditPvc.storageClassName='' \
   --reset-values \
   --atomic \
   --wait \
