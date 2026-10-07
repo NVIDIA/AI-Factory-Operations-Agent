@@ -70,8 +70,6 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
   --set modules.grafana.enabled=false \
   --set modules.research.enabled=false \
   --set modules.diagnostics.enabled=false \
-  --set openclaw.pvc.storageClassName=standard \
-  --set mosaicUi.auditPvc.storageClassName=standard \
   --reset-values \
   --atomic \
   --wait \

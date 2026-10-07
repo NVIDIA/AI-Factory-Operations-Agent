@@ -1053,3 +1053,15 @@ test("rejects an unregistered default Kubernetes cluster", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /defaultCluster "missing" is not registered/);
 });
+
+test("workspace and audit storage use the cluster default unless overridden", () => {
+  const defaults = render("--show-only", "templates/pvcs.yaml");
+  assert.doesNotMatch(defaults, /^\s*storageClassName:/m);
+  const configured = render(
+    "--show-only", "templates/pvcs.yaml",
+    "--set", "openclaw.pvc.storageClassName=workspace-tier",
+    "--set", "mosaicUi.auditPvc.storageClassName=audit-tier",
+  );
+  assert.match(configured, /storageClassName: "workspace-tier"/);
+  assert.match(configured, /storageClassName: "audit-tier"/);
+});
