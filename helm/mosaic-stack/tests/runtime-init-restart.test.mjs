@@ -17,7 +17,7 @@ function render(...args) {
 // Each init container installs a tool file as mode 0555 (read-only). The tools
 // directory is an emptyDir that survives container restarts within a Pod, so on
 // a node/kubelet restart the init container reruns against the existing 0555
-// file. Writing it again (curl -o, printf >, tar + mv) then fails with "Text
+// file. Writing it again (cp, printf >, tar + mv) then fails with "Text
 // file busy"/permission denied and the Pod enters Init:CrashLoopBackOff. The
 // installer must remove the stale file before rewriting it so re-initialization
 // is idempotent.
@@ -34,7 +34,7 @@ test("openclaw tool init removes read-only files before rewriting them", () => {
   assertRemovesBeforeWriting(
     openclaw,
     "rm -f /tools/kubectl",
-    "curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl",
+    "cp /opt/mosaic-assets/kubectl /tools/kubectl",
     "kubectl",
   );
   assertRemovesBeforeWriting(
@@ -60,7 +60,7 @@ test("terminal kubectl init removes the read-only binary before rewriting it", (
   assertRemovesBeforeWriting(
     terminal,
     "rm -f /tools/kubectl",
-    "curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl",
+    "cp /opt/mosaic-assets/kubectl /tools/kubectl",
     "terminal kubectl",
   );
 });

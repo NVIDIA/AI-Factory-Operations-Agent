@@ -40,22 +40,15 @@ spec:
       initContainers:
         {{- if .Values.modules.kubernetes.enabled }}
         - name: install-kubectl
-          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
-          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          image: {{ include "mosaic-stack.image" .Values.runtimeAssets.image | quote }}
+          imagePullPolicy: {{ .Values.runtimeAssets.image.pullPolicy }}
           command:
             - sh
             - -c
             - |
               set -eu
-              case "$(uname -m)" in
-                x86_64) architecture=amd64; sha={{ .Values.kubernetes.kubectlSha256.amd64 | quote }} ;;
-                aarch64|arm64) architecture=arm64; sha={{ .Values.kubernetes.kubectlSha256.arm64 | quote }} ;;
-                *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-              esac
               rm -f /tools/kubectl
-              curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
-                "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
-              printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
+              cp /opt/mosaic-assets/kubectl /tools/kubectl
               chmod 0555 /tools/kubectl
           securityContext:
             allowPrivilegeEscalation: false
@@ -334,22 +327,14 @@ spec:
               mountPath: /home/node/.openclaw
         {{- end }}
         - name: install-openshell-assets
-          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
-          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          image: {{ include "mosaic-stack.image" .Values.runtimeAssets.image | quote }}
+          imagePullPolicy: {{ .Values.runtimeAssets.image.pullPolicy }}
           command:
             - sh
             - -c
             - |
               set -eu
-              case "$(uname -m)" in
-                x86_64) target=x86_64-unknown-linux-musl; sha={{ .Values.openclaw.openshell.cliSha256.amd64 | quote }} ;;
-                aarch64|arm64) target=aarch64-unknown-linux-musl; sha={{ .Values.openclaw.openshell.cliSha256.arm64 | quote }} ;;
-                *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-              esac
-              cli=/tmp/openshell-cli.tar.gz
-              curl -fsSL --retry 5 --retry-all-errors -o "$cli" \
-                "https://github.com/NVIDIA/OpenShell/releases/download/{{ .Values.openclaw.openshell.cliVersion }}/openshell-$target.tar.gz"
-              printf '%s  %s\n' "$sha" "$cli" | sha256sum -c -
+              cli=/opt/mosaic-assets/openshell-cli.tar.gz
               rm -f /tools/openshell /tools/openshell.real
               tar -xzf "$cli" -C /tools
               mv /tools/openshell /tools/openshell.real
@@ -403,10 +388,7 @@ spec:
               EOF
               chmod 0555 /tools/openshell
 
-              plugin=/tmp/openshell-plugin.tar.gz
-              curl -fsSL --retry 5 --retry-all-errors -o "$plugin" \
-                "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-{{ .Values.openclaw.openshell.pluginVersion }}.tgz"
-              printf '%s  %s\n' {{ .Values.openclaw.openshell.pluginSha256 | quote }} "$plugin" | sha256sum -c -
+              plugin=/opt/mosaic-assets/openshell-plugin.tar.gz
               rm -rf /openshell-plugin/*
               tar -xzf "$plugin" --strip-components=1 -C /openshell-plugin
           securityContext:

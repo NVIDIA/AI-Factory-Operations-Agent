@@ -909,7 +909,6 @@ test("renders the terminal service from the UI image with isolated read-only acc
   assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
   assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);
   assert.match(output, /requiredDuringSchedulingIgnoredDuringExecution:[\s\S]*app: openclaw/);
-  assert.match(output, /curl -fsSL --retry 5 --retry-all-errors -o \/tools\/kubectl \\\s+"https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl"/);
   assert.doesNotMatch(output, /registry\.k8s\.io\/kubectl/);
   assert.doesNotMatch(rbac, /resources: \[[^\]]*"secrets"/);
   assert.doesNotMatch(rbac, /resources: \[[^\]]*"pods\/exec"/);
@@ -985,12 +984,16 @@ test("validates cluster monitor dependencies and configuration", () => {
   }
 });
 
-test("installs a checksum-pinned upstream kubectl binary", () => {
-  const output = render("--show-only", "templates/openclaw.yaml");
-  assert.match(output, /https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl/);
-  assert.match(output, /7721f265e18709862655affba5343e85e1980639395d5754473dafaadcaa69e3/);
-  assert.match(output, /420e6110e3ba7ee5a3927b5af868d18df17aae36b720529ffa4e9e945aa95450/);
-  assert.doesNotMatch(output, /registry\.k8s\.io\/kubectl/);
+test("tool init containers use bundled assets without runtime downloads", () => {
+  for (const template of ["openclaw", "mosaic-terminal"]) {
+    const output = render("--set", "modules.terminal.enabled=true", "--show-only", `templates/${template}.yaml`);
+    for (const name of ["install-kubectl", ...(template === "openclaw" ? ["install-openshell-assets"] : [])]) {
+      const init = output.split(`- name: ${name}\n`)[1].split("          securityContext:")[0];
+      assert.doesNotMatch(init, /\b(?:curl|wget)\b/);
+      assert.match(init, /mosaic-runtime-assets@sha256:[a-f0-9]{64}/);
+      assert.match(init, /\/opt\/mosaic-assets\//);
+    }
+  }
 });
 
 test("packages every Kubernetes plugin module into the OpenClaw seed", () => {

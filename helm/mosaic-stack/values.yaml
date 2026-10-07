@@ -78,6 +78,13 @@ modules:
       maxOutputBytes: 65536
       hosts: []
 
+# Tool versions and checksums are maintained in images/runtime-assets/assets.tsv.
+runtimeAssets:
+  image:
+    repository: nvcr.io/0948643769302270/afoa-release/mosaic-runtime-assets
+    digest: sha256:462e091ceb3020be0dfd2b60519245bb4eac193cfe8dcf1843bd05bf2be8ebf3
+    pullPolicy: IfNotPresent
+
 kubernetes:
   defaultCluster: local
   local:
@@ -85,10 +92,6 @@ kubernetes:
   command: /tools/kubectl
   timeoutMs: 60000
   maxOutputBytes: 1048576
-  kubectlVersion: v1.34.1
-  kubectlSha256:
-    amd64: 7721f265e18709862655affba5343e85e1980639395d5754473dafaadcaa69e3
-    arm64: 420e6110e3ba7ee5a3927b5af868d18df17aae36b720529ffa4e9e945aa95450
   clusters: []
 
 llm:
@@ -269,12 +272,6 @@ openclaw:
     gateway: ""
     gatewayEndpoint: ""
     policy: ""
-    cliVersion: v0.0.75
-    cliSha256:
-      amd64: 9b9331644d0b6350030c521047490314b594591547b4ca28ef105b7adad73eb8
-      arm64: c7bf758ed864ef375ba3358d39b4d6e4b80da9e451b67a47ae1341df82c362e0
-    pluginVersion: 2026.6.6
-    pluginSha256: 1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33
   service:
     port: 18789
 
