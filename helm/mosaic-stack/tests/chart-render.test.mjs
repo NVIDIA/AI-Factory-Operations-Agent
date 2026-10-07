@@ -909,7 +909,7 @@ test("renders the terminal service from the UI image with isolated read-only acc
   assert.match(output, /name: MOSAIC_TERMINAL_URL\s+value: "http:\/\/mosaic-terminal:3002"/);
   assert.match(output, /name: mosaic-terminal[\s\S]*namespace: mosaic-test[\s\S]*name: .*oc-reader/);
   assert.match(output, /requiredDuringSchedulingIgnoredDuringExecution:[\s\S]*app: openclaw/);
-  assert.match(output, /curl -fsSL --retry 5 --retry-all-errors -o \/tools\/kubectl \\\s+"https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl"/);
+  assert.match(output, /"https:\/\/dl\.k8s\.io\/release\/v1\.34\.1\/bin\/linux\/\$architecture\/kubectl"/);
   assert.doesNotMatch(output, /registry\.k8s\.io\/kubectl/);
   assert.doesNotMatch(rbac, /resources: \[[^\]]*"secrets"/);
   assert.doesNotMatch(rbac, /resources: \[[^\]]*"pods\/exec"/);

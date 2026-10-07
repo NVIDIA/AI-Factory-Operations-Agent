@@ -53,7 +53,7 @@ spec:
                 *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
               esac
               rm -f /tools/kubectl
-              curl -fsSL --retry 5 --retry-all-errors -o /tools/kubectl \
+              curl -fsSL --connect-timeout 15 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 5 --retry-all-errors -o /tools/kubectl \
                 "https://dl.k8s.io/release/{{ .Values.kubernetes.kubectlVersion }}/bin/linux/$architecture/kubectl"
               printf '%s  %s\n' "$sha" /tools/kubectl | sha256sum -c -
               chmod 0555 /tools/kubectl
@@ -347,7 +347,7 @@ spec:
                 *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
               esac
               cli=/tmp/openshell-cli.tar.gz
-              curl -fsSL --retry 5 --retry-all-errors -o "$cli" \
+              curl -fsSL --connect-timeout 15 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 5 --retry-all-errors -o "$cli" \
                 "https://github.com/NVIDIA/OpenShell/releases/download/{{ .Values.openclaw.openshell.cliVersion }}/openshell-$target.tar.gz"
               printf '%s  %s\n' "$sha" "$cli" | sha256sum -c -
               rm -f /tools/openshell /tools/openshell.real
@@ -404,7 +404,7 @@ spec:
               chmod 0555 /tools/openshell
 
               plugin=/tmp/openshell-plugin.tar.gz
-              curl -fsSL --retry 5 --retry-all-errors -o "$plugin" \
+              curl -fsSL --connect-timeout 15 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 5 --retry-all-errors -o "$plugin" \
                 "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-{{ .Values.openclaw.openshell.pluginVersion }}.tgz"
               printf '%s  %s\n' {{ .Values.openclaw.openshell.pluginSha256 | quote }} "$plugin" | sha256sum -c -
               rm -rf /openshell-plugin/*
