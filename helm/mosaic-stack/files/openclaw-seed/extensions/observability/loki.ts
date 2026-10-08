@@ -81,7 +81,7 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
   register({
     name: "observability_log_labels",
     label: "Loki Log Labels",
-    description: "Discover log labels, or values for one label, in the configured Loki tenant. Read-only.",
+    description: "Discover log labels, or values for one label, in the configured Loki tenant. To identify available sources, first list label names, then request values for relevant discovered labels. Names alone do not identify sources. Read-only.",
     parameters: { type: "object", additionalProperties: false, properties: {
       ...properties,
       label: { type: "string", description: "Omit to list label names; provide a discovered name to list its values." },
@@ -103,7 +103,7 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
     description: "Run a read-only LogQL log query over a bounded time range. Returns timestamped log streams; metric queries are not supported.",
     parameters: { type: "object", additionalProperties: false, required: ["query"], properties: {
       ...properties,
-      query: { type: "string", description: "LogQL stream selector and optional log pipeline, using discovered labels." },
+      query: { type: "string", description: "LogQL stream selector and optional log pipeline. Discover label values before selecting a source. Loki requires at least one label matcher that cannot match an empty value. Preserve the requested source filters when adding an error filter or changing the time window." },
       direction: { type: "string", enum: ["backward", "forward"], description: "Newest first by default." },
     } },
     async execute(_id, params) {
