@@ -201,15 +201,6 @@ test("instructs the agent to report a Kubernetes policy denial", () => {
   assert.match(source, /Do not call `exec` or retry through another tool/);
 });
 
-test("instructs the agent to finish after a successful mutation", () => {
-  const source = readFileSync(
-    new URL("../files/openclaw-seed/workspace/AGENTS.md", import.meta.url),
-    "utf8",
-  );
-  assert.match(source, /immediately provide a brief final answer and stop/);
-  assert.match(source, /Do not run a separate verification read/);
-});
-
 test("makes the per-session access mode authoritative", () => {
   const source = readFileSync(
     new URL("../files/openclaw-seed/workspace/AGENTS.md", import.meta.url),

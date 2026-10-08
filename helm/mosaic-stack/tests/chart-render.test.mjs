@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,18 @@ const slackManifest = fileURLToPath(new URL("../profiles/slack-app-manifest.json
 const slackEnterprisePatch = fileURLToPath(
   new URL("../files/openclaw-seed/slack-enterprise-grid-patch.mjs", import.meta.url),
 );
+
+function configMapBlock(output, key) {
+  const lines = output.split("\n");
+  const start = lines.findIndex(line => line.startsWith(`  ${key}: |`));
+  assert.ok(start >= 0, `Missing ConfigMap entry: ${key}`);
+  const body = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line && !line.startsWith("    ")) break;
+    body.push(line.slice(4));
+  }
+  return body.join("\n");
+}
 
 test("startup-loads the Kubernetes approval hook", () => {
   const manifest = JSON.parse(
@@ -637,11 +649,13 @@ test("patches Slack Enterprise Grid workspace events without weakening app check
 
 test("exposes only blueprint-owned skills to OpenClaw agents", () => {
   const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
-  assert.match(
-    output,
-    /"skills": \[\s*"bcm",\s*"hardware-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
-  );
-  assert.doesNotMatch(output, /"allowBundled"/);
+  const config = JSON.parse(configMapBlock(output, "openclaw.json"));
+  const skills = config.agents.defaults.skills;
+  assert.ok(skills.includes("gpu-networking"));
+  for (const skill of skills) {
+    assert.ok(readFileSync(new URL(`../files/openclaw-seed/skills/${skill}/SKILL.md`, import.meta.url)).length);
+  }
+  assert.equal(config.skills?.allowBundled, undefined);
 });
 
 test("renders named external Kubernetes clusters from Secrets", () => {
@@ -1052,6 +1066,64 @@ test("rejects an unregistered default Kubernetes cluster", () => {
   );
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /defaultCluster "missing" is not registered/);
+});
+
+
+test("preloads selected skill instructions from their authoritative files", () => {
+  for (const skill of ["gpu-networking", "slurm"]) {
+    const output = render("--show-only", "templates/openclaw-seed-configmap.yaml", "--set", `openclaw.bootstrapSkills[0]=${skill}`);
+    const instructions = configMapBlock(output, "AGENTS.md");
+    const source = readFileSync(new URL(`../files/openclaw-seed/skills/${skill}/SKILL.md`, import.meta.url), "utf8").trim();
+    assert.ok(instructions.includes(source));
+    const references = new URL(`../files/openclaw-seed/skills/${skill}/references/`, import.meta.url);
+    for (const name of existsSync(references) ? readdirSync(references).filter(name => name.endsWith(".md")) : []) {
+      assert.ok(instructions.includes(readFileSync(new URL(name, references), "utf8").trim()));
+    }
+    const config = JSON.parse(configMapBlock(output, "openclaw.json"));
+    assert.ok(config.agents.defaults.bootstrapMaxChars > instructions.length);
+  }
+});
+
+test("packaged GPU documentation installs locally with research and UI disabled", () => {
+  const directory = mkdtempSync(join(tmpdir(), "skill-offline-"));
+  try {
+    execFileSync("helm", ["package", chart, "--destination", directory]);
+    const archive = join(directory, readdirSync(directory).find(name => name.endsWith(".tgz")));
+    const output = execFileSync("helm", ["template", "offline", archive,
+      "--set", "modules.research.enabled=false", "--set", "modules.kubernetes.enabled=false",
+      "--set", "modules.slurm.enabled=false", "--set", "modules.bcm.enabled=false",
+      "--set", "modules.diagnostics.enabled=false", "--set", "modules.observability.enabled=false",
+      "--set", "modules.ui.enabled=false"], {encoding: "utf8"});
+    const seed = join(directory, "seed");
+    const home = join(directory, "home");
+    execFileSync("mkdir", ["-p", seed, home]);
+    const seedSection = output.split("name: openclaw-seed\n")[1].split("\n---")[0];
+    for (const line of seedSection.split("\n")) {
+      if (line.startsWith("  ") && !line.startsWith("   ") && line.endsWith(": |-")) {
+        const key = line.trim().slice(0, -4);
+        writeFileSync(join(seed, key), configMapBlock(seedSection, key));
+      }
+    }
+    const init = output.split("- name: init-config\n")[1].split("          securityContext:")[0];
+    const script = init.split("            - |\n")[1].split("\n")
+      .map(line => line.slice(14)).join("\n")
+      .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`);
+    execFileSync("sh", ["-eu", "-c", script]);
+    const relative = "skills/gpu-networking";
+    const workspace = join(home, "workspace");
+    const references = join(workspace, relative, "references");
+    const paths = [`${relative}/SKILL.md`, ...readdirSync(references).map(name => `${relative}/references/${name}`)];
+    for (const path of paths) {
+      const content = readFileSync(join(workspace, path), "utf8");
+      assert.ok(content.trim().length, path);
+      assert.equal(content.includes("https://") || content.includes("http://"), false, path);
+      for (const target of content.split("`").filter((_, index) => index % 2 === 1)) {
+        if (target.startsWith("skills/")) assert.ok(existsSync(join(workspace, target)), `${path}: ${target}`);
+      }
+    }
+  } finally {
+    rmSync(directory, {recursive: true, force: true});
+  }
 });
 
 test("workspace and audit storage use the cluster default unless overridden", () => {

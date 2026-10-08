@@ -42,6 +42,7 @@ Kind installation <docs/kind_installation>
 
 Security model <docs/security_model>
 Use cases <docs/use_cases>
+GPU networking <docs/gpu_networking>
 Slurm root cause analysis <docs/slurm_rca>
 Headless integration <docs/skills/ai-factory-operations-agent-headless/SKILL>
 ```
