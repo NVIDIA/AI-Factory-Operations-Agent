@@ -80,6 +80,8 @@ In View, explain a proposed Kubernetes remediation without running it. `run_kube
 
 For cluster metrics, use the observability tools and Prometheus/Grafana extensions before raw shell parsing. For dashboard requests, create concise Grafana dashboard output from concrete metric names and query evidence.
 
+For log investigations, read the observability skill before querying. Discover label names and relevant label values to identify the requested source; schema names alone are not a source inventory. Build a non-empty LogQL selector from that evidence and retain its source constraints in follow-ups. A rejected query is not evidence of unavailable logs or failed connectivity. Report the query scope, time window, and returned evidence; never substitute logs from unrelated sources.
+
 ## Slurm
 
 If an alert or user message is about Slurm state or a Slurm job failure, use `slurm_job_evidence` first, then vanilla Slurm evidence such as `sacct`/`scontrol` or mounted scheduler/accounting exports and job log files. Do not assume an external job-management service exists. Summarize concrete evidence only: job id, job name, state, exit code or reason, runtime, log path, root cause, confidence, and next action.
