@@ -6,6 +6,7 @@ name = "ai-factory-operations-agent-docs"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+  "pyyaml==6.0.3",
   "sphinx==9.1.0",
   "nvidia-sphinx-theme==0.0.9.post1",
   "myst-parser==5.1.0",
