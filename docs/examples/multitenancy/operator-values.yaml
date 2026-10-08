@@ -1,0 +1,42 @@
+global:
+  imagePullSecrets: [{name: nvcr-image-pull-secret}]
+agentSandbox:
+  install: false
+llm:
+  mode: external
+  external:
+    baseUrl: https://llm.example.com/v1
+    model: served-model
+    existingSecret: mosaic-inference
+mosaicUi:
+  auth:
+    existingSecret: mosaic-ui-auth
+modules:
+  ui: {enabled: true}
+  execution: {enabled: true}
+  kubernetes: {enabled: true}
+  observability: {enabled: true}
+  grafana: {enabled: true}
+  bcm: {enabled: true}
+  slurm: {enabled: false}
+  diagnostics: {enabled: false}
+  research: {enabled: false}
+  terminal: {enabled: false}
+  clusters: {enabled: true}
+  edit: {enabled: false}
+kubernetes:
+  defaultCluster: local
+  local:
+    enabled: true
+observability:
+  prometheusUrl: http://prometheus.monitoring.svc.cluster.local:9090
+  alertmanagerUrl: http://alertmanager.monitoring.svc.cluster.local:9093
+  grafanaUrl: https://grafana.example.com/grafana
+  grafanaDatasourceUid: prometheus
+  grafanaAuth:
+    existingSecret: mosaic-grafana-auth
+bcmMcp:
+  enabled: true
+  mode: ssh-adapter
+  headHost: operator@bcm-head.example.com
+  hostSshKeySecretName: bcm-host-ssh-key
