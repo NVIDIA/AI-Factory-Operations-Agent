@@ -3,7 +3,7 @@
 
 const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
 const modules = {
-  kubernetes: 'Kubernetes', observability: 'Prometheus and Alertmanager', grafana: 'Grafana',
+  kubernetes: 'Kubernetes', observability: 'Metrics and logs (Prometheus, Alertmanager, Loki)', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
 };
@@ -14,6 +14,10 @@ const fields = {
   model: ['Inference model', '', 'Your served model name'], llmSecret: ['Inference Secret (apiKey)', 'mosaic-external-llm'],
   prometheusUrl: ['Prometheus URL', '', 'http://prometheus:9090'],
   alertmanagerUrl: ['Alertmanager URL', '', 'http://alertmanager:9093'],
+  lokiUrl: ['Loki URL (optional)', '', 'https://logs.example.com'],
+  lokiTenant: ['Loki tenant ID (optional)', ''],
+  lokiSecret: ['Loki Authorization Secret (optional)', ''],
+  lokiKey: ['Loki Secret key', 'authorization'],
   grafanaUrl: ['Grafana URL, including serving path', '', 'https://grafana.example.com/grafana'],
   grafanaUid: ['Prometheus datasource UID', 'prometheus'], grafanaSecret: ['Grafana Secret (username, password)', 'mosaic-grafana-auth'],
   bcmHead: ['BCM SSH head host', '', 'user@bcm-head.example.com'], bcmSecret: ['BCM SSH Secret (id_ecdsa)', 'bcm-host-ssh-key'],
@@ -44,6 +48,9 @@ export function buildCommand(state) {
   if (enabled.has('observability')) {
     set('observability.prometheusUrl', value('prometheusUrl'), true);
     set('observability.alertmanagerUrl', value('alertmanagerUrl'), true);
+    for (const [key, field] of Object.entries({url:'lokiUrl', tenantId:'lokiTenant', 'auth.existingSecret':'lokiSecret', 'auth.authorizationKey':'lokiKey'})) {
+      set(`observability.loki.${key}`, state[field]?.trim() || fields[field][1], true);
+    }
   }
   if (enabled.has('grafana')) {
     set('observability.grafanaUrl', value('grafanaUrl'), true); set('observability.grafanaDatasourceUid', value('grafanaUid'), true);
@@ -122,7 +129,7 @@ if (root) {
       settingsBody.replaceChildren();
       const keys = ['namespace', 'pullSecret', 'version'];
       if (state.inference === 'external') keys.push('baseUrl', 'model', 'llmSecret');
-      if (enabled.has('observability')) keys.push('prometheusUrl', 'alertmanagerUrl');
+      if (enabled.has('observability')) keys.push('prometheusUrl', 'alertmanagerUrl', 'lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
       if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
@@ -139,6 +146,10 @@ if (root) {
     }
     const notes = ['Complete namespace and NGC access setup first. Replace all <placeholders> before running.'];
     if (state.inference === 'external') notes.push(`Create ${state.llmSecret || fields.llmSecret[1]} with key apiKey.`);
+    if (enabled.has('observability')) {
+      notes.push('Loki is optional. An empty URL disables log tools; no Loki server or collector is installed.');
+      if (state.lokiUrl?.trim() && state.lokiSecret?.trim()) notes.push(`Create ${state.lokiSecret.trim()} in the release namespace with key ${state.lokiKey?.trim() || fields.lokiKey[1]} containing the complete Authorization header. Do not enter credentials in this form.`);
+    }
     if (enabled.has('grafana')) notes.push(`Create ${state.grafanaSecret || fields.grafanaSecret[1]} with keys username and password.`);
     if (enabled.has('bcm')) notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');

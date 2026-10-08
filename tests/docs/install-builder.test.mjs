@@ -51,3 +51,17 @@ test('pinning replaces the development selector and storage overrides are option
   assert.ok(args.includes('openclaw.pvc.storageClassName=workspace-storage'));
   assert.ok(args.includes('mosaicUi.auditPvc.storageClassName=workspace-storage'));
 });
+test('Loki connection settings remain optional and use Secret references', () => {
+  const state = {...example, modules:['observability'], lokiUrl:'https://logs.example.com/prefix',
+    lokiTenant:'team-one', lokiSecret:'log-reader', lokiKey:'header'};
+  const args = argumentsFor(state);
+  for (const setting of ['url=https://logs.example.com/prefix', 'tenantId=team-one',
+    'auth.existingSecret=log-reader', 'auth.authorizationKey=header']) {
+    assert.ok(args.includes(`observability.loki.${setting}`));
+  }
+  const defaults = argumentsFor({...example, modules:['observability']});
+  assert.ok(defaults.includes('observability.loki.url='));
+  assert.ok(defaults.includes('observability.loki.auth.existingSecret='));
+  assert.ok(!argumentsFor({...state,modules:[]}).some(arg => arg.startsWith('observability.loki.')));
+});
+
