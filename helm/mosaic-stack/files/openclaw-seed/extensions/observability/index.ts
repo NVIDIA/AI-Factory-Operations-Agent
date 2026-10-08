@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { registerLokiTools } from "./loki.ts";
 import { registerGrafanaTools } from "./grafana.ts";
 
 type PrometheusVectorSample = {
@@ -176,6 +177,8 @@ export default definePluginEntry({
         api.registerTool(tool);
       }
     };
+
+    registerLokiTools(api.pluginConfig, registerTool);
 
     registerTool({
       name: "observability_metric_names",

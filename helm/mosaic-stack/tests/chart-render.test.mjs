@@ -1065,3 +1065,20 @@ test("workspace and audit storage use the cluster default unless overridden", ()
   assert.match(configured, /storageClassName: "workspace-tier"/);
   assert.match(configured, /storageClassName: "audit-tier"/);
 });
+
+test("configures optional Loki access without exposing its credential to UI or sandbox", () => {
+  const args = ["--set", "modules.observability.enabled=true", "--set", "observability.loki.url=https://logs.example.com", "--set", "observability.loki.tenantId=operations", "--set", "observability.loki.auth.existingSecret=logs-readonly"];
+  const seed = render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const runtime = render(...args, "--show-only", "templates/openclaw.yaml");
+  const ui = render(...args, "--show-only", "templates/mosaic-ui.yaml");
+  assert.match(seed, /"lokiUrl": "https:\/\/logs.example.com"/);
+  assert.match(seed, /"lokiTenantId": "operations"/);
+  assert.match(seed, /observability\.loki\.ts:/);
+  assert.match(runtime, /cp \/seed\/observability.loki.ts/);
+  assert.match(runtime, /name: MOSAIC_LOKI_AUTHORIZATION\s+valueFrom:\s+secretKeyRef:\s+name: "logs-readonly"\s+key: "authorization"/);
+  assert.doesNotMatch(ui, /logs-readonly|MOSAIC_LOKI_AUTHORIZATION/);
+  const disabled = render(...args, "--set", "modules.observability.enabled=false", "--show-only", "templates/openclaw.yaml");
+  assert.doesNotMatch(disabled, /name: MOSAIC_LOKI_AUTHORIZATION/);
+  const defaults = render("--show-only", "templates/openclaw.yaml");
+  assert.doesNotMatch(defaults, /name: MOSAIC_LOKI_AUTHORIZATION/);
+});

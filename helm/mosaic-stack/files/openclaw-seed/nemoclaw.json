@@ -325,6 +325,8 @@
       "observability": {
         "enabled": {{ .Values.modules.observability.enabled }},
         "config": {
+          "lokiUrl": {{ .Values.observability.loki.url | quote }},
+          "lokiTenantId": {{ .Values.observability.loki.tenantId | quote }},
           "grafanaEnabled": {{ .Values.modules.grafana.enabled }},
           "grafanaUrl": {{ .Values.observability.grafanaUrl | quote }},
           "prometheusUrl": {{ .Values.observability.prometheusUrl | quote }},

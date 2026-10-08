@@ -21,6 +21,12 @@ observability:
   grafanaUrl: http://kube-prometheus-stack-grafana.prometheus.svc.cluster.local/grafana
   alertmanagerUrl: http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093
   grafanaDatasourceUid: prometheus
+  loki:
+    url: ""
+    tenantId: ""
+    auth:
+      existingSecret: ""
+      authorizationKey: authorization
   grafanaAuth:
     existingSecret: ""
     usernameKey: username

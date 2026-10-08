@@ -7,7 +7,9 @@
       "observability_range_query",
       "dashboard_list",
       "dashboard_create",
-      "dashboard_open"
+      "dashboard_open",
+      "observability_log_labels",
+      "observability_logs"
     ]
   },
   "configSchema": {
@@ -16,7 +18,7 @@
     "properties": {
       "prometheusUrl": {
         "type": "string",
-        "description": "Observability Prometheus base URL."
+        "description": "Prometheus service base URL used for dashboard validation."
       },
       "grafanaEnabled": {
         "type": "boolean",
@@ -25,10 +27,6 @@
       "grafanaUrl": {
         "type": "string",
         "description": "Grafana service base URL."
-      },
-      "prometheusUrl": {
-        "type": "string",
-        "description": "Prometheus service base URL used for dashboard validation."
       },
       "uiUrl": {
         "type": "string",
@@ -52,15 +50,29 @@
       },
       "enabledTools": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Optional allowlist of observability tool names to register."
       },
       "disabledTools": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Optional list of observability tool names to suppress."
+      },
+      "lokiUrl": {
+        "type": "string",
+        "description": "Optional Loki base URL; empty disables log tools."
+      },
+      "lokiTenantId": {
+        "type": "string",
+        "description": "Optional operator-configured Loki tenant."
       }
     },
-    "required": ["prometheusUrl"]
+    "required": [
+      "prometheusUrl"
+    ]
   }
 }

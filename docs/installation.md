@@ -646,3 +646,44 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 ```
 
 The packaged chart includes the tracked `agent-sandbox` CRD and controller templates.
+
+## Read-only Loki logs
+
+Enable log discovery and LogQL log queries against an existing Loki instance:
+
+```yaml
+modules:
+  observability:
+    enabled: true
+observability:
+  loki:
+    url: https://logs.example.com
+    tenantId: ""
+    auth:
+      existingSecret: loki-readonly
+      authorizationKey: authorization
+```
+
+The referenced Secret must exist in the release namespace. Its `authorization`
+key contains the complete HTTP Authorization header value, such as `Bearer <token>`
+or `Basic <base64(username:password)>`. Provision a read-only credential through
+your Loki gateway; do not put credentials in values or URLs. The Secret is injected
+only into OpenClaw, not the UI or agent sandbox. Set `existingSecret: ""` for an
+endpoint that does not require authentication. `tenantId` sets `X-Scope-OrgID`;
+leave it empty for single-tenant installations. A tenant header is not authentication.
+Use the operator-approved HTTPS endpoint for remote access. An internal HTTP service
+URL can be used within a trusted cluster network. Redirects are rejected.
+
+An empty `loki.url` disables the Loki tools. Configuration changes take effect on
+Helm upgrade. No Loki server or log collector is installed by this feature.
+
+In View mode, ask the agent to discover available log labels and query logs for a
+specific incident window. `observability_log_labels` lists names or values;
+`observability_logs` returns timestamped log streams for a LogQL selector/pipeline.
+Queries default to the past hour and 100 entries, with a maximum 24-hour window,
+1000 entries, 2 MiB upstream response, and 15-second request timeout. Metric LogQL
+queries are not supported by this log tool. Narrow queries when limits are reached.
+
+For Slurm RCA without head-node access, the logging platform must already ingest
+relevant job/daemon logs and expose labels that can be correlated with job accounting
+and node metrics. Kubernetes logs alone do not establish Slurm coverage.
