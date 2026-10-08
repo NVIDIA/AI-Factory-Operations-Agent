@@ -44,10 +44,7 @@ test('shell metacharacters remain literal arguments and Helm list separators are
     assert.ok(args.includes(`llm.external.model=${model.replaceAll(',', '\\,')}`));
   }
 });
-test('pinning replaces the development selector and storage overrides are optional', () => {
-  assert.ok(!argumentsFor({...example,modules:[]}).some(arg=>arg.startsWith('openclaw.pvc.storageClassName=')));
-  const args=argumentsFor({...example,modules:[],version:'0.0.1',storageClass:'workspace-storage'});
+test('pinning replaces the development selector', () => {
+  const args=argumentsFor({...example,modules:[],version:'0.0.1'});
   assert.ok(!args.includes('--devel'));assert.ok(args.includes('0.0.1'));
-  assert.ok(args.includes('openclaw.pvc.storageClassName=workspace-storage'));
-  assert.ok(args.includes('mosaicUi.auditPvc.storageClassName=workspace-storage'));
 });

@@ -20,7 +20,6 @@ const fields = {
   evidenceRoot: ['Slurm evidence directory on the collector node', '', '/slurm'],
   evidenceNode: ['Slurm collector node hostname', '', 'slurm-login-node'],
   corpus: ['Research corpus directory on the node', '', '/cm/shared/iraop-corpus'],
-  storageClass: ['StorageClass override (optional)', '', 'Leave empty to use the cluster default'],
 };
 export function enabledModules(state) {
   const enabled = new Set(state.modules || []);
@@ -66,7 +65,6 @@ export function buildCommand(state) {
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
-  if (state.storageClass?.trim()) for (const key of ['openclaw.pvc.storageClassName', 'mosaicUi.auditPvc.storageClassName']) set(key, state.storageClass.trim(), true);
   if (state.sandboxInstalled) set('agentSandbox.install', false);
   let target = quote(chart);
   let prefix = '';
@@ -128,7 +126,6 @@ if (root) {
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
-      keys.push('storageClass');
       for (const key of keys) {
         const [label, initial, placeholder] = fields[key]; const wrapper = document.createElement('label'); wrapper.textContent = label;
         const input = document.createElement('input'); input.name = key; input.value = state[key] ?? initial; input.placeholder = placeholder || '';
