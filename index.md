@@ -29,6 +29,7 @@ Use the [Helm guide](docs/installation.md#managed-mcp-servers) to connect MCP se
 
 Overview <README>
 Installation and configuration <docs/installation>
+Installation builder <docs/installation_builder>
 Mission Control installation <docs/nmc_installation>
 Base Command Manager installation <docs/bcm>
 Kind installation <docs/kind_installation>

@@ -8,6 +8,7 @@ html_theme = "nvidia_sphinx_theme"
 html_title = project
 html_static_path = ["_static"]
 html_css_files = ["docs.css"]
+html_js_files = [("install-builder.mjs", {"type": "module"})]
 html_theme_options = {
     "navigation_depth": 3,
     "show_nav_level": 2,

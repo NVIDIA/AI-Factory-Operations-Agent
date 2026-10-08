@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Storage/startup validation only: no inference requests or real inference key.
+llm:
+  mode: external
+  external:
+    baseUrl: http://127.0.0.1:9/v1
+    model: storage-validation
+    existingSecret: storage-validation-model
+agentSandbox:
+  install: false
+modules:
+  kubernetes:
+    enabled: true
+  observability:
+    enabled: false
+  grafana:
+    enabled: false
+  bcm:
+    enabled: false
+  slurm:
+    enabled: false
+  diagnostics:
+    enabled: false
+  research:
+    enabled: false
+  terminal:
+    enabled: false
+  edit:
+    enabled: false
+  clusters:
+    enabled: false
+global:
+  imagePullSecrets:
+    - name: nvcr-image-pull-secret

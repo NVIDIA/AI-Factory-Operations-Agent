@@ -48,7 +48,7 @@ jobs:
           helm package "$stub" --destination "$charts"
 
       - name: Run tests
-        run: node --test utils/*.test.mjs helm/mosaic-stack/tests/*.test.mjs
+        run: node --test utils/*.test.mjs helm/mosaic-stack/tests/*.test.mjs tests/docs/*.test.mjs
 
       - name: Lint Helm chart
         run: helm lint helm/mosaic-stack
