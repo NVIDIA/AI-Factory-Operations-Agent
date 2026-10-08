@@ -345,7 +345,7 @@ export default definePluginEntry({
         properties: {
           question: {
             type: "string",
-            description: "The research question to answer.",
+            description: "Ask for documented mechanisms or discriminating checks. Supply verified observations and label assumptions. This service cannot inspect the current cluster or prove a local fault cause.",
           },
           depth: {
             type: "string",
@@ -399,6 +399,7 @@ export default definePluginEntry({
           });
           const openClawResult = toOpenClawResult(result);
           postSubagentEvent(subagent, "complete", summarizeQueryResult(openClawResult, Date.now() - startedAt));
+          openClawResult.content.unshift({ type: "text", text: "Evidence scope: documentation research. This service has not inspected the current workload. Proposed local causes remain hypotheses until checked against live evidence on the participating resources." });
           return openClawResult;
         } catch (error) {
           postSubagentEvent(

@@ -43,7 +43,7 @@ export function formatKubectlApproval(request: KubectlRequest, cluster: string) 
 
 function flagName(arg: string) {
   if (arg.startsWith("--")) return arg.split("=", 1)[0];
-  return arg.startsWith("-s=") ? "-s" : arg;
+  return arg.startsWith("-s") ? "-s" : arg;
 }
 
 function referencesSecret(args: string[]) {
@@ -60,7 +60,9 @@ function validateArgs(value: unknown, admin = false) {
     if (!admin && SHELL_SYNTAX.test(arg)) throw new Error("shell syntax is not allowed in kubectl read arguments");
     return arg;
   });
-  for (const arg of args) {
+  const separator = admin && args[0] === "exec" ? args.indexOf("--") : -1;
+  const clientArgs = separator < 0 ? args : args.slice(0, separator);
+  for (const arg of clientArgs) {
     const flag = flagName(arg);
     if (FORBIDDEN_FLAGS.has(flag) || FORBIDDEN_SHORT_FLAGS.has(flag)) throw new Error("kubectl option is not allowed: " + flag);
   }
@@ -97,6 +99,13 @@ export function validateKubectlReadRequest(value: unknown): KubectlRequest {
 export function validateKubectlAdminRequest(value: unknown, input: unknown): KubectlRequest {
   const args = validateArgs(value, true);
   const stdin = validateStdin(input);
+  if (args[0] === "exec" && stdin !== undefined) {
+    const separator = args.indexOf("--");
+    const options = separator < 0 ? args.slice(1) : args.slice(1, separator);
+    if (!options.some((arg) => ["-i", "-it", "-ti", "--stdin", "--stdin=true"].includes(arg)) || options.includes("--stdin=false")) {
+      throw new Error("kubectl exec requires -i or --stdin before -- to forward the supplied stdin to the container; no command was executed");
+    }
+  }
   return {
     args,
     mutating: true,

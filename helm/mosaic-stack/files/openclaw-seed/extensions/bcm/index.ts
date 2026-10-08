@@ -204,22 +204,6 @@ function jsonToolResult(payload: unknown) {
   };
 }
 
-function parseDeviceStatusRows(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .map((line) => line.match(/^(HeadNode|PhysicalNode)\s+(\S+)\s+\S+\s+(.*?)\s+(\d+\.\d+\.\d+\.\d+)\s+(\S+)\s+(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({
-      type: match[1],
-      hostname: match[2],
-      category: match[3].trim(),
-      ip: match[4],
-      network: match[5],
-      status: match[6].replace(/\s+/g, " ").trim(),
-    }));
-}
-
 async function nodeHealthSummary(config: BcmConfig, options: SubagentOptions) {
   postSubagentEvent(options, "start", "Running read-only BCM CMSH command: device; status");
   const startedAt = Date.now();
@@ -230,12 +214,10 @@ async function nodeHealthSummary(config: BcmConfig, options: SubagentOptions) {
       { name: "execute_cmsh", arguments: { commands: "device; status" } },
     );
     const raw = textFromResult(result);
-    const rows = parseDeviceStatusRows(raw);
-    postSubagentEvent(options, "complete", `Parsed ${rows.length} BCM node status rows in ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s.`);
+    postSubagentEvent(options, "complete", `Retrieved BCM node status in ${Math.max(1, Math.round((Date.now() - startedAt) / 1000))}s.`);
     return jsonToolResult({
       command: "device; status",
-      rows,
-      guidance: "Use these rows directly to answer health-check summary requests. Do not run more BCM tools for this summary unless the user asks for deeper RCA on a specific node.",
+      guidance: "Use the native status text for a brief overview. Full health or deeper RCA requires the documented read-only CMSH latesthealthdata command for the selected nodes.",
       raw: truncate(raw, 8000),
     });
   } catch (error) {
@@ -702,7 +684,7 @@ export default definePluginEntry({
     if (config.cmshEnabled) registerTool({
       name: "bcm_node_health_summary",
       label: "BCM Node Health Summary",
-      description: "Return parsed current BCM node health-check status using the read-only CMSH command device; status. Use this as the only tool for node health tables.",
+      description: "Return native BCM node status using the read-only CMSH command device; status. For full per-check health results use bcm_execute_cmsh with device; latesthealthdata.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute(toolCallId: string) {
         return nodeHealthSummary(config, subagentOptions(config, toolCallId, "bcm_node_health_summary", "BCM node health"));
