@@ -3,6 +3,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
+import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {buildCommand, enabledModules} from '../../docs/_static/install-builder.mjs';
 const chart = fileURLToPath(new URL('../../helm/mosaic-stack', import.meta.url));
@@ -65,3 +68,30 @@ test('Loki connection settings remain optional and use Secret references', () =>
   assert.ok(!argumentsFor({...state,modules:[]}).some(arg => arg.startsWith('observability.loki.')));
 });
 
+test('builder covers every module toggle and observability connection setting', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'builder-values-'));
+  let values;
+  try {
+    mkdirSync(join(directory, 'templates'));
+    writeFileSync(join(directory, 'Chart.yaml'), 'apiVersion: v2\nname: values\nversion: 0.1.0\n');
+    writeFileSync(join(directory, 'templates/values.yaml'), '{{ .Values | toJson }}');
+    const result = spawnSync('helm', ['template', directory, '-f', join(chart, 'values.yaml')], {encoding:'utf8'});
+    assert.equal(result.status, 0, result.stderr);
+    values = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
+  } finally { rmSync(directory, {recursive:true, force:true}); }
+  const moduleNames = Object.keys(values.modules);
+  const args = argumentsFor({...example, modules:moduleNames});
+  for (const name of moduleNames) {
+    assert.ok(args.includes(`modules.${name}.enabled=true`), `Missing builder module: ${name}`);
+  }
+  // The form's Grafana credential contract fixes these existing Secret key names.
+  const fixed = new Set(['observability.grafanaAuth.usernameKey', 'observability.grafanaAuth.passwordKey']);
+  function check(object, prefix) {
+    for (const [key, value] of Object.entries(object)) {
+      const path = `${prefix}.${key}`;
+      if (value !== null && typeof value === 'object') check(value, path);
+      else assert.ok(fixed.has(path) || args.some(arg => arg.startsWith(`${path}=`)), `Missing builder connection setting: ${path}`);
+    }
+  }
+  check(values.observability, 'observability');
+});
