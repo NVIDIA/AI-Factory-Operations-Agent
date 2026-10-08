@@ -81,7 +81,7 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
   register({
     name: "observability_log_labels",
     label: "Loki Log Labels",
-    description: "Discover log labels, or values for one label, in the configured Loki tenant. To identify available sources, first list label names, then request values for relevant discovered labels. Names alone do not identify sources. Read-only.",
+    description: "Discover log sources through label names and sampled values in the configured Loki tenant. Supply a label to retrieve more of its values. Select sources from returned values rather than guessing. Read-only.",
     parameters: { type: "object", additionalProperties: false, properties: {
       ...properties,
       label: { type: "string", description: "Omit to list label names; provide a discovered name to list its values." },
@@ -91,9 +91,26 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
       const label = text(params.label);
       // Encode the entire label as one path component; never accept a caller-provided URL.
       if (label === "." || label === "..") throw new Error("Invalid label name");
-      const values = await request(label ? `label/${encodeURIComponent(label)}/values` : "labels", windowParams(params));
-      if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Invalid Loki labels response");
-      return result({ source: base, label: label || undefined, values: values.slice(0, count), truncated: values.length > count });
+      const window = windowParams(params);
+      async function labels(path: string) {
+        const values = await request(path, window);
+        if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Invalid Loki labels response");
+        return values as string[];
+      }
+      if (label) {
+        const values = await labels(`label/${encodeURIComponent(label)}/values`);
+        return result({ source: base, ...window, label, values: values.slice(0, count), truncated: values.length > count });
+      }
+      const names = await labels("labels");
+      // Bound discovery fan-out and return actual source evidence, not only schema names.
+      const selected = names.slice(0, Math.min(count, 20));
+      const sources = [];
+      for (const name of selected) {
+        const values = await labels(`label/${encodeURIComponent(name)}/values`);
+        const size = Math.min(count, 50);
+        sources.push({ label: name, values: values.slice(0, size), truncated: values.length > size });
+      }
+      return result({ source: base, ...window, sources, truncated: names.length > selected.length });
     },
   });
 

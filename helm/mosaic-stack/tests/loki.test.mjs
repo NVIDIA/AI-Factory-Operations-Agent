@@ -46,7 +46,8 @@ test("discovers labels and queries bounded timestamped logs with operator creden
   t.after(() => { if (old === undefined) delete process.env.MOSAIC_LOKI_AUTHORIZATION; else process.env.MOSAIC_LOKI_AUTHORIZATION = old; });
   const api = tools({ lokiUrl: `http://127.0.0.1:${server.address().port}/prefix`, lokiTenantId: "tenant-a" });
   const labels = await api.observability_log_labels({ limit: 2 });
-  assert.deepEqual(labels.details.values, ["host", "service"]);
+  assert.deepEqual(labels.details.sources.map(source => source.label), ["host", "service"]);
+  for (const source of labels.details.sources) assert.deepEqual(source.values, ["worker-a", "worker-b"]);
   assert.equal(labels.details.truncated, true);
   assert.deepEqual((await api.observability_log_labels({ label: "host" })).details.values, ["worker-a", "worker-b"]);
   const query = '{host="worker-a"} |= "event"';
