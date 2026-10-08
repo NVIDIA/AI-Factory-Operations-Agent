@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="440" viewBox="0 0 1040 440" role="img" aria-labelledby="title desc">
+  <title id="title">Separate operator and tenant Mosaic instances</title>
+  <desc id="desc">Two independent Helm releases. Each has its own login, state, and credentials. The operator accesses hardware and systems; the tenant accesses only its jobs. Repeat the tenant instance for each tenant.</desc>
+  <rect width="1040" height="440" fill="#fff"/>
+  <g font-family="Arial, sans-serif" fill="#202020">
+    <text x="40" y="44" font-size="26" font-weight="700">Separate Mosaic instances</text>
+    <g stroke="#555" stroke-width="1.5" fill="#f7f7f7">
+      <rect x="40" y="76" width="460" height="180"/>
+      <rect x="540" y="76" width="460" height="180"/>
+    </g>
+    <text x="64" y="114" font-size="24" font-weight="700">Operator instance</text>
+    <text x="64" y="146" font-size="19">Focus: hardware and systems</text>
+    <text x="64" y="191" font-size="18">Own UI login · agent state · audit storage</text>
+    <text x="64" y="220" font-size="18">Operator credentials · separate Helm release</text>
+    <text x="564" y="114" font-size="24" font-weight="700">Tenant instance</text>
+    <text x="564" y="146" font-size="19">Focus: this tenant’s jobs</text>
+    <text x="564" y="191" font-size="18">Own UI login · agent state · audit storage</text>
+    <text x="564" y="220" font-size="18">Scoped credentials · separate Helm release</text>
+    <g stroke="#555" stroke-width="1.5" fill="none">
+      <path d="M270 256v48m-7-7 7 7 7-7"/>
+      <path d="M770 256v48m-7-7 7 7 7-7"/>
+    </g>
+    <rect x="40" y="320" width="460" height="72" fill="#eee"/>
+    <rect x="540" y="320" width="460" height="72" fill="#eee"/>
+    <text x="64" y="349" font-size="19" font-weight="700">Cluster infrastructure</text>
+    <text x="64" y="376" font-size="18">Nodes · hardware inventory · system telemetry</text>
+    <text x="564" y="349" font-size="19" font-weight="700">Tenant workloads</text>
+    <text x="564" y="376" font-size="18">Jobs · Pods · events · logs</text>
+    <text x="540" y="426" font-size="17" fill="#555">Repeat this instance for each tenant.</text>
+  </g>
+</svg>
