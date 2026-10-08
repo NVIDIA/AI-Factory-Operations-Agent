@@ -14,3 +14,20 @@ pre, .admonition, .search-button { border-radius: 0; }
   .bd-header .navbar-brand { min-width: 0; max-width: calc(100vw - 140px); }
   .bd-header .logo__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+#install-command-builder fieldset { border: 0; padding: 0; margin: 1.25rem 0; }
+#install-command-builder legend { font-size: 1.05rem; font-weight: 600; }
+#install-command-builder label { display: flex; gap: .5rem; align-items: center; }
+#install-command-builder .builder-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+#install-command-builder .builder-settings > label { flex-direction: column; align-items: stretch; text-align: left; }
+#install-command-builder input:not([type=checkbox]), #install-command-builder select { width: 100%; padding: .45rem; border: 1px solid var(--pst-color-border); border-radius: 0; background: var(--pst-color-background); color: var(--pst-color-text-base); }
+.builder-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.builder-modules label { padding: .5rem; background: var(--pst-color-surface); cursor: pointer; }
+.builder-modules input { accent-color: var(--pst-color-primary); }
+.builder-prerequisites { font-size: .9rem; }
+#install-command-builder button { padding: .4rem .8rem; border: 1px solid var(--pst-color-border); border-radius: 0; background: var(--pst-color-surface); color: var(--pst-color-text-base); }
+#install-command-builder [role=status] { margin-left: .6rem; }
+#install-command-builder pre { margin-top: .6rem; padding: 1rem; white-space: pre; overflow: auto; }
+@media (max-width: 600px) { #install-command-builder .builder-settings, .builder-modules { grid-template-columns: 1fr; } }
+
+#install-command-builder .builder-settings > label:has(input[type=checkbox]) { flex-direction: row; align-items: center; grid-column: 1 / -1; }
