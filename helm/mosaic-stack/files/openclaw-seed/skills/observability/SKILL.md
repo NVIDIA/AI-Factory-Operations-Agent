@@ -5,8 +5,7 @@ metadata:
   {
     "openclaw":
       {
-        "emoji": "📈",
-        "requires": { "tools": ["observability_query"] }
+        "emoji": "📈"
       }
   }
 ---
