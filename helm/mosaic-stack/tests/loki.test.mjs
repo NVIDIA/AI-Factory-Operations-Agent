@@ -77,3 +77,26 @@ test("discovers labels and queries bounded timestamped logs with operator creden
     await assert.rejects(api.observability_logs({ query }), error => message.test(error.message) && !error.message.includes("credential-must-not-leak"));
   }
 });
+
+test("Loki registers without Prometheus and absent endpoints register no query tools", async () => {
+  const { registerHooks } = await import("node:module");
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === "openclaw/plugin-sdk/plugin-entry") return {
+        url: "data:text/javascript,export const definePluginEntry = entry => entry;", shortCircuit: true,
+      };
+      return nextResolve(specifier, context);
+    },
+  });
+  try {
+    const { default: plugin } = await import("../files/openclaw-seed/extensions/observability/index.ts");
+    const names = config => {
+      const result = [];
+      plugin.register({ pluginConfig: {grafanaEnabled:false, ...config}, registerTool: tool => result.push(tool.name) });
+      return result;
+    };
+    assert.deepEqual(names({}), []);
+    assert.deepEqual(names({lokiUrl:"http://logs.example.com"}).sort(), ["observability_log_labels", "observability_logs"]);
+    assert.ok(names({prometheusUrl:"http://metrics.example.com"}).includes("observability_query"));
+  } finally { hooks.deregister(); }
+});

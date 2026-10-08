@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
-const modules = {
-  kubernetes: 'Kubernetes', observability: 'Metrics and logs (Prometheus, Alertmanager, Loki)', grafana: 'Grafana',
+export const modules = {
+  kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
 };
+const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
   namespace: ['Namespace', 'mosaic'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
   version: ['Pinned chart version (optional)', '', 'e.g. 0.0.1'],
@@ -14,7 +15,7 @@ const fields = {
   model: ['Inference model', '', 'Your served model name'], llmSecret: ['Inference Secret (apiKey)', 'mosaic-external-llm'],
   prometheusUrl: ['Prometheus URL', '', 'http://prometheus:9090'],
   alertmanagerUrl: ['Alertmanager URL', '', 'http://alertmanager:9093'],
-  lokiUrl: ['Loki URL (optional)', '', 'https://logs.example.com'],
+  lokiUrl: ['Loki URL', '', 'https://logs.example.com'],
   lokiTenant: ['Loki tenant ID (optional)', ''],
   lokiSecret: ['Loki Authorization Secret (optional)', ''],
   lokiKey: ['Loki Secret key', 'authorization'],
@@ -30,6 +31,7 @@ export function enabledModules(state) {
   const enabled = new Set(state.modules || []);
   if (enabled.has('diagnostics') || (enabled.has('slurm') && state.slurmBackend !== 'vanilla')) enabled.add('bcm');
   if (['terminal', 'edit', 'clusters'].some(name => enabled.has(name))) enabled.add('kubernetes');
+  if ([...observabilityServices, 'grafana'].some(name => enabled.has(name))) enabled.add('observability');
   return enabled;
 }
 const quote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
@@ -44,11 +46,13 @@ export function buildCommand(state) {
     set('llm.external.baseUrl', value('baseUrl'), true); set('llm.external.model', value('model'), true);
     set('llm.external.existingSecret', value('llmSecret'), true);
   }
-  for (const name of ['ui', 'execution', ...Object.keys(modules)]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
-  if (enabled.has('observability')) {
-    set('observability.prometheusUrl', value('prometheusUrl'), true);
-    set('observability.alertmanagerUrl', value('alertmanagerUrl'), true);
-    for (const [key, field] of Object.entries({url:'lokiUrl', tenantId:'lokiTenant', 'auth.existingSecret':'lokiSecret', 'auth.authorizationKey':'lokiKey'})) {
+  for (const name of ['ui', 'execution', 'observability', ...Object.keys(modules).filter(name => !observabilityServices.includes(name))]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
+  for (const service of ['prometheus', 'alertmanager']) {
+    set(`observability.${service}Url`, enabled.has(service) ? value(`${service}Url`) : '', true);
+  }
+  set('observability.loki.url', enabled.has('loki') ? value('lokiUrl') : '', true);
+  if (enabled.has('loki')) {
+    for (const [key, field] of Object.entries({tenantId:'lokiTenant', 'auth.existingSecret':'lokiSecret', 'auth.authorizationKey':'lokiKey'})) {
       set(`observability.loki.${key}`, state[field]?.trim() || fields[field][1], true);
     }
   }
@@ -129,7 +133,9 @@ if (root) {
       settingsBody.replaceChildren();
       const keys = ['namespace', 'pullSecret', 'version'];
       if (state.inference === 'external') keys.push('baseUrl', 'model', 'llmSecret');
-      if (enabled.has('observability')) keys.push('prometheusUrl', 'alertmanagerUrl', 'lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
+      if (enabled.has('prometheus')) keys.push('prometheusUrl');
+      if (enabled.has('alertmanager')) keys.push('alertmanagerUrl');
+      if (enabled.has('loki')) keys.push('lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
       if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
@@ -146,8 +152,8 @@ if (root) {
     }
     const notes = ['Complete namespace and NGC access setup first. Replace all <placeholders> before running.'];
     if (state.inference === 'external') notes.push(`Create ${state.llmSecret || fields.llmSecret[1]} with key apiKey.`);
-    if (enabled.has('observability')) {
-      notes.push('Loki is optional. An empty URL disables log tools; no Loki server or collector is installed.');
+    if (enabled.has('loki')) {
+      notes.push('Connect to an existing Loki endpoint; no Loki server or collector is installed.');
       if (state.lokiUrl?.trim() && state.lokiSecret?.trim()) notes.push(`Create ${state.lokiSecret.trim()} in the release namespace with key ${state.lokiKey?.trim() || fields.lokiKey[1]} containing the complete Authorization header. Do not enter credentials in this form.`);
     }
     if (enabled.has('grafana')) notes.push(`Create ${state.grafanaSecret || fields.grafanaSecret[1]} with keys username and password.`);

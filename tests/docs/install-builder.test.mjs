@@ -7,7 +7,7 @@ import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {buildCommand, enabledModules} from '../../docs/_static/install-builder.mjs';
+import {buildCommand, enabledModules, modules} from '../../docs/_static/install-builder.mjs';
 const chart = fileURLToPath(new URL('../../helm/mosaic-stack', import.meta.url));
 function argumentsFor(state) {
   const shell = `trap '[ -z "\${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"' EXIT; helm() { if [ "$1" = pull ]; then ln -s '${chart}' "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf '%s\\0' "$@"; fi; };\n${buildCommand(state)}\nprintf '%s\\0' "\${MOSAIC_CHART_WORKDIR:-}"`;
@@ -23,7 +23,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
-  {modules:['kubernetes','observability','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
+  {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
   const args = argumentsFor({...example, ...state});
@@ -55,17 +55,17 @@ test('pinning replaces the development selector and storage overrides are option
   assert.ok(args.includes('mosaicUi.auditPvc.storageClassName=workspace-storage'));
 });
 test('Loki connection settings remain optional and use Secret references', () => {
-  const state = {...example, modules:['observability'], lokiUrl:'https://logs.example.com/prefix',
+  const state = {...example, modules:['loki'], lokiUrl:'https://logs.example.com/prefix',
     lokiTenant:'team-one', lokiSecret:'log-reader', lokiKey:'header'};
   const args = argumentsFor(state);
   for (const setting of ['url=https://logs.example.com/prefix', 'tenantId=team-one',
     'auth.existingSecret=log-reader', 'auth.authorizationKey=header']) {
     assert.ok(args.includes(`observability.loki.${setting}`));
   }
-  const defaults = argumentsFor({...example, modules:['observability']});
-  assert.ok(defaults.includes('observability.loki.url='));
+  const defaults = argumentsFor({...example, modules:['loki']});
+  assert.ok(defaults.includes('observability.loki.url=<Loki URL>'));
   assert.ok(defaults.includes('observability.loki.auth.existingSecret='));
-  assert.ok(!argumentsFor({...state,modules:[]}).some(arg => arg.startsWith('observability.loki.')));
+  assert.ok(argumentsFor({...state,modules:[]}).includes('observability.loki.url='));
 });
 
 test('builder covers every module toggle and observability connection setting', () => {
@@ -80,7 +80,7 @@ test('builder covers every module toggle and observability connection setting', 
     values = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
   } finally { rmSync(directory, {recursive:true, force:true}); }
   const moduleNames = Object.keys(values.modules);
-  const args = argumentsFor({...example, modules:moduleNames});
+  const args = argumentsFor({...example, modules:Object.keys(modules)});
   for (const name of moduleNames) {
     assert.ok(args.includes(`modules.${name}.enabled=true`), `Missing builder module: ${name}`);
   }
@@ -94,4 +94,17 @@ test('builder covers every module toggle and observability connection setting', 
     }
   }
   check(values.observability, 'observability');
+});
+
+test('each observability service is independently selectable and clears other endpoints', () => {
+  const paths = {prometheus:'prometheusUrl', alertmanager:'alertmanagerUrl', loki:'loki.url'};
+  for (const selected of Object.keys(paths)) {
+    const args = argumentsFor({...example, modules:[selected], lokiUrl:'http://logs:3100'});
+    assert.ok(args.includes('modules.observability.enabled=true'));
+    for (const [service, path] of Object.entries(paths)) {
+      assert.equal(args.includes(`observability.${path}=`), service !== selected);
+      assert.ok(!args.some(arg => arg.startsWith(`modules.${service}.`)));
+    }
+  }
+  assert.ok(argumentsFor({...example,modules:[]}).includes('modules.observability.enabled=false'));
 });

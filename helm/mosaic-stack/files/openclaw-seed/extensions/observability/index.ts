@@ -31,7 +31,7 @@ function resolveBaseUrl(pluginConfig: unknown): string {
     const value = (pluginConfig as { prometheusUrl: string }).prometheusUrl.trim();
     if (value) return value.replace(/\/+$/, "");
   }
-  throw new Error("observability.prometheusUrl is required");
+  return "";
 }
 
 function jsonToolResult(payload: unknown) {
@@ -171,7 +171,6 @@ export default definePluginEntry({
   register(api) {
     registerGrafanaTools(api);
 
-    const baseUrl = resolveBaseUrl(api.pluginConfig);
     const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
       if (isToolEnabled(api.pluginConfig, tool.name)) {
         api.registerTool(tool);
@@ -179,6 +178,8 @@ export default definePluginEntry({
     };
 
     registerLokiTools(api.pluginConfig, registerTool);
+    const baseUrl = resolveBaseUrl(api.pluginConfig);
+    if (!baseUrl) return;
 
     registerTool({
       name: "observability_metric_names",

@@ -70,9 +70,6 @@
         "type": "string",
         "description": "Optional operator-configured Loki tenant."
       }
-    },
-    "required": [
-      "prometheusUrl"
-    ]
+    }
   }
 }
