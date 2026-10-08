@@ -95,7 +95,7 @@ test("Loki registers without Prometheus and absent endpoints register no query t
       plugin.register({ pluginConfig: {grafanaEnabled:false, ...config}, registerTool: tool => result.push(tool.name) });
       return result;
     };
-    assert.ok(names({grafanaEnabled:true, grafanaUrl:"http://dashboards.example.com", prometheusUrl:"http://metrics.example.com"}).includes("dashboard_create"));
+    assert.ok(names({grafanaEnabled:true, datasourceUid:"metrics", grafanaUrl:"http://dashboards.example.com", prometheusUrl:"http://metrics.example.com"}).includes("dashboard_create"));
     assert.deepEqual(names({}), []);
     assert.deepEqual(names({lokiUrl:"http://logs.example.com"}).sort(), ["observability_log_labels", "observability_logs"]);
     assert.ok(names({prometheusUrl:"http://metrics.example.com"}).includes("observability_query"));
