@@ -32,6 +32,7 @@ test("discovers labels and queries bounded timestamped logs with operator creden
     if (mode === "oversize") return res.end("x".repeat(2 * 1024 * 1024 + 1));
     if (mode === "invalid") return res.end("not json");
     const data = url.pathname.endsWith("/labels") ? ["host", "service", "job_id"]
+      : url.pathname.endsWith("/series") ? [{host:"worker-a",service:"scheduler"},{host:"worker-b",service:"worker"}]
       : url.pathname.endsWith("/values") ? ["worker-a", "worker-b"]
       : { resultType: mode === "metric" ? "matrix" : "streams", result: [{
         stream: { host: "worker-a" }, values: [["1791490000123456789", "example event", { trace: "a" }]],
@@ -49,6 +50,8 @@ test("discovers labels and queries bounded timestamped logs with operator creden
   assert.deepEqual(labels.details.sources.map(source => source.label), ["host", "service"]);
   for (const source of labels.details.sources) assert.deepEqual(source.values, ["worker-a", "worker-b"]);
   assert.equal(labels.details.truncated, true);
+  assert.deepEqual(labels.details.streamLabels, [{host:"worker-a",service:"scheduler"},{host:"worker-b",service:"worker"}]);
+  assert.equal(labels.details.streamsTruncated, false);
   assert.deepEqual((await api.observability_log_labels({ label: "host" })).details.values, ["worker-a", "worker-b"]);
   const query = '{host="worker-a"} |= "event"';
   const logs = await api.observability_logs({ query, limit: 1, start: "2026-10-01T00:00:00Z", end: "2026-10-01T01:00:00Z", direction: "forward" });

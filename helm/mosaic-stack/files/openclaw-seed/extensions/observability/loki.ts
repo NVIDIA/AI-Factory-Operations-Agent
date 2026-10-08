@@ -47,7 +47,7 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
   const tenant = text(settings.lokiTenantId);
   if (tenant) headers["X-Scope-OrgID"] = tenant;
 
-  async function request(path: string, params: Record<string, string>) {
+  async function request(path: string, params: Record<string, string> | URLSearchParams) {
     const url = new URL(`${(base.endsWith("/") ? base.slice(0, -1) : base)}/loki/api/v1/${path}`);
     url.search = new URLSearchParams(params).toString();
     const response = await fetch(url, { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
@@ -81,7 +81,7 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
   register({
     name: "observability_log_labels",
     label: "Loki Log Labels",
-    description: "Discover log sources through label names and sampled values in the configured Loki tenant. Supply a label to retrieve more of its values. Select sources from returned values rather than guessing. Read-only.",
+    description: "Discover log sources through label names and sampled values in the configured Loki tenant. Supply a label to retrieve more of its values. Use streamLabels to see which labels belong to the same source and select the requested component precisely. Read-only.",
     parameters: { type: "object", additionalProperties: false, properties: {
       ...properties,
       label: { type: "string", description: "Omit to list label names; provide a discovered name to list its values." },
@@ -110,7 +110,12 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
         const size = Math.min(count, 50);
         sources.push({ label: name, values: values.slice(0, size), truncated: values.length > size });
       }
-      return result({ source: base, ...window, sources, truncated: names.length > selected.length });
+      const seriesParams = new URLSearchParams(window);
+      for (const name of selected) seriesParams.append("match[]", `{${name}=~".+"}`);
+      const series = selected.length ? await request("series", seriesParams) : [];
+      if (!Array.isArray(series)) throw new Error("Invalid Loki series response");
+      return result({ source: base, ...window, sources, streamLabels: series.slice(0, count),
+        streamsTruncated: series.length > count, truncated: names.length > selected.length });
     },
   });
 
