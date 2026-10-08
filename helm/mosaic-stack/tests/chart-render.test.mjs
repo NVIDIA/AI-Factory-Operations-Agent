@@ -8,12 +8,26 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import compatResponse from "../files/llm-compat-response.cjs";
 
 const chart = fileURLToPath(new URL("..", import.meta.url));
 const slackManifest = fileURLToPath(new URL("../profiles/slack-app-manifest.json", import.meta.url));
 const slackEnterprisePatch = fileURLToPath(
   new URL("../files/openclaw-seed/slack-enterprise-grid-patch.mjs", import.meta.url),
 );
+
+function configMapBlock(output, key) {
+  const lines = output.split("\n");
+  const start = lines.findIndex(line => line.startsWith(`  ${key}: |`));
+  assert.ok(start >= 0, `Missing ConfigMap entry: ${key}`);
+  const body = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line && !line.startsWith("    ")) break;
+    body.push(line.slice(4));
+  }
+  return body.join("\n");
+}
 
 test("startup-loads the Kubernetes approval hook", () => {
   const manifest = JSON.parse(
@@ -372,15 +386,33 @@ test("generates a bearer credential with a chart-managed Research Agent Secret",
   assert.match(output, /name: iraop-secrets[\s\S]*IRAOP_API_KEY: "[A-Za-z0-9]{48}"/);
 });
 
-test("uses one no-reasoning request contract for external endpoints", () => {
-  const output = render(
-    "--set", "llm.mode=external",
-    "--set", "llm.external.baseUrl=https://inference.example/v1",
-    "--set", "llm.external.model=example-model",
-    "--show-only", "templates/llm-compat.yaml",
-  );
-  assert.match(output, /json\.reasoning_effort = 'none'/);
-  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
+test("preserves non-reasoning defaults and applies configured request overrides", () => {
+  for (const enabled of [false, true]) {
+    const options = enabled ? ["--set", "llm.requestCompatibility.requestOverrides.reasoning_effort=high"] : [];
+    const output = render(...options, "--show-only", "templates/llm-compat.yaml");
+    const script = configMapBlock(output, "server.js");
+    const patch = runInNewContext(script + "\npatchBody", {
+      Buffer, URL, process: {env: {UPSTREAM_BASE_URL: "https://inference.example/v1"}},
+      require: name => name === "./response.cjs" ? compatResponse : {createServer: () => ({listen() {}})},
+    });
+    const request = {messages: [{role: "user", content: "Example request"}], stream: true};
+    const actual = JSON.parse(patch({method: "POST", url: "/v1/chat/completions"}, Buffer.from(JSON.stringify(request))));
+    assert.deepEqual(actual, {...request, reasoning_effort: enabled ? "high" : "none"});
+  }
+});
+
+test("rolls the compatibility proxy when its request configuration changes", () => {
+  const podTemplate = (...args) => render(...args, "--show-only", "templates/llm-compat.yaml")
+    .split("kind: Deployment\n")[1].split("  template:\n")[1].split("\n---")[0];
+  const baseline = podTemplate();
+  assert.equal(podTemplate(), baseline);
+  for (const setting of [
+    "llm.requestCompatibility.requestOverrides.temperature=0.25",
+    "llm.requestCompatibility.requestOverrides.top_p=0.8",
+    "llm.requestCompatibility.reasoningDelimiter=boundary",
+  ]) {
+    assert.notEqual(podTemplate("--set", setting), baseline, setting);
+  }
 });
 
 test("configures chart-managed vLLM for non-thinking generation", () => {
@@ -637,11 +669,12 @@ test("patches Slack Enterprise Grid workspace events without weakening app check
 
 test("exposes only blueprint-owned skills to OpenClaw agents", () => {
   const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
-  assert.match(
-    output,
-    /"skills": \[\s*"bcm",\s*"hardware-agent",\s*"iraop",\s*"observability",\s*"slurm"\s*\]/,
-  );
-  assert.doesNotMatch(output, /"allowBundled"/);
+  const config = JSON.parse(configMapBlock(output, "openclaw.json"));
+  const skills = config.agents.defaults.skills;
+  for (const skill of skills) {
+    assert.ok(readFileSync(new URL(`../files/openclaw-seed/skills/${skill}/SKILL.md`, import.meta.url)).length);
+  }
+  assert.equal(config.skills?.allowBundled, undefined);
 });
 
 test("renders named external Kubernetes clusters from Secrets", () => {
