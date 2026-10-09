@@ -6,8 +6,9 @@ declare const Buffer: { from(value: string): { toString(encoding: string): strin
 type PanelSpec = {
   title: string;
   query: string;
+  datasource?: { type: "prometheus" | "loki"; uid: string };
   unit?: string;
-  visualization?: "timeseries" | "stat" | "gauge" | "table";
+  visualization?: "timeseries" | "stat" | "gauge" | "table" | "logs";
   legend?: string;
   description?: string;
 };
@@ -84,7 +85,15 @@ function normalizePanel(raw: unknown, index: number): PanelSpec | null {
   const value = raw as Record<string, unknown>;
   const query = stringParam(value.query);
   if (!query) return null;
+  const datasource = value.datasource as PanelSpec["datasource"];
+  if (datasource && (!["prometheus", "loki"].includes(datasource.type) || !stringParam(datasource.uid))) {
+    throw new Error("Panel datasource requires a discovered Grafana uid and type prometheus or loki.");
+  }
+  if (value.visualization === "logs" && datasource?.type !== "loki") {
+    throw new Error("Log panels require a Loki datasource.");
+  }
   return {
+    datasource,
     title: stringParam(value.title) || `Panel ${index + 1}`,
     query,
     unit: stringParam(value.unit),
@@ -120,8 +129,9 @@ function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, dataso
     queries: [
       {
         refId: "A",
-        datasource: { type: "prometheus", uid: datasourceUid },
+        datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
         expr: panel.query,
+        ...(panel.datasource?.type === "loki" ? {queryType: "range", maxLines: 1000} : {}),
         range: true,
         instant: false,
         intervalMs: 15000,
@@ -136,8 +146,9 @@ function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, dataso
 function grafanaFrameCount(payload: Record<string, unknown>) {
   const results = payload.results as Record<string, unknown> | undefined;
   const first = results?.A as Record<string, unknown> | undefined;
+  if (first?.error) throw new Error(String(first.error));
   const frames = Array.isArray(first?.frames) ? first.frames : [];
-  return frames.length;
+  return frames.filter((frame: any) => frame.data?.values?.some((values: unknown[]) => values.length > 0)).length;
 }
 
 function authHeaders(pluginConfig: unknown) {
@@ -174,14 +185,20 @@ async function validatePanels(
   const issues: ValidationIssue[] = [];
   const results: Array<{ title: string; query: string; seriesCount: number; grafanaFrameCount: number; sample?: unknown }> = [];
 
+  const datasources = await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) as unknown as Array<{uid: string; type: string}>;
   for (const panel of panels) {
+    const selected = panel.datasource || {type: "prometheus", uid: datasourceUid};
+    if (!datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Panel datasource is not available in Grafana. Discover its UID and type before creating the dashboard."});
+      continue;
+    }
     const url = new URL(`${prometheusUrl}/api/v1/query`);
     url.searchParams.set("query", panel.query);
     try {
-      const payload = await fetchJson(url.toString());
+      const payload = selected.type === "prometheus" ? await fetchJson(url.toString()) : {};
       const data = payload.data as { result?: unknown[] } | undefined;
       const result = Array.isArray(data?.result) ? data.result : [];
-      if (requireData && result.length === 0) {
+      if (requireData && selected.type === "prometheus" && result.length === 0) {
         issues.push({
           panelTitle: panel.title,
           query: panel.query,
@@ -288,7 +305,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
     type,
     title: panel.title,
     description: panel.description,
-    datasource: { type: "prometheus", uid: datasourceUid },
+    datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
     gridPos: {
       h: type === "stat" || type === "gauge" ? 6 : 8,
       w: width,
@@ -299,6 +316,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
       {
         refId: "A",
         expr: panel.query,
+        ...(panel.datasource?.type === "loki" ? {queryType: "range", maxLines: 1000} : {}),
         range: true,
         legendFormat: panel.legend || "",
       },
@@ -367,14 +385,14 @@ export function registerGrafanaTools(api: PluginApi) {
         url.searchParams.set("limit", String(Math.max(1, Math.min(500, numberParam(rawParams.limit, 50)))));
         const query = stringParam(rawParams.query);
         if (query) url.searchParams.set("query", query);
-        return jsonToolResult({ grafanaUrl, dashboards: await fetchJson(url.toString(), { headers }) });
+        return jsonToolResult({ grafanaUrl, datasources: await fetchJson(`${grafanaUrl}/api/datasources`, {headers}), dashboards: await fetchJson(url.toString(), { headers }) });
       },
     });
 
     registerTool({
       name: "dashboard_create",
       label: "Create Dashboard",
-      description: "Create a Grafana dashboard after validating every panel query, then open it in the UI Grafana tab.",
+      description: "Create a Grafana dashboard after validating every Prometheus or Loki panel query, then open it in the UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -382,7 +400,7 @@ export function registerGrafanaTools(api: PluginApi) {
           title: { type: "string", description: "Dashboard title." },
           panels: {
             type: "array",
-            description: "Panel specs with title/query/unit/visualization.",
+            description: "Panel specs: title, query (PromQL or LogQL), datasource {type: prometheus or loki, uid: discovered Grafana UID}, visualization (timeseries, stat, gauge, table, logs), optional unit/legend/description. Omit datasource only to use the configured Prometheus default.",
             items: { type: "object" },
           },
           rangeMinutes: { type: "number", description: "Dashboard time range in minutes. Default 60." },
@@ -394,7 +412,7 @@ export function registerGrafanaTools(api: PluginApi) {
         const title = stringParam(rawParams.title) || "Generated Dashboard";
         const panels = panelsFromParams(rawParams);
         if (panels.length === 0) {
-          throw new Error("Provide panels with explicit PromQL queries.");
+          throw new Error("Provide panels with explicit PromQL or LogQL queries.");
         }
 
         const requireData = boolParam(rawParams.requireData, true);

@@ -27,7 +27,7 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `observability_query` runs an instant PromQL query.
 - `observability_range_query` runs a historical range query.
 - `dashboard_list` lists existing Grafana dashboards.
-- `dashboard_create` validates explicit panel PromQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
+- `dashboard_create` validates explicit panel PromQL or LogQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
 - `dashboard_open` opens an existing Grafana dashboard UID in the UI Grafana tab.
 
 ## Example PromQL
@@ -44,7 +44,7 @@ Hostname/GPU, compare it against peer GPUs, and call out whether one GPU is
 materially hotter than the rest.
 
 When the user asks for a dashboard, provide explicit panel queries, validate the
-PromQL first, then create the dashboard. Do not claim dashboard success unless
+appropriate source queries first, then create the dashboard. Do not claim dashboard success unless
 `dashboard_create` returns `created: true`.
 
 ## Historical logs
@@ -70,3 +70,9 @@ adjacent time windows. Returned entry timestamps retain Loki's nanosecond string
 Metric LogQL queries are outside this log tool's scope. If the tools are absent,
 Loki is not configured or the operator has disabled them. This integration queries
 existing logs; it does not install collectors or enable SSH access.
+
+## Dashboard authoring and access
+
+Dashboard creation is available in View mode: it saves visualizations without changing monitored workloads or infrastructure. Use the dashboard tools rather than generic execution or asking users to import JSON manually.
+
+Dashboards may mix Prometheus and Loki panels. Discover Grafana datasource UIDs through `dashboard_list` or `grafana_dashboard_presets`; do not invent UIDs. For each Loki panel provide `datasource: {type: "loki", uid: "<discovered UID>"}`, a grounded LogQL `query`, and `visualization: "logs"` for log lines. Prometheus panels accept their own datasource or the configured default. Each panel is validated against its selected datasource and the UI proxy before saving. If a datasource is missing, report that configuration gap instead of claiming the dashboard works.
