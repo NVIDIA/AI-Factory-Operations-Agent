@@ -216,6 +216,26 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Read-only Loki logs
+
+To connect Mosaic to an existing Loki service, run:
+
+```bash
+export LOKI_URL='https://logs.example.com'
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.observability.enabled=true \
+  --set-string observability.loki.url="$LOKI_URL" \
+  --wait \
+  --timeout 12m
+```
+
+Mosaic queries existing logs; it does not install Loki or a collector. For endpoints
+requiring authentication or a tenant ID, see [Loki connection options](loki.md#connection-options).
+Verify access by asking Mosaic to show 10 log entries from the past 15 minutes.
+
 ### Alertmanager
 
 AI Factory Operations Agent defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
@@ -646,82 +666,3 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 ```
 
 The packaged chart includes the tracked `agent-sandbox` CRD and controller templates.
-
-## Read-only Loki logs
-
-Connect Mosaic to an existing Loki service that already receives your logs. Mosaic
-does not install Loki or a log collector.
-
-### 1. Configure the connection
-
-Save the following as `loki-values.yaml`, replacing the URL with your Loki endpoint:
-
-```yaml
-modules:
-  observability:
-    enabled: true
-observability:
-  loki:
-    url: https://logs.example.com
-    tenantId: ""
-    auth:
-      existingSecret: ""
-      authorizationKey: authorization
-```
-
-Leave `tenantId` empty unless your Loki service requires a tenant ID. If it does,
-enter the ID supplied by your logging administrator.
-
-### 2. Configure authentication, if required
-
-If your endpoint requires authentication, create a Secret in the namespace where
-Mosaic is installed. This example uses the `mosaic` namespace and a bearer token:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: loki-readonly
-  namespace: mosaic
-type: Opaque
-stringData:
-  authorization: "Bearer <your-read-only-token>"
-```
-
-Replace the placeholder with your Loki credential and provision the Secret through
-your normal secret-management process. For basic authentication, use
-`Basic <base64(username:password)>` as the `authorization` value instead.
-Keep the credential out of your Helm values and source control.
-
-Set `observability.loki.auth.existingSecret` to `loki-readonly` in
-`loki-values.yaml`. If authentication is not required, leave it empty and skip
-creating the Secret.
-
-### 3. Apply the configuration
-
-Upgrade your existing release with the chart selected earlier in this guide:
-
-```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
-  --devel \
-  -n mosaic \
-  --reuse-values \
-  -f loki-values.yaml \
-  --wait \
-  --timeout 12m
-```
-
-Replace the release name and namespace if your installation uses different ones.
-
-### 4. Verify log access
-
-Start a conversation in View mode and ask:
-
-> Discover the available log sources and show me 10 recent log entries from one
-> source over the past 15 minutes. Include the source labels and timestamps.
-
-Confirm that the returned entries match a source you expect. If authentication
-fails, check the Secret name, namespace, and credential. If no logs are returned,
-check that Loki is receiving logs for the requested time range.
-
-See [Loki query reference](loki.md) for query limits and supported operations.
