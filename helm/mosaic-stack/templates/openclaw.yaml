@@ -130,6 +130,7 @@ spec:
                 /home/node/.openclaw/extensions/slurm \
                 /home/node/.openclaw/workspace/skills/bcm \
                 /home/node/.openclaw/workspace/skills/grafana \
+                /home/node/.openclaw/workspace/skills/gpu-networking \
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/hardware-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
@@ -211,6 +212,8 @@ spec:
               {{- end }}
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
               rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
+              mkdir -p /home/node/.openclaw/workspace/skills/gpu-networking
+              cp /seed/gpu-networking.SKILL.md /home/node/.openclaw/workspace/skills/gpu-networking/SKILL.md
               cp /seed/AGENTS.md /home/node/.openclaw/workspace/AGENTS.md
               cp /seed/HEARTBEAT.md /home/node/.openclaw/workspace/HEARTBEAT.md
               cp /seed/IDENTITY.md /home/node/.openclaw/workspace/IDENTITY.md
@@ -248,6 +251,15 @@ spec:
               cp /seed/bcm.index.ts /home/node/.openclaw/extensions/bcm/index.ts
               cp /seed/bcm.openclaw.plugin.json /home/node/.openclaw/extensions/bcm/openclaw.plugin.json
               cp /seed/bcm.package.json /home/node/.openclaw/extensions/bcm/package.json
+              {{- end }}
+              {{- range $path, $_ := .Files.Glob "files/openclaw-seed/skills/**/references/**" }}
+              {{- $relative := trimPrefix "files/openclaw-seed/skills/" $path }}
+              {{- $skill := first (splitList "/" $relative) }}
+              {{- $destination := printf "/home/node/.openclaw/workspace/skills/%s" $relative }}
+              if [ -f {{ printf "/home/node/.openclaw/workspace/skills/%s/SKILL.md" $skill | quote }} ]; then
+                mkdir -p {{ dir $destination | quote }}
+                cp /seed/skill-reference-{{ sha256sum $path }} {{ $destination | quote }}
+              fi
               {{- end }}
               rm -rf /home/node/.openclaw/workspace/.openclaw/sandbox-skills
           securityContext:

@@ -233,6 +233,8 @@ mosaicUi:
     machineToken: ""
 openclaw:
   enabled: true
+  # Skill instructions included in every session, without a separate file read.
+  bootstrapSkills: []
   gatewayProtocol: 4
   slack:
     enabled: false

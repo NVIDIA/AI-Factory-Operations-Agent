@@ -49,6 +49,9 @@
   },
   "agents": {
     "defaults": {
+      {{- if .Values.openclaw.bootstrapSkills }}
+      "bootstrapMaxChars": {{ add 1024 (len (tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") .)) }},
+      {{- end }}
       "memorySearch": {
         "provider": "none",
         "store": {
@@ -63,6 +66,7 @@
       },
       "skills": [
         "bcm",
+        "gpu-networking",
         "hardware-agent",
         "iraop",
         "observability",

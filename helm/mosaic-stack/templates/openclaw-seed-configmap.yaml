@@ -11,6 +11,12 @@ metadata:
 data:
   openclaw.json: |-
 {{ tpl (.Files.Get "files/openclaw-seed/nemoclaw.json") . | indent 4 }}
+  gpu-networking.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/gpu-networking/SKILL.md" | indent 4 }}
+  {{- range $path, $_ := .Files.Glob "files/openclaw-seed/skills/**/references/**" }}
+  skill-reference-{{ sha256sum $path }}: |-
+{{ $.Files.Get $path | indent 4 }}
+  {{- end }}
   AGENTS.md: |-
 {{ tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") . | indent 4 }}
   HEARTBEAT.md: |-
