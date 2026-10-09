@@ -288,8 +288,12 @@ function pathFromGrafanaUrl(value: string) {
   return value.startsWith("/") ? value : `/${value}`;
 }
 
-function ensureGrafanaSubPath(path: string) {
-  return path.startsWith(GRAFANA_PROXY_PREFIX) ? path : `${GRAFANA_PROXY_PREFIX}${path}`;
+function ensureGrafanaSubPath(path: string, grafanaUrl: string) {
+  if (path.startsWith(GRAFANA_PROXY_PREFIX)) return path;
+  const pathname = new URL(grafanaUrl).pathname;
+  const base = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const relative = base && path.startsWith(`${base}/`) ? path.slice(base.length) : path;
+  return `${GRAFANA_PROXY_PREFIX}${relative}`;
 }
 
 function appendTimeRange(path: string, rangeMinutes: number) {
@@ -435,9 +439,9 @@ export function registerGrafanaTools(api: PluginApi) {
 
         const uid = stringParam(createPayload.uid) || stringParam((dashboard as Record<string, unknown>).uid) || "";
         const url = stringParam(createPayload.url) || `/d/${uid}/${slugify(title)}`;
-        const grafanaPath = ensureGrafanaSubPath(pathFromGrafanaUrl(url));
+        const grafanaPath = ensureGrafanaSubPath(pathFromGrafanaUrl(url), grafanaUrl);
         const iframeUrl = appendTimeRange(grafanaPath, rangeMinutes);
-        const dashboardUrl = `${grafanaUrl}${grafanaPath}`;
+        const dashboardUrl = `${grafanaUrl}${grafanaPath.slice(GRAFANA_PROXY_PREFIX.length)}`;
         let uiNotification: unknown = null;
 
         if (boolParam(rawParams.openInUi, true)) {
@@ -490,7 +494,7 @@ export function registerGrafanaTools(api: PluginApi) {
         if (!uid) throw new Error("uid is required");
         const title = stringParam(rawParams.title) || uid;
         const rangeMinutes = Math.max(1, Math.min(10080, numberParam(rawParams.rangeMinutes, 60)));
-        const path = ensureGrafanaSubPath(`/d/${uid}/${slugify(title)}`);
+        const path = ensureGrafanaSubPath(`/d/${uid}/${slugify(title)}`, grafanaUrl);
         const iframeUrl = appendTimeRange(path, rangeMinutes);
         const uiNotification = await fetchJson(`${uiUrl}/api/ui/actions`, {
           method: "POST",
@@ -500,7 +504,7 @@ export function registerGrafanaTools(api: PluginApi) {
             title,
             iframeUrl,
             dashboardUid: uid,
-            dashboardUrl: `${grafanaUrl}${path}`,
+            dashboardUrl: `${grafanaUrl}${path.slice(GRAFANA_PROXY_PREFIX.length)}`,
           }),
         });
         return jsonToolResult({ opened: true, uid, iframeUrl, uiNotification });
