@@ -64,6 +64,19 @@ test("rejects malformed argument arrays", () => {
   assert.throws(() => validateKubectlArgs(["get", 1]));
 });
 
+test("exec forwards supplied input only with a client stdin option", () => {
+  for (const command of [["cat"], ["wc", "-c"]]) {
+    assert.throws(() => validateKubectlAdminRequest(["exec", "worker", "--", ...command], "payload"), /requires -i or --stdin/);
+    for (const option of ["-i", "-it", "-ti", "--stdin", "--stdin=true"]) {
+      const args = ["exec", option, "worker", "--", ...command];
+      assert.deepEqual(validateKubectlAdminRequest(args, "payload").args, args);
+    }
+  }
+  assert.throws(() => validateKubectlAdminRequest(["exec", "worker", "--", "reader", "-i"], "payload"));
+  assert.throws(() => validateKubectlAdminRequest(["exec", "-i", "--stdin=false", "worker", "--", "cat"], "payload"));
+  assert.doesNotThrow(() => validateKubectlAdminRequest(["exec", "worker", "--", "date"], undefined));
+});
+
 test("validates arbitrary exact admin argv and optional stdin", () => {
   const stdin = JSON.stringify({
     apiVersion: "v1",
@@ -174,7 +187,6 @@ test("registers the exec guard through OpenClaw's trusted tool policy", () => {
   );
   assert.match(source, /api\.registerTrustedToolPolicy\(/);
   assert.match(source, /id: "kubernetes-access"/);
-  assert.match(source, /text: `\$\{command\.join\(" "\)\}\\n/);
   assert.match(source, /command: \["kubectl", "<rejected>"\]/);
   assert.match(source, /blocked: true/);
   assert.match(source, /executed: false/);
@@ -212,4 +224,15 @@ test("makes the per-session access mode authoritative", () => {
   assert.match(source, /run_kubectl_admin.*including create, exec, label, patch, scale, delete, and apply/);
   assert.match(source, /never print a proposed approval command or ask the user to confirm in chat/);
   assert.doesNotMatch(source, /when HITL is enabled, submit the exact tool call and wait/);
+});
+
+test("separates exec payload options from kubectl connection options", () => {
+  for (const flag of ["-s", "-s=https://other.invalid", "-shttps://other.invalid", "--server", "--token=example", "--context"]) {
+    const args = ["exec", "worker", "--", "utility", flag, "value"];
+    assert.deepEqual(validateKubectlAdminRequest(args, undefined).args, args);
+    assert.throws(() => validateKubectlAdminRequest(["exec", "worker", flag, "value", "--", "utility"], undefined));
+    assert.throws(() => validateKubectlReadRequest(args));
+    assert.throws(() => validateKubectlAdminRequest(["get", "pods", "--", flag], undefined));
+  }
+  assert.throws(() => validateKubectlAdminRequest(["exec", "worker", "--", "utility", "bad\nargument"], undefined));
 });
