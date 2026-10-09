@@ -26,7 +26,7 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `observability_metric_names` lists available Prometheus metrics.
 - `observability_query` runs an instant PromQL query.
 - `observability_range_query` runs a historical range query.
-- `dashboard_list` lists existing Grafana dashboards.
+- `dashboard_list` discovers Grafana datasource names, types, and UIDs and searches dashboards.
 - `dashboard_create` validates explicit panel PromQL or LogQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
 - `dashboard_open` opens an existing Grafana dashboard UID in the UI Grafana tab.
 
@@ -37,7 +37,11 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `rate(DCGM_FI_PROF_PCIE_RX_BYTES[5m])`
 
 Treat these as examples only. First use `observability_metric_names` when metric
-availability or label names are uncertain.
+availability is uncertain. Metric-name searches do not search label values.
+If a service name has no matching metric names, inspect series for discovered
+source labels through `observability_query`; generic CPU, memory, or readiness
+metrics may identify the requested workload through labels. Distinguish workload
+metrics from application-specific metrics in the answer.
 
 When answering GPU temperature questions, explicitly identify the hottest
 Hostname/GPU, compare it against peer GPUs, and call out whether one GPU is
@@ -84,4 +88,29 @@ or Loki ingestion metrics.
 
 Dashboard creation is available in View mode: it saves visualizations without changing monitored workloads or infrastructure. Use the dashboard tools rather than generic execution or asking users to import JSON manually.
 
-Dashboards may mix Prometheus and Loki panels. Discover Grafana datasource UIDs through `dashboard_list` or `grafana_dashboard_presets`; do not invent UIDs. For each Loki panel provide `datasource: {type: "loki", uid: "<discovered UID>"}`, a grounded LogQL `query`, and `visualization: "logs"` for log lines. Prometheus panels accept their own datasource or the configured default. Each panel is validated against its selected datasource and the UI proxy before saving. If a datasource is missing, report that configuration gap instead of claiming the dashboard works.
+Dashboards may mix Prometheus and Loki panels.
+
+1. Discover datasource names, types, and UIDs with `dashboard_list` or
+   `grafana_dashboard_presets`. Both return a `datasources` list;
+   `dashboard_list` returns it even when its dashboard search has no matches.
+   Dashboard UIDs, datasource UIDs, and Loki source labels are different identifiers.
+2. Pass `panels` as a JSON array of objects. For each Loki panel, use
+   `datasource: {type: "loki", uid: "<discovered UID>"}` and a grounded LogQL
+   `query`; use `visualization: "logs"` for raw log lines. Prometheus panels
+   accept a discovered datasource or the configured default.
+3. If validation fails, inspect its issues and `availableDatasources`. Correct
+   the affected UID/type using the returned choices. Do not guess a UID or repeat
+   an unchanged failed call. If no suitable datasource exists in that list,
+   report the configuration gap.
+4. An empty query result describes the selected source and time window. Check
+   source labels and timestamps before concluding data is unavailable. When the
+   user has not specified a window, check a broader supported window and state
+   the range used; preserve explicitly requested incident windows.
+5. Create the requested panels and inspect the result. `created: true` confirms
+   creation, but success also requires the panels to match the requested sources
+   and content. Do not silently substitute unrelated metrics or omit requested
+   logs. Report any unavailable part and the evidence for it.
+
+Each panel is validated against its selected datasource and the UI proxy before
+saving. A missing datasource and a valid query with no matching data require
+different corrections; use the tool's returned evidence to distinguish them.
