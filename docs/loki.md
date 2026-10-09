@@ -34,29 +34,19 @@ option if your Loki service does not require a tenant ID. The Secret's default
 key is `authorization`; use `observability.loki.auth.authorizationKey` if yours
 differs. The Secret must exist in the release namespace before upgrading.
 
-## Queries and limits
+## Ask about your logs
 
-Mosaic can discover labels and query log streams in View mode. Ask for a source
-and time range in natural language; you do not need to call the tools yourself.
+In View mode, ask Mosaic to find logs, count matching events, or show how activity
+changes over time. For example:
 
-| Operation | Tool |
-| --- | --- |
-| Discover label names or values | `observability_log_labels` |
-| Query log streams or numeric LogQL results | `observability_logs` |
+- “Which services have logs available?”
+- “Show errors from the scheduler over the past 15 minutes.”
+- “How many errors did that service log in the last hour?”
+- “Show its error rate over the last hour.”
 
-Use metric LogQL expressions for counts, rates, and aggregations. For a total over
-an incident window, request an instant evaluation with the lookback in the expression,
-such as `sum(count_over_time({service="worker"}[15m]))`. For a trend, use a range
-query, such as `sum(rate({service="worker"}[5m]))`, with `start`, `end`, and optional
-`step` in seconds. Replace example labels with discovered source labels.
+Include the service or host and the time range you want to investigate.
 
-`mode: "instant"` evaluates once at `end` (default now); omit `start` and `step`.
-The default `mode: "range"` evaluates across the requested time window. Numeric
-results retain Loki's labels, timestamps, and sample values. The entry limit applies
-to log lines, not numeric results; response-size and timeout limits apply to both.
-Count matching logs with an aggregation rather than estimating from a capped list
-of returned entries. Counts describe the selected logs and their timestamps, not
-necessarily the rate at which Loki received them.
+## Query limits
 
 | Query setting | Default | Maximum |
 | --- | --- | --- |
@@ -72,6 +62,5 @@ Connection behavior:
 - Use HTTPS for remote endpoints. Internal HTTP service URLs are supported.
 - Redirects are rejected; configure the endpoint directly.
 - `tenantId` supplies the `X-Scope-OrgID` header. It does not replace authentication.
-- The Authorization Secret is supplied to OpenClaw, not the UI or agent sandbox.
 - An empty `observability.loki.url` disables log queries. Apply connection changes
   with a Helm upgrade.

@@ -67,15 +67,9 @@ The default window is one hour, the maximum is 24 hours, and the default result
 limit is 100 entries (maximum 1000). Use ISO 8601 start/end times for older
 incidents. `limitReached` means more logs may exist; narrow the query or inspect
 adjacent time windows. Returned entry timestamps retain Loki's nanosecond strings.
-Metric LogQL queries are outside this log tool's scope. If the tools are absent,
+If the tools are absent,
 Loki is not configured or the operator has disabled them. This integration queries
 existing logs; it does not install collectors or enable SSH access.
-
-## Dashboard authoring and access
-
-Dashboard creation is available in View mode: it saves visualizations without changing monitored workloads or infrastructure. Use the dashboard tools rather than generic execution or asking users to import JSON manually.
-
-Dashboards may mix Prometheus and Loki panels. Discover Grafana datasource UIDs through `dashboard_list` or `grafana_dashboard_presets`; do not invent UIDs. For each Loki panel provide `datasource: {type: "loki", uid: "<discovered UID>"}`, a grounded LogQL `query`, and `visualization: "logs"` for log lines. Prometheus panels accept their own datasource or the configured default. Each panel is validated against its selected datasource and the UI proxy before saving. If a datasource is missing, report that configuration gap instead of claiming the dashboard works.
 
 For log counts, rates, or aggregations, use numeric LogQL with `observability_logs`.
 Use `mode: "instant"` for one evaluation at `end`, with the lookback in the LogQL
@@ -85,3 +79,9 @@ reporting a total. Numeric results contain labeled samples, not log entries.
 Never infer total log volume from the number of entries in a limited log query.
 Distinguish counts over log timestamps from ingestion rates measured by collector
 or Loki ingestion metrics.
+
+## Dashboard authoring and access
+
+Dashboard creation is available in View mode: it saves visualizations without changing monitored workloads or infrastructure. Use the dashboard tools rather than generic execution or asking users to import JSON manually.
+
+Dashboards may mix Prometheus and Loki panels. Discover Grafana datasource UIDs through `dashboard_list` or `grafana_dashboard_presets`; do not invent UIDs. For each Loki panel provide `datasource: {type: "loki", uid: "<discovered UID>"}`, a grounded LogQL `query`, and `visualization: "logs"` for log lines. Prometheus panels accept their own datasource or the configured default. Each panel is validated against its selected datasource and the UI proxy before saving. If a datasource is missing, report that configuration gap instead of claiming the dashboard works.
