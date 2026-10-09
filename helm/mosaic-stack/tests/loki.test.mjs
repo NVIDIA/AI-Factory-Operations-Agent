@@ -34,7 +34,7 @@ test("discovers labels and queries bounded timestamped logs with operator creden
     const data = url.pathname.endsWith("/labels") ? ["host", "service", "job_id"]
       : url.pathname.endsWith("/series") ? [{host:"worker-a",service:"scheduler"},{host:"worker-b",service:"worker"}]
       : url.pathname.endsWith("/values") ? ["worker-a", "worker-b"]
-      : { resultType: mode === "metric" ? "matrix" : "streams", result: [{
+      : { resultType: mode === "unsupported" ? "unknown" : "streams", result: [{
         stream: { host: "worker-a" }, values: [["1791490000123456789", "example event", { trace: "a" }]],
       }] };
     res.setHeader("Content-Type", "application/json");
@@ -72,7 +72,7 @@ test("discovers labels and queries bounded timestamped logs with operator creden
     await assert.rejects(api.observability_logs({ query, ...params }));
   }
   assert.equal(requests.length, before);
-  for (const [responseMode, message] of [["error", /HTTP 401/], ["oversize", /2 MiB/], ["invalid", /invalid JSON/], ["metric", /log streams/], ["redirect", /fetch failed/]]) {
+  for (const [responseMode, message] of [["error", /HTTP 401/], ["oversize", /2 MiB/], ["invalid", /invalid JSON/], ["unsupported", /result type/], ["redirect", /fetch failed/]]) {
     mode = responseMode;
     await assert.rejects(api.observability_logs({ query }), error => message.test(error.message) && !error.message.includes("credential-must-not-leak"));
   }
@@ -100,4 +100,45 @@ test("Loki registers without Prometheus and absent endpoints register no query t
     assert.deepEqual(names({lokiUrl:"http://logs.example.com"}).sort(), ["observability_log_labels", "observability_logs"]);
     assert.ok(names({prometheusUrl:"http://metrics.example.com"}).includes("observability_query"));
   } finally { hooks.deregister(); }
+});
+
+
+test("numeric LogQL preserves complete labeled samples for instant and range evaluations", async t => {
+  const requests = [];
+  let response;
+  const server = createServer((req, res) => {
+    requests.push({method:req.method, url:new URL(req.url, "http://localhost")});
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({status:"success", data:response}));
+  }).listen(0, "127.0.0.1");
+  await new Promise(resolve => server.once("listening", resolve));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const api = tools({lokiUrl:`http://127.0.0.1:${server.address().port}`});
+  const end = "2026-10-01T01:00:00Z";
+  for (const [mode, query, resultType, result] of [
+    ["instant", 'sum(count_over_time({service="worker"}[15m]))', "vector", [{metric:{},value:[1790816400,"12452"]}]],
+    ["range", 'sum by (service) (rate({service=~"worker|scheduler"}[5m]))', "matrix", [
+      {metric:{service:"worker"},values:[[1790812800,"12.5"],[1790812860,"0"]]},
+      {metric:{service:"scheduler"},values:[[1790812800,"2"],[1790812860,"3"]]},
+    ]],
+  ]) {
+    response = {resultType,result};
+    const params = {mode,query,end,limit:1,...(mode === "range" ? {start:"2026-10-01T00:00:00Z",step:60} : {})};
+    const output = await api.observability_logs(params);
+    assert.equal(output.details.resultType,resultType);
+    assert.deepEqual(output.details.result,result); // Log line limits must not truncate aggregates.
+    const {url,method}=requests.at(-1);
+    assert.equal(method,"GET");
+    assert.equal(url.pathname, mode === "instant" ? "/loki/api/v1/query" : "/loki/api/v1/query_range");
+    assert.equal(url.searchParams.get("query"),query);
+    assert.equal(url.searchParams.get(mode === "instant" ? "time" : "end"),"2026-10-01T01:00:00.000Z");
+    assert.equal(url.searchParams.get("step"),mode === "range" ? "60" : null);
+    response = {resultType,result:[]};
+    assert.deepEqual((await api.observability_logs(params)).details.result,[]);
+  }
+  const before=requests.length;
+  for (const params of [{mode:"invalid"},{step:0},{step:-1},{step:"60"},{step:Infinity},{mode:"instant",start:end},{mode:"instant",step:60}]) {
+    await assert.rejects(api.observability_logs({query:'vector(1)',...params}));
+  }
+  assert.equal(requests.length,before);
 });

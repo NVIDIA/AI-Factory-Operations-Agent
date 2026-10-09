@@ -42,14 +42,25 @@ and time range in natural language; you do not need to call the tools yourself.
 | Operation | Tool |
 | --- | --- |
 | Discover label names or values | `observability_log_labels` |
-| Retrieve timestamped log streams using a LogQL selector or pipeline | `observability_logs` |
+| Query log streams or numeric LogQL results | `observability_logs` |
 
-The log tool does not support metric LogQL expressions such as `count_over_time`.
-A limited set of returned log entries is not a measurement of total ingestion volume.
+Use metric LogQL expressions for counts, rates, and aggregations. For a total over
+an incident window, request an instant evaluation with the lookback in the expression,
+such as `sum(count_over_time({service="worker"}[15m]))`. For a trend, use a range
+query, such as `sum(rate({service="worker"}[5m]))`, with `start`, `end`, and optional
+`step` in seconds. Replace example labels with discovered source labels.
+
+`mode: "instant"` evaluates once at `end` (default now); omit `start` and `step`.
+The default `mode: "range"` evaluates across the requested time window. Numeric
+results retain Loki's labels, timestamps, and sample values. The entry limit applies
+to log lines, not numeric results; response-size and timeout limits apply to both.
+Count matching logs with an aggregation rather than estimating from a capped list
+of returned entries. Counts describe the selected logs and their timestamps, not
+necessarily the rate at which Loki received them.
 
 | Query setting | Default | Maximum |
 | --- | --- | --- |
-| Time window | Past hour | 24 hours |
+| Range query time window | Past hour | 24 hours |
 | Returned entries | 100 | 1,000 |
 | Upstream response size | — | 2 MiB |
 | Request duration | — | 15 seconds |

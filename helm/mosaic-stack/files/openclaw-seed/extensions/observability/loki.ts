@@ -122,10 +122,12 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
   register({
     name: "observability_logs",
     label: "Loki Log Query",
-    description: "Run a read-only LogQL log query over a bounded time range. Returns timestamped log streams; metric queries are not supported.",
+    description: "Run a read-only LogQL query. Returns log streams or numeric results for counts, rates, and aggregations. Use instant mode for a single evaluation and range mode for trends.",
     parameters: { type: "object", additionalProperties: false, required: ["query"], properties: {
       ...properties,
-      query: { type: "string", description: "LogQL stream selector and optional log pipeline. Discover label values before selecting a source. Loki requires at least one label matcher that cannot match an empty value. Preserve the requested source filters when adding an error filter or changing the time window." },
+      query: { type: "string", description: "LogQL log or metric expression. Discover label values before selecting a source. Loki requires at least one label matcher that cannot match an empty value. Preserve the requested source filters when adding an error filter or changing the time window." },
+      mode: { type: "string", enum: ["range", "instant"], description: "Default range. Instant evaluates a metric expression once at end (default now); its lookback is specified in LogQL." },
+      step: { type: "number", exclusiveMinimum: 0, description: "Evaluation interval in seconds for range metric queries; omit to use Loki's automatic interval." },
       direction: { type: "string", enum: ["backward", "forward"], description: "Newest first by default." },
     } },
     async execute(_id, params) {
@@ -134,9 +136,23 @@ export function registerLokiTools(config: unknown, register: (tool: Tool) => voi
       const count = limit(params.limit);
       const direction = params.direction ?? "backward";
       if (direction !== "backward" && direction !== "forward") throw new Error("Invalid direction");
+      const mode = params.mode ?? "range";
+      if (mode !== "range" && mode !== "instant") throw new Error("Invalid query mode");
+      if (params.step !== undefined && (typeof params.step !== "number" || !Number.isFinite(params.step) || params.step <= 0)) throw new Error("step must be a positive number of seconds");
+      if (mode === "instant" && (params.start !== undefined || params.step !== undefined)) throw new Error("Instant queries use end as the evaluation time; omit start and step");
       const window = windowParams(params);
-      const data = await request("query_range", { ...window, query, direction, limit: String(count) });
-      if (data?.resultType !== "streams" || !Array.isArray(data.result)) throw new Error("Expected Loki log streams; use a log selector/pipeline rather than a metric query");
+      const timing: Record<string, string> = mode === "instant" ? { time: window.end } : window;
+      const queryParams: Record<string, string> = { ...timing, query };
+      if (mode === "range") {
+        Object.assign(queryParams, { direction, limit: String(count) });
+        if (params.step !== undefined) queryParams.step = String(params.step);
+      }
+      const data = await request(mode === "instant" ? "query" : "query_range", queryParams);
+      if (!Array.isArray(data?.result)) throw new Error("Invalid Loki query result");
+      if (data.resultType === "matrix" || data.resultType === "vector") {
+        return result({ source: base, query, mode, ...timing, ...(params.step === undefined ? {} : { step: params.step }), resultType: data.resultType, result: data.result });
+      }
+      if (data.resultType !== "streams") throw new Error("Unsupported Loki result type");
       let remaining = count;
       const streams = data.result.map((stream: { stream: Record<string, string>; values: unknown[] }) => {
         const values = stream.values.slice(0, remaining);

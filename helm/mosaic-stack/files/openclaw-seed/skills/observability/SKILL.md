@@ -76,3 +76,12 @@ existing logs; it does not install collectors or enable SSH access.
 Dashboard creation is available in View mode: it saves visualizations without changing monitored workloads or infrastructure. Use the dashboard tools rather than generic execution or asking users to import JSON manually.
 
 Dashboards may mix Prometheus and Loki panels. Discover Grafana datasource UIDs through `dashboard_list` or `grafana_dashboard_presets`; do not invent UIDs. For each Loki panel provide `datasource: {type: "loki", uid: "<discovered UID>"}`, a grounded LogQL `query`, and `visualization: "logs"` for log lines. Prometheus panels accept their own datasource or the configured default. Each panel is validated against its selected datasource and the UI proxy before saving. If a datasource is missing, report that configuration gap instead of claiming the dashboard works.
+
+For log counts, rates, or aggregations, use numeric LogQL with `observability_logs`.
+Use `mode: "instant"` for one evaluation at `end`, with the lookback in the LogQL
+expression. Use the default range mode with `start`, `end`, and optional `step`
+(seconds) for trends. Preserve source filters and aggregate across streams when
+reporting a total. Numeric results contain labeled samples, not log entries.
+Never infer total log volume from the number of entries in a limited log query.
+Distinguish counts over log timestamps from ingestion rates measured by collector
+or Loki ingestion metrics.
