@@ -229,6 +229,7 @@ spec:
               {{- if .Values.modules.observability.enabled }}
               cp /seed/observability.SKILL.md /home/node/.openclaw/workspace/skills/observability/SKILL.md
               cp /seed/observability.index.ts /home/node/.openclaw/extensions/observability/index.ts
+              cp /seed/observability.loki.ts /home/node/.openclaw/extensions/observability/loki.ts
               cp /seed/observability.grafana.ts /home/node/.openclaw/extensions/observability/grafana.ts
               cp /seed/observability.openclaw.plugin.json /home/node/.openclaw/extensions/observability/openclaw.plugin.json
               cp /seed/observability.package.json /home/node/.openclaw/extensions/observability/package.json
@@ -537,6 +538,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.openclaw.slack.existingSecret | quote }}
                   key: {{ .Values.openclaw.slack.appTokenKey | quote }}
+            {{- end }}
+            {{- if and .Values.modules.observability.enabled $observability.loki.url $observability.loki.auth.existingSecret }}
+            - name: MOSAIC_LOKI_AUTHORIZATION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $observability.loki.auth.existingSecret | quote }}
+                  key: {{ $observability.loki.auth.authorizationKey | quote }}
             {{- end }}
             - name: MOSAIC_PROMETHEUS_URL
               value: {{ $observability.prometheusUrl | quote }}

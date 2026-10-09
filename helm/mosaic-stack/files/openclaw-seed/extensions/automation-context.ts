@@ -65,6 +65,8 @@ const READ_ONLY_TOOLS = new Set([
   "observability_metric_names",
   "observability_query",
   "observability_range_query",
+  "observability_log_labels",
+  "observability_logs",
   "pdf",
   "read",
   "run_kubectl",

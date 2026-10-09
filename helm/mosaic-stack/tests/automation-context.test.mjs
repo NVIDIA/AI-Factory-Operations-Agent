@@ -126,6 +126,8 @@ test("uses fixed tool capabilities with a narrow diagnostic exception", () => {
   ]) {
     assert.equal(toolRequiresEdit(tool), true, tool);
   }
+  assert.equal(toolRequiresEdit("dashboard_create"), false);
+  assert.equal(toolRequiresEdit("grafana_dashboard_create"), false);
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("hardware_analyze_dut"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);

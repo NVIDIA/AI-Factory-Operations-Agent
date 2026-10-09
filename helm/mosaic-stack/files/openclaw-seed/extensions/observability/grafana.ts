@@ -6,8 +6,9 @@ declare const Buffer: { from(value: string): { toString(encoding: string): strin
 type PanelSpec = {
   title: string;
   query: string;
+  datasource?: { type: "prometheus" | "loki"; uid: string };
   unit?: string;
-  visualization?: "timeseries" | "stat" | "gauge" | "table";
+  visualization?: "timeseries" | "stat" | "gauge" | "table" | "logs";
   legend?: string;
   description?: string;
 };
@@ -84,7 +85,9 @@ function normalizePanel(raw: unknown, index: number): PanelSpec | null {
   const value = raw as Record<string, unknown>;
   const query = stringParam(value.query);
   if (!query) return null;
+  const datasource = value.datasource as PanelSpec["datasource"];
   return {
+    datasource,
     title: stringParam(value.title) || `Panel ${index + 1}`,
     query,
     unit: stringParam(value.unit),
@@ -120,8 +123,9 @@ function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, dataso
     queries: [
       {
         refId: "A",
-        datasource: { type: "prometheus", uid: datasourceUid },
+        datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
         expr: panel.query,
+        ...(panel.datasource?.type === "loki" ? {queryType: "range", maxLines: 1000} : {}),
         range: true,
         instant: false,
         intervalMs: 15000,
@@ -136,8 +140,9 @@ function buildGrafanaQueryPayload(panel: PanelSpec, rangeMinutes: number, dataso
 function grafanaFrameCount(payload: Record<string, unknown>) {
   const results = payload.results as Record<string, unknown> | undefined;
   const first = results?.A as Record<string, unknown> | undefined;
+  if (first?.error) throw new Error(String(first.error));
   const frames = Array.isArray(first?.frames) ? first.frames : [];
-  return frames.length;
+  return frames.filter((frame: any) => frame.data?.values?.some((values: unknown[]) => values.length > 0)).length;
 }
 
 function authHeaders(pluginConfig: unknown) {
@@ -174,14 +179,24 @@ async function validatePanels(
   const issues: ValidationIssue[] = [];
   const results: Array<{ title: string; query: string; seriesCount: number; grafanaFrameCount: number; sample?: unknown }> = [];
 
+  const datasources = await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) as unknown as Array<{uid: string; type: string; name: string}>;
   for (const panel of panels) {
+    const selected = panel.datasource || {type: "prometheus", uid: datasourceUid};
+    if (!["prometheus", "loki"].includes(selected.type) || !datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Panel datasource UID or type is missing or unavailable. Select the intended datasource from availableDatasources and retry."});
+      continue;
+    }
+    if (panel.visualization === "logs" && selected.type !== "loki") {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Log panels require a Loki datasource. Select one from availableDatasources."});
+      continue;
+    }
     const url = new URL(`${prometheusUrl}/api/v1/query`);
     url.searchParams.set("query", panel.query);
     try {
-      const payload = await fetchJson(url.toString());
+      const payload = selected.type === "prometheus" ? await fetchJson(url.toString()) : {};
       const data = payload.data as { result?: unknown[] } | undefined;
       const result = Array.isArray(data?.result) ? data.result : [];
-      if (requireData && result.length === 0) {
+      if (requireData && selected.type === "prometheus" && result.length === 0) {
         issues.push({
           panelTitle: panel.title,
           query: panel.query,
@@ -251,6 +266,7 @@ async function validatePanels(
     ok: issues.filter((issue) => issue.severity === "error").length === 0,
     issues,
     results,
+    availableDatasources: datasources.map(({uid, type, name}) => ({uid, type, name})),
   };
 }
 
@@ -271,8 +287,12 @@ function pathFromGrafanaUrl(value: string) {
   return value.startsWith("/") ? value : `/${value}`;
 }
 
-function ensureGrafanaSubPath(path: string) {
-  return path.startsWith(GRAFANA_PROXY_PREFIX) ? path : `${GRAFANA_PROXY_PREFIX}${path}`;
+function ensureGrafanaSubPath(path: string, grafanaUrl: string) {
+  if (path.startsWith(GRAFANA_PROXY_PREFIX)) return path;
+  const pathname = new URL(grafanaUrl).pathname;
+  const base = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const relative = base && path.startsWith(`${base}/`) ? path.slice(base.length) : path;
+  return `${GRAFANA_PROXY_PREFIX}${relative}`;
 }
 
 function appendTimeRange(path: string, rangeMinutes: number) {
@@ -288,7 +308,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
     type,
     title: panel.title,
     description: panel.description,
-    datasource: { type: "prometheus", uid: datasourceUid },
+    datasource: panel.datasource || { type: "prometheus", uid: datasourceUid },
     gridPos: {
       h: type === "stat" || type === "gauge" ? 6 : 8,
       w: width,
@@ -299,6 +319,7 @@ function buildPanel(panel: PanelSpec, index: number, datasourceUid: string) {
       {
         refId: "A",
         expr: panel.query,
+        ...(panel.datasource?.type === "loki" ? {queryType: "range", maxLines: 1000} : {}),
         range: true,
         legendFormat: panel.legend || "",
       },
@@ -352,7 +373,7 @@ export function registerGrafanaTools(api: PluginApi) {
     registerTool({
       name: "dashboard_list",
       label: "List Dashboards",
-      description: "List existing Grafana dashboards.",
+      description: "Discover Grafana datasource names, types, and UIDs and search existing dashboards. Datasources are returned even when no dashboards match.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -367,14 +388,14 @@ export function registerGrafanaTools(api: PluginApi) {
         url.searchParams.set("limit", String(Math.max(1, Math.min(500, numberParam(rawParams.limit, 50)))));
         const query = stringParam(rawParams.query);
         if (query) url.searchParams.set("query", query);
-        return jsonToolResult({ grafanaUrl, dashboards: await fetchJson(url.toString(), { headers }) });
+        return jsonToolResult({ grafanaUrl, datasources: await fetchJson(`${grafanaUrl}/api/datasources`, {headers}), dashboards: await fetchJson(url.toString(), { headers }) });
       },
     });
 
     registerTool({
       name: "dashboard_create",
       label: "Create Dashboard",
-      description: "Create a Grafana dashboard after validating every panel query, then open it in the UI Grafana tab.",
+      description: "Create a Grafana dashboard after validating every Prometheus or Loki panel query, then open it in the UI Grafana tab.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -382,7 +403,7 @@ export function registerGrafanaTools(api: PluginApi) {
           title: { type: "string", description: "Dashboard title." },
           panels: {
             type: "array",
-            description: "Panel specs with title/query/unit/visualization.",
+            description: "Panel specs: title, query (PromQL or LogQL), datasource {type: prometheus or loki, uid: discovered Grafana UID}, visualization (timeseries, stat, gauge, table, logs), optional unit/legend/description. Omit datasource only to use the configured Prometheus default.",
             items: { type: "object" },
           },
           rangeMinutes: { type: "number", description: "Dashboard time range in minutes. Default 60." },
@@ -394,7 +415,7 @@ export function registerGrafanaTools(api: PluginApi) {
         const title = stringParam(rawParams.title) || "Generated Dashboard";
         const panels = panelsFromParams(rawParams);
         if (panels.length === 0) {
-          throw new Error("Provide panels with explicit PromQL queries.");
+          throw new Error("Provide panels with explicit PromQL or LogQL queries.");
         }
 
         const requireData = boolParam(rawParams.requireData, true);
@@ -417,9 +438,9 @@ export function registerGrafanaTools(api: PluginApi) {
 
         const uid = stringParam(createPayload.uid) || stringParam((dashboard as Record<string, unknown>).uid) || "";
         const url = stringParam(createPayload.url) || `/d/${uid}/${slugify(title)}`;
-        const grafanaPath = ensureGrafanaSubPath(pathFromGrafanaUrl(url));
+        const grafanaPath = ensureGrafanaSubPath(pathFromGrafanaUrl(url), grafanaUrl);
         const iframeUrl = appendTimeRange(grafanaPath, rangeMinutes);
-        const dashboardUrl = `${grafanaUrl}${grafanaPath}`;
+        const dashboardUrl = `${grafanaUrl}${grafanaPath.slice(GRAFANA_PROXY_PREFIX.length)}`;
         let uiNotification: unknown = null;
 
         if (boolParam(rawParams.openInUi, true)) {
@@ -472,7 +493,7 @@ export function registerGrafanaTools(api: PluginApi) {
         if (!uid) throw new Error("uid is required");
         const title = stringParam(rawParams.title) || uid;
         const rangeMinutes = Math.max(1, Math.min(10080, numberParam(rawParams.rangeMinutes, 60)));
-        const path = ensureGrafanaSubPath(`/d/${uid}/${slugify(title)}`);
+        const path = ensureGrafanaSubPath(`/d/${uid}/${slugify(title)}`, grafanaUrl);
         const iframeUrl = appendTimeRange(path, rangeMinutes);
         const uiNotification = await fetchJson(`${uiUrl}/api/ui/actions`, {
           method: "POST",
@@ -482,7 +503,7 @@ export function registerGrafanaTools(api: PluginApi) {
             title,
             iframeUrl,
             dashboardUid: uid,
-            dashboardUrl: `${grafanaUrl}${path}`,
+            dashboardUrl: `${grafanaUrl}${path.slice(GRAFANA_PROXY_PREFIX.length)}`,
           }),
         });
         return jsonToolResult({ opened: true, uid, iframeUrl, uiNotification });

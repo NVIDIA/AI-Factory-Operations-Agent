@@ -216,6 +216,26 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Read-only Loki logs
+
+To connect Mosaic to an existing Loki service, run:
+
+```bash
+export LOKI_URL='https://logs.example.com'
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.observability.enabled=true \
+  --set-string observability.loki.url="$LOKI_URL" \
+  --wait \
+  --timeout 12m
+```
+
+Mosaic queries existing logs; it does not install Loki or a collector. For endpoints
+requiring authentication or a tenant ID, see [Loki connection options](loki.md#connection-options).
+Verify access by asking Mosaic to show 10 log entries from the past 15 minutes.
+
 ### Alertmanager
 
 AI Factory Operations Agent defaults to the Alertmanager service installed by NMC at `http://kube-prometheus-stack-alertmanager.prometheus.svc.cluster.local:9093`. To use another Alertmanager endpoint, run:
