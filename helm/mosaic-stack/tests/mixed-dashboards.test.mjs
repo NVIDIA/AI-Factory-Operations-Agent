@@ -12,16 +12,18 @@ const {default:plugin}=await import('../files/openclaw-seed/extensions/grafana/i
 hooks.deregister();
 for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.register,'grafana_dashboard_create']]) {
  test(`${name} routes mixed panels to their datasources and rejects failed validation`,async t=>{
-  const saved=[];const queries=[];let fail=false;
+  const saved=[];const queries=[];let fail=false;let empty=false;
+  const sources=[{uid:'metrics-test',type:'prometheus',name:'Metrics'},{uid:'logs-test',type:'loki',name:'Logs'}];
   const server=createServer(async(req,res)=>{
    let body='';for await(const part of req)body+=part;
    const data=body?JSON.parse(body):{};
    const path=new URL(req.url,'http://local').pathname.replace('/monitoring','');
    let output;
-   if(path==='/api/datasources')output=[{uid:'metrics-test',type:'prometheus'},{uid:'logs-test',type:'loki'}];
+   if(path==='/api/datasources')output=sources;
+   else if(path==='/api/search')output=[];
    else if(path==='/api/v1/query') {assert.equal(new URL(req.url,'http://local').searchParams.get('query'),'up');output={data:{result:[{value:[1,'1']}]}};}
    else if(path.endsWith('/api/ds/query')){
-    queries.push(data.queries[0]);output={results:{A:fail?{error:'query rejected'}:{frames:[{data:{values:[[1],['entry']]}}]}}};
+    queries.push(data.queries[0]);output={results:{A:fail?{error:'query rejected'}:{frames:empty?[]:[{data:{values:[[1],['entry']]}}]}}};
    }else if(path==='/api/dashboards/db'){saved.push(data.dashboard);output={uid:'test-board',url:'/monitoring/d/test-board'};}
    else {res.writeHead(404);res.end();return;}
    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(output));
@@ -41,8 +43,27 @@ for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.
   assert.equal((await tools[name].execute('test',{panels,openInUi:false,requireData:false})).details.created,false);
   assert.equal(saved.length,1);
   fail=false;
-  const invalid=[{...panels[1],datasource:{type:'loki',uid:'missing'}}];
-  assert.equal((await tools[name].execute('test',{panels:invalid,openInUi:false})).details.created,false);
+  for(const datasource of [{type:'loki',uid:'missing'},{type:'loki'},{type:'prometheus',uid:'logs-test'},{type:'unknown',uid:'logs-test'},undefined]) {
+   const invalid=[{...panels[1],datasource}];
+   const rejected=(await tools[name].execute('test',{panels:invalid,openInUi:false})).details;
+   assert.equal(rejected.created,false);
+   assert.deepEqual(rejected.validation.availableDatasources,sources);
+   assert.equal(saved.length,1);
+  }
+  empty=true;
+  const noData=(await tools[name].execute('test',{panels,openInUi:false})).details;
+  assert.equal(noData.created,false);
+  assert.deepEqual(noData.validation.availableDatasources,sources);
   assert.equal(saved.length,1);
+  empty=false;
+  const discovery=tools.dashboard_list || tools.grafana_dashboard_presets;
+  const discovered=(await discovery.execute('test',{query:'no-matching-dashboard'})).details;
+  assert.deepEqual(discovered.datasources,sources);
+  if(tools.dashboard_list)assert.deepEqual(discovered.dashboards,[]);
+  const datasource=noData.validation.availableDatasources.find(source=>source.type==='loki');
+  const recovered=(await tools[name].execute('test',{panels:[{...panels[1],datasource}],openInUi:false})).details;
+  assert.equal(recovered.created,true);
+  assert.equal(saved.length,2);
+  assert.equal(saved[1].panels[0].datasource.uid,datasource.uid);
  });
 }

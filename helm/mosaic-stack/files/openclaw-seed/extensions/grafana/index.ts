@@ -122,12 +122,6 @@ function normalizePanel(raw: unknown, index: number): PanelSpec | null {
   const query = stringParam(value.query);
   if (!query) return null;
   const datasource = value.datasource as PanelSpec["datasource"];
-  if (datasource && (!["prometheus", "loki"].includes(datasource.type) || !stringParam(datasource.uid))) {
-    throw new Error("Panel datasource requires a discovered Grafana uid and type prometheus or loki.");
-  }
-  if (value.visualization === "logs" && datasource?.type !== "loki") {
-    throw new Error("Log panels require a Loki datasource.");
-  }
   return {
     datasource,
     title: stringParam(value.title) || `Panel ${index + 1}`,
@@ -224,11 +218,15 @@ async function validatePanels(
   const issues: ValidationIssue[] = [];
   const results: Array<{ title: string; query: string; seriesCount: number; grafanaFrameCount: number; sample?: unknown }> = [];
 
-  const datasources = await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) as unknown as Array<{uid: string; type: string}>;
+  const datasources = await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) as unknown as Array<{uid: string; type: string; name: string}>;
   for (const panel of panels) {
     const selected = panel.datasource || {type: "prometheus", uid: datasourceUid};
-    if (!datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
-      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Panel datasource is not available in Grafana. Discover its UID and type before creating the dashboard."});
+    if (!["prometheus", "loki"].includes(selected.type) || !datasources.some(source => source.uid === selected.uid && source.type === selected.type)) {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Panel datasource UID or type is missing or unavailable. Select the intended datasource from availableDatasources and retry."});
+      continue;
+    }
+    if (panel.visualization === "logs" && selected.type !== "loki") {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Log panels require a Loki datasource. Select one from availableDatasources."});
       continue;
     }
     const url = new URL(`${prometheusUrl}/api/v1/query`);
@@ -307,6 +305,7 @@ async function validatePanels(
     ok: issues.filter((issue) => issue.severity === "error").length === 0,
     issues,
     results,
+    availableDatasources: datasources.map(({uid, type, name}) => ({uid, type, name})),
   };
 }
 
@@ -436,7 +435,7 @@ export default definePluginEntry({
     registerTool({
       name: "grafana_dashboard_presets",
       label: "Grafana Dashboard Presets",
-      description: "List dashboard presets the agent can use as starting points.",
+      description: "Discover Grafana datasource names, types, and UIDs and list dashboard presets.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
       async execute() {
         return jsonToolResult({ presets: PRESETS, datasources: await fetchJson(`${grafanaUrl}/api/datasources`, {headers}) });
