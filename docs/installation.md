@@ -649,7 +649,12 @@ The packaged chart includes the tracked `agent-sandbox` CRD and controller templ
 
 ## Read-only Loki logs
 
-Enable log discovery and LogQL log queries against an existing Loki instance:
+Connect Mosaic to an existing Loki service that already receives your logs. Mosaic
+does not install Loki or a log collector.
+
+### 1. Configure the connection
+
+Save the following as `loki-values.yaml`, replacing the URL with your Loki endpoint:
 
 ```yaml
 modules:
@@ -660,30 +665,63 @@ observability:
     url: https://logs.example.com
     tenantId: ""
     auth:
-      existingSecret: loki-readonly
+      existingSecret: ""
       authorizationKey: authorization
 ```
 
-The referenced Secret must exist in the release namespace. Its `authorization`
-key contains the complete HTTP Authorization header value, such as `Bearer <token>`
-or `Basic <base64(username:password)>`. Provision a read-only credential through
-your Loki gateway; do not put credentials in values or URLs. The Secret is injected
-only into OpenClaw, not the UI or agent sandbox. Set `existingSecret: ""` for an
-endpoint that does not require authentication. `tenantId` sets `X-Scope-OrgID`;
-leave it empty for single-tenant installations. A tenant header is not authentication.
-Use the operator-approved HTTPS endpoint for remote access. An internal HTTP service
-URL can be used within a trusted cluster network. Redirects are rejected.
+Leave `tenantId` empty unless your Loki service requires a tenant ID. If it does,
+enter the ID supplied by your logging administrator.
 
-An empty `loki.url` disables the Loki tools. Configuration changes take effect on
-Helm upgrade. No Loki server or log collector is installed by this feature.
+### 2. Configure authentication, if required
 
-In View mode, ask the agent to discover available log labels and query logs for a
-specific incident window. `observability_log_labels` lists names or values;
-`observability_logs` returns timestamped log streams for a LogQL selector/pipeline.
-Queries default to the past hour and 100 entries, with a maximum 24-hour window,
-1000 entries, 2 MiB upstream response, and 15-second request timeout. Metric LogQL
-queries are not supported by this log tool. Narrow queries when limits are reached.
+If your endpoint requires authentication, create a Secret in the namespace where
+Mosaic is installed. This example uses the `mosaic` namespace and a bearer token:
 
-For Slurm RCA without head-node access, the logging platform must already ingest
-relevant job/daemon logs and expose labels that can be correlated with job accounting
-and node metrics. Kubernetes logs alone do not establish Slurm coverage.
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loki-readonly
+  namespace: mosaic
+type: Opaque
+stringData:
+  authorization: "Bearer <your-read-only-token>"
+```
+
+Replace the placeholder with your Loki credential and provision the Secret through
+your normal secret-management process. For basic authentication, use
+`Basic <base64(username:password)>` as the `authorization` value instead.
+Keep the credential out of your Helm values and source control.
+
+Set `observability.loki.auth.existingSecret` to `loki-readonly` in
+`loki-values.yaml`. If authentication is not required, leave it empty and skip
+creating the Secret.
+
+### 3. Apply the configuration
+
+Upgrade your existing release with the chart selected earlier in this guide:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  -f loki-values.yaml \
+  --wait \
+  --timeout 12m
+```
+
+Replace the release name and namespace if your installation uses different ones.
+
+### 4. Verify log access
+
+Start a conversation in View mode and ask:
+
+> Discover the available log sources and show me 10 recent log entries from one
+> source over the past 15 minutes. Include the source labels and timestamps.
+
+Confirm that the returned entries match a source you expect. If authentication
+fails, check the Secret name, namespace, and credential. If no logs are returned,
+check that Loki is receiving logs for the requested time range.
+
+See [Loki query reference](loki.md) for query limits and supported operations.

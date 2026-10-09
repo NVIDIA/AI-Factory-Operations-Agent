@@ -17,3 +17,14 @@ Default evidence candidates:
 - `/var/log/journal`
 
 Sites with non-standard Slurm paths can adjust `slurmEvidenceCollector.roots`; the default install already attempts the common locations above.
+
+## Job logs in Loki
+
+To investigate Slurm jobs through Loki without head-node access, configure your
+logging platform to collect job output and Slurm daemon logs. Include job IDs and
+node names as labels or searchable fields so Mosaic can correlate logs with job
+accounting and node metrics. Collecting Kubernetes logs alone does not provide
+Slurm job logs.
+
+[Connect Mosaic to Loki](installation.md#read-only-loki-logs), then verify access
+by asking for logs from a known job ID and its execution time range.
