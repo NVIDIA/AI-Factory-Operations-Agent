@@ -15,6 +15,10 @@ const ALWAYS_MUTATING_TOOLS = new Set([
   "write",
 ]);
 
+// View mode protects monitored workloads and infrastructure from changes.
+// Saving a Grafana dashboard persists a visualization of observed data, which is
+// part of the View workflow. Both dashboard creation tools are intentionally
+// allowed here; a Grafana API write alone does not make an action require Edit.
 const READ_ONLY_TOOLS = new Set([
   "agents_list",
   "bcm_execute_cmsh",
@@ -25,7 +29,6 @@ const READ_ONLY_TOOLS = new Set([
   "bcm_node_health_summary",
   "bcm_search_notes",
   "bcm_search_tools",
-  // Dashboard authoring is available in View mode as part of observation.
   "dashboard_create",
   "dashboard_list",
   "dashboard_open",

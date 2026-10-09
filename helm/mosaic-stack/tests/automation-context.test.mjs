@@ -151,3 +151,13 @@ test("applies explicit per-server MCP tool access without trusting unknown serve
   assert.equal(toolAccess("unconfigured__inspect"), "unknown");
   configureMcpToolPolicies(undefined);
 });
+
+// Dashboard persistence is an observation workflow, not infrastructure mutation.
+test("View permits dashboard authoring while infrastructure changes still require Edit", () => {
+  for (const name of ["dashboard_create", "grafana_dashboard_create"]) {
+    assert.equal(toolRequiresEdit(name), false, name);
+  }
+  for (const name of ["run_kubectl_admin", "bcm_execute_cmsh_admin", "apply_patch"]) {
+    assert.equal(toolRequiresEdit(name), true, name);
+  }
+});
