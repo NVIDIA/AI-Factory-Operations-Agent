@@ -25,6 +25,8 @@ const READ_ONLY_TOOLS = new Set([
   "bcm_node_health_summary",
   "bcm_search_notes",
   "bcm_search_tools",
+  // Dashboard authoring is available in View mode as part of observation.
+  "dashboard_create",
   "dashboard_list",
   "dashboard_open",
   "dcgm_current",
@@ -35,6 +37,7 @@ const READ_ONLY_TOOLS = new Set([
   "find",
   "get_goal",
   "glob",
+  "grafana_dashboard_create",
   "grafana_dashboard_health",
   "grafana_dashboard_open",
   "grafana_dashboard_presets",
