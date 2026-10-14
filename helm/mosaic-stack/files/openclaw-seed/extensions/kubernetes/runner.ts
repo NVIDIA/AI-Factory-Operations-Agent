@@ -72,3 +72,17 @@ export function runKubectl(
     }, timeoutMs);
   });
 }
+
+export function toolResult(payload: { command: string[]; [key: string]: unknown }) {
+  const { command, stdout, stderr, ...result } = payload;
+  return {
+    content: [
+      { type: "text", text: `${command.join(" ")}\n${JSON.stringify(result, null, 2)}` },
+      ...Object.entries({ stdout, stderr }).flatMap(([name, value]) =>
+        typeof value === "string" && value ? [{ type: "text", text: `${name}:\n${value}` }] : []),
+    ],
+    isError: payload.blocked === true || payload.previousStatus === "failed"
+      || (typeof payload.exitCode === "number" && payload.exitCode !== 0),
+    details: payload,
+  };
+}

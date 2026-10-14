@@ -6,7 +6,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { runKubectl } from "../files/openclaw-seed/extensions/kubernetes/runner.ts";
+import { runKubectl, toolResult } from "../files/openclaw-seed/extensions/kubernetes/runner.ts";
 
 const directory = mkdtempSync(path.join(tmpdir(), "mosaic-kubectl-runner-"));
 const command = path.join(directory, "kubectl");
@@ -54,4 +54,18 @@ test("passes an apply manifest only over stdin", async () => {
     stdout: "manifest-data",
     stderr: "",
   });
+});
+
+test("preserves raw command streams and structured execution metadata", () => {
+  for (const stdout of ["name\tvalue\nalpha\t+7\nbeta\t-3\n", 'title: "a\\b"\nmessage: café\n']) {
+    const payload = {command: ["kubectl", "example"], cluster: "sample", exitCode: 7, stdout, stderr: "warning\nnext line\n"};
+    const result = toolResult(payload);
+    assert.deepEqual(result.details, payload);
+    assert.ok(result.content[0].text.startsWith(payload.command.join(" ") + "\n"));
+    assert.ok(result.content.some(block => block.text.includes(stdout)));
+    assert.ok(result.content.some(block => block.text.includes(payload.stderr)));
+    assert.equal(result.isError, true);
+  }
+  assert.equal(toolResult({command: ["kubectl", "example"], exitCode: 0, stdout: "", stderr: ""}).isError, false);
+  assert.equal(toolResult({command: ["kubectl", "example"], blocked: true, executed: false}).isError, true);
 });

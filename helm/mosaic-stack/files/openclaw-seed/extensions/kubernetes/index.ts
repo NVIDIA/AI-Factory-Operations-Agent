@@ -17,7 +17,7 @@ import {
   type KubectlRequest,
   type KubernetesClusterConfig,
 } from "./policy.ts";
-import { runKubectl } from "./runner.ts";
+import { runKubectl, toolResult } from "./runner.ts";
 
 type KubernetesConfig = {
   command?: string;
@@ -44,13 +44,6 @@ function config(value: unknown): Required<KubernetesConfig> {
   };
 }
 
-function toolResult(payload: { command: string[]; [key: string]: unknown }) {
-  const { command, ...result } = payload;
-  return {
-    content: [{ type: "text", text: `${command.join(" ")}\n${JSON.stringify(result, null, 2)}` }],
-    details: payload,
-  };
-}
 
 function rejectedResult(error: unknown) {
   const reason = error instanceof Error ? error.message : "kubectl request was rejected";
@@ -213,7 +206,7 @@ export default definePluginEntry({
       name: "run_kubectl_admin",
       label: "Kubernetes Admin",
       description:
-        "Run exact kubectl arguments against a registered cluster when edit capability is required. Edit mode requires approval and Auto mode does not. Pass optional standard input as a string. Use run_kubectl for read-only operations.",
+        "Run exact kubectl arguments, including noninteractive exec inside existing pods for diagnostics or authorized changes. Pod exec uses this tool even when the child command only reads data; run_kubectl cannot execute commands in pods. Execution has the container’s existing device mounts and privileges. Edit mode requires approval and Auto mode does not. For scripts, use exec with -i before -- and send the script through stdin to bash -s. Without -i, kubectl does not forward stdin into the container. Use run_kubectl for resource reads.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -228,12 +221,12 @@ export default definePluginEntry({
             minItems: 1,
             maxItems: 64,
             items: { type: "string" },
-            description: "Exact kubectl arguments without the kubectl prefix.",
+            description: "Exact kubectl arguments as a JSON array, without the kubectl prefix; never a JSON-encoded string.",
           },
           stdin: {
             type: "string",
             maxLength: 1048576,
-            description: "Optional exact standard input for kubectl.",
+            description: "Optional exact standard input for kubectl. For exec, include -i before -- to forward it. Supply real newline characters for multiline scripts, not literal backslash-n sequences.",
           },
         },
       },
