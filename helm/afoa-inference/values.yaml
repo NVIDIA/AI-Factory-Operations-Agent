@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+image: vllm/vllm-openai@sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f
+imagePullSecrets: []
+model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+servedModelName: nemotron-super-120b
+gpuCount: 1
+tensorParallelSize: 1
+runtimeClassName: nvidia
+nodeSelector: {}
+tolerations: []
+# Create this Secret in the inference namespace before installing.
+auth:
+  existingSecret: afoa-inference-auth
+  apiKeySecretKey: apiKey
+# Optional Hugging Face download credential; separate from inference authentication.
+modelToken:
+  existingSecret: ""
+  secretKey: HF_TOKEN
+modelCache:
+  size: 500Gi
+  storageClassName: ""
+shmSize: 64Gi
+resources:
+  requests:
+    cpu: "8"
+    memory: 64Gi
+  limits:
+    cpu: "16"
+    memory: 128Gi
+extraArgs:
+  - --max-num-seqs=16
+  - --max-model-len=262144
+  - --gpu-memory-utilization=0.90
+  - --trust-remote-code
+  - --enable-auto-tool-choice
+  - --tool-call-parser
+  - qwen3_coder
+# Route through an existing internal ingress controller with a trusted TLS certificate.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tlsSecretName: ""

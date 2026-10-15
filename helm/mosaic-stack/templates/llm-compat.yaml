@@ -86,6 +86,10 @@ spec:
               value: {{ $c.port | quote }}
             - name: UPSTREAM_BASE_URL
               value: {{ include "mosaic-stack.llmUpstreamBaseUrl" . | quote }}
+            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/llm-ca/ca.crt
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ $c.port }}
@@ -98,10 +102,23 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            - name: llm-ca
+              mountPath: /etc/llm-ca
+              readOnly: true
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ $c.name }}
+        {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+        - name: llm-ca
+          secret:
+            secretName: {{ .Values.llm.external.caCertificateSecret | quote }}
+            items:
+              - key: {{ .Values.llm.external.caCertificateKey | quote }}
+                path: ca.crt
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

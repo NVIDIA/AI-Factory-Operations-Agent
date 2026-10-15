@@ -55,3 +55,8 @@ jobs:
 
       - name: Lint Helm chart
         run: helm lint helm/mosaic-stack
+
+      - name: Validate standalone inference
+        run: |
+          node --test helm/afoa-inference/tests/*.test.mjs
+          helm lint helm/afoa-inference

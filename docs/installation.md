@@ -102,6 +102,8 @@ After installing with your external endpoint, skip the on-prem inference instruc
 
 This path deploys the inference server on your cluster. Choose one model profile below. If you already have an inference endpoint, use [External inference](#external-inference) instead.
 
+To use the bundled on-prem inference profiles, the GPU nodes must belong to the same Kubernetes cluster as the agent's Helm release. For NMC deployments with separate admin and GPU workload clusters, use the [standalone inference example](nmc_installation.md#self-hosted-inference) and connect the agent with external inference settings.
+
 For chart-managed vLLM profiles, unpack the published chart once:
 
 ```bash

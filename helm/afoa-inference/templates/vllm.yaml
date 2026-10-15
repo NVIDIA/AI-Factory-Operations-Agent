@@ -1,0 +1,125 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      enableServiceLinks: false
+      containers:
+        - name: vllm
+          image: {{ .Values.image | quote }}
+          command: ["vllm"]
+          args:
+            - serve
+            - {{ .Values.model | quote }}
+            - --host=0.0.0.0
+            - --port=8000
+            - --tensor-parallel-size={{ .Values.tensorParallelSize }}
+            - --served-model-name={{ .Values.servedModelName }}
+            - '--default-chat-template-kwargs={"enable_thinking":false}'
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "auth.existingSecret is required" .Values.auth.existingSecret | quote }}
+                  key: {{ required "auth.apiKeySecretKey is required" .Values.auth.apiKeySecretKey | quote }}
+            {{- if .Values.modelToken.existingSecret }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modelToken.existingSecret | quote }}
+                  key: {{ .Values.modelToken.secretKey | quote }}
+            {{- end }}
+            - name: HF_HOME
+              value: /models
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /models
+            - name: VLLM_WORKER_MULTIPROC_METHOD
+              value: spawn
+            - name: NCCL_NVLS_ENABLE
+              value: "0"
+            - name: VLLM_ALLREDUCE_USE_SYMM_MEM
+              value: "0"
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 480
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            requests:
+              {{- toYaml .Values.resources.requests | nindent 14 }}
+              nvidia.com/gpu: {{ .Values.gpuCount | quote }}
+            limits:
+              {{- toYaml .Values.resources.limits | nindent 14 }}
+              nvidia.com/gpu: {{ .Values.gpuCount | quote }}
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.shmSize }}
+  volumeClaimTemplates:
+    - metadata:
+        name: model-cache
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.modelCache.size }}
+        {{- with .Values.modelCache.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

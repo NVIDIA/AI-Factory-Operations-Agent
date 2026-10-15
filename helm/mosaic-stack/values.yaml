@@ -108,6 +108,8 @@ llm:
     model: ""
     existingSecret: ""
     apiKeySecretKey: apiKey
+    caCertificateSecret: ""
+    caCertificateKey: ca.crt
   vllm:
     profile: super-1gpu
     name: vllm-nemotron

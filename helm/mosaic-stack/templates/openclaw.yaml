@@ -527,6 +527,10 @@ spec:
               {{- end }}
             - name: OPENCLAW_VLLM_BASE_URL
               value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
+            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/llm-ca/ca.crt
+            {{- end }}
             {{- if .Values.openclaw.slack.enabled }}
             - name: SLACK_BOT_TOKEN
               valueFrom:
@@ -638,6 +642,11 @@ spec:
             - name: runtime-tools
               mountPath: /tools
               readOnly: true
+            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            - name: llm-ca
+              mountPath: /etc/llm-ca
+              readOnly: true
+            {{- end }}
             {{- if not .Values.openshell.server.disableTls }}
             - name: openshell-client-tls
               mountPath: /home/node/.openclaw/.config/openshell/gateways/{{ include "mosaic-stack.openshellGatewayName" . }}/mtls
@@ -659,6 +668,14 @@ spec:
               readOnly: true
             {{- end }}
       volumes:
+        {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+        - name: llm-ca
+          secret:
+            secretName: {{ .Values.llm.external.caCertificateSecret | quote }}
+            items:
+              - key: {{ .Values.llm.external.caCertificateKey | quote }}
+                path: ca.crt
+        {{- end }}
         - name: openclaw-home
           persistentVolumeClaim:
             claimName: openclaw-home-pvc
