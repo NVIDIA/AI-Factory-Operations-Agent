@@ -160,7 +160,7 @@ path the Base Command Manager adapter will use:
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
 export CLUSTER_MANAGER_HEAD_HOST="$KIND_GATEWAY"
 export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
 export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'

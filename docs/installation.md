@@ -55,7 +55,7 @@ To install AI Factory Operations Agent with an external OpenAI-compatible LLM, s
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='nvidia/nemotron-3-super-120b-a12b'
+export EXTERNAL_LLM_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
 kubectl -n mosaic create secret generic mosaic-external-llm \
@@ -88,7 +88,7 @@ helm upgrade --install mosaic "$MOSAIC_CHART" \
 unset EXTERNAL_LLM_API_KEY
 ```
 
-The [NVIDIA API Catalog example](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/deploy) uses the public API base URL above. `build.nvidia.com` hosts the catalog; it is not the inference API base URL. Hosted inference requires your explicitly approved NVIDIA API key. For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
+The [NVIDIA API Catalog example](https://build.nvidia.com/nvidia/nemotron-3.5-super-vl-120b-a12b/deploy) uses the public API base URL above. `build.nvidia.com` hosts the catalog; it is not the inference API base URL. Hosted inference requires your explicitly approved NVIDIA API key. For OpenAI, use `EXTERNAL_LLM_BASE_URL=https://api.openai.com/v1` and a model available to the account. Do not put provider keys in committed values files.
 
 AI Factory Operations Agent requests `reasoning_effort: none` from external endpoints. For an independently managed vLLM server, also set its server default:
 
@@ -115,11 +115,11 @@ helm pull "$MOSAIC_CHART" \
 MOSAIC_CHART_PATH="$MOSAIC_CHART_WORKDIR/mosaic-stack"
 ```
 
-The chart defaults to Nemotron Super on one GPU, with 64 GiB of requested host memory and a 500 GiB model cache. GPU count alone does not establish compatibility: verify the GPU memory, architecture, driver, and pinned runtime against the model requirements.
+The chart defaults to Nemotron 3.5 Super VL NVFP4 on one compatible GPU, with 64 GiB of requested host memory and a 500 GiB model cache. GPU count alone does not establish compatibility: verify the GPU memory, architecture, driver, and pinned runtime against the model requirements.
 
-##### Nemotron Super
+##### Nemotron 3.5 Super VL
 
-To install AI Factory Operations Agent with Nemotron Super running on 1 GPU in vLLM, run:
+To install AI Factory Operations Agent with Nemotron 3.5 Super VL running on 1 GPU in vLLM, run:
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
@@ -141,6 +141,10 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --wait \
   --timeout 30m
 ```
+
+The Super profile pins the [Nemotron 3.5 Super VL checkpoint](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) and compatible vLLM image. It was validated on one B200 for text generation and automatic tool calling with 262,144-token context and 16 maximum concurrent sequences. Image/video input and production concurrency were not tested; the agent retains its existing text-input configuration.
+
+When upgrading from Nemotron 3 Super, preserve existing module and site values and the model-cache size, then apply `profiles/vllm-super-1gpu.yaml` last. The served model name changes to `nemotron-3.5-super-vl`; update external clients that used `nemotron-super-120b`. Restarting inference interrupts requests until the new checkpoint is ready. For shared endpoints, validate a separate inference release before switching clients.
 
 ##### Nemotron Ultra
 
@@ -460,7 +464,7 @@ model, and corpus path, then run:
 ```bash
 read -rsp 'NVIDIA embedding API key: ' NVIDIA_API_KEY; echo
 export IRAOP_API_KEY="$(openssl rand -hex 32)"
-export MOSAIC_CHAT_MODEL='nvidia/nemotron-3-super-120b-a12b'
+export MOSAIC_CHAT_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
 export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
 
 kubectl -n mosaic create secret generic iraop-secrets \

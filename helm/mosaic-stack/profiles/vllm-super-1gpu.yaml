@@ -4,10 +4,13 @@
 llm:
   mode: vllm
   vllm:
+    image:
+      repository: vllm/vllm-openai
+      digest: sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd
     profile: super-1gpu
     replicaCount: 1
-    model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
-    servedModelName: nemotron-super-120b
+    model: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+    servedModelName: nemotron-3.5-super-vl
     gpuCount: 1
     tensorParallelSize: 1
     modelCache:
@@ -20,6 +23,12 @@ llm:
         cpu: "16"
         memory: 128Gi
     extraArgs:
+      - --revision=8a115b9d966adce8c059a7bcf47f49a1e57957d8
+      - --reasoning-parser=nemotron_v3
+      - --mamba-backend=flashinfer
+      - --mamba-ssm-cache-dtype=float16
+      - --enable-mamba-cache-stochastic-rounding
+      - --mamba-cache-philox-rounds=5
       - --max-num-seqs=16
       - --max-model-len=262144
       - --gpu-memory-utilization=0.90

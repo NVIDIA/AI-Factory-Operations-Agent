@@ -234,7 +234,7 @@ test("pins every default runtime image", () => {
   const output = render();
   assert.ok(
     output.includes(
-      "vllm/vllm-openai@sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f",
+      "vllm/vllm-openai@sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd",
     ),
   );
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
@@ -409,7 +409,7 @@ test("configures chart-managed vLLM for non-thinking generation", () => {
 test("defaults to a single Super inference pod with one GPU", () => {
   const output = render("--show-only", "templates/vllm.yaml");
   assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
-  assert.match(output, /NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/);
+  assert.match(output, /NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4/);
   assert.match(output, /--tensor-parallel-size=1/);
   assert.equal((output.match(/nvidia.com\/gpu: "1"/g) ?? []).length, 2);
   assert.match(output, /memory: 64Gi/);

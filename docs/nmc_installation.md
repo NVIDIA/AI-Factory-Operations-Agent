@@ -90,7 +90,7 @@ Deploy inference in `k8s-user` and connect the agent in `k8s-admin` to its HTTPS
 
 Run from a checkout of this repository. The example chart is at `helm/afoa-inference`; it is separate from the published agent chart. You need:
 
-- A compatible GPU in `k8s-user`, the NVIDIA device plugin and a GPU runtime. The default [Nemotron Super profile](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) requests one GPU, 8 CPUs, 64 GiB host memory and a 500 GiB persistent cache. Check the model card for GPU memory and driver requirements.
+- A compatible GPU in `k8s-user`, the NVIDIA device plugin and a GPU runtime. The default [Nemotron 3.5 Super VL profile](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) requests one GPU, 8 CPUs, 64 GiB host memory and a 500 GiB persistent cache. Check the model card for GPU memory and driver requirements.
 - A StorageClass for the cache, plus access to the vLLM image and model weights.
 - An internal ingress controller, DNS name and TLS Secret. Admin-cluster pods must be able to reach that hostname on port 443 and trust its certificate.
 
@@ -123,13 +123,17 @@ helm upgrade --install afoa-inference ./helm/afoa-inference \
   --timeout 2h
 ```
 
+The default is Nemotron 3.5 Super VL NVFP4, validated on one B200 for text generation and automatic tool calling. The model revision and compatible vLLM image are pinned. GPU memory and architecture matter; one GPU does not mean every GPU is compatible.
+
+When upgrading from Nemotron 3 Super, preserve site settings and cache size, and update existing clients to the served name `nemotron-3.5-super-vl`. For shared endpoints, validate a separate inference release before switching clients.
+
 The first download and GPU kernel compilation can take more than 30 minutes. Wait for Helm to finish; startup checks are below.
 
 ### 3. Connect the agent
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://inference.example.com/v1'
-export EXTERNAL_LLM_MODEL='nemotron-super-120b'
+export EXTERNAL_LLM_MODEL='nemotron-3.5-super-vl'
 module load kubernetes/k8s-admin
 ```
 
@@ -240,7 +244,7 @@ const headers = {
 for (const [path, options] of [
   ['/models', {}],
   ['/chat/completions', {method: 'POST', body: JSON.stringify({
-    model: 'nemotron-super-120b',
+    model: 'nemotron-3.5-super-vl',
     messages: [{role: 'user', content: 'Reply with ready.'}],
     max_tokens: 32,
   })}],

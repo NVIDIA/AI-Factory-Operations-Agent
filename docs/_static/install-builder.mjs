@@ -72,7 +72,7 @@ export function buildCommand(state) {
   }
   if (enabled.has('research')) {
     set('modules.research.secrets.create', false);
-    set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : state.inference === 'ultra' ? 'nemotron-ultra-550b' : 'nemotron-super-120b', true);
+    set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : state.inference === 'ultra' ? 'nemotron-ultra-550b' : 'nemotron-3.5-super-vl', true);
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
@@ -103,7 +103,7 @@ if (root) {
     wrapper.append(input); return wrapper;
   }
   const optionBody = document.createElement('div'); optionBody.className = 'builder-settings'; options.append(optionBody);
-  optionBody.append(select('inference', 'Inference', [['external', 'Existing endpoint'], ['super', 'On-prem: Nemotron Super (1 GPU)'], ['ultra', 'On-prem: Nemotron Ultra (4 Blackwell GPUs)']]),
+  optionBody.append(select('inference', 'Inference', [['external', 'Existing endpoint'], ['super', 'On-prem: Nemotron 3.5 Super VL (1 GPU)'], ['ultra', 'On-prem: Nemotron Ultra (4 Blackwell GPUs)']]),
     select('channel', 'Chart channel', [['devel', 'Latest development'], ['stable', 'Latest stable']]));
   form.append(options);
   const moduleGroup = document.createElement('fieldset'); moduleGroup.innerHTML = '<legend>Modules</legend><p>UI and execution are always enabled. Required dependencies are selected automatically.</p>';
