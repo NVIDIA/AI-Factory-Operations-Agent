@@ -134,8 +134,10 @@ spec:
             {{- end }}
             - name: MOSAIC_AUDIT_DIR
               value: /var/lib/mosaic-audit
+            {{- with .Values.mosaicUi.disclosureText }}
             - name: MOSAIC_UI_DISCLOSURE_TEXT
-              value: {{ .Values.mosaicUi.disclosureText | quote }}
+              value: {{ . | quote }}
+            {{- end }}
             - name: MOSAIC_DASHBOARD_DIR
               value: /var/lib/mosaic-audit/dashboard
             - name: MOSAIC_PROMETHEUS_URL
