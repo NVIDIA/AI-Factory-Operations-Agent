@@ -234,6 +234,7 @@ mosaicUi:
     storageClassName: ""
   service:
     port: 3000
+  disclosureText: ""
   auth:
     create: true
     name: mosaic-ui-auth

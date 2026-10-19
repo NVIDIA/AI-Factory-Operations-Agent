@@ -200,6 +200,8 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 
 `mosaicUi.auth.existingSecret` is only for installations that manage credentials outside this chart. When it is set, the chart does not create or modify the Secret, so the externally managed Secret must provide `username`, `password`, and `machineToken`.
 
+Set `mosaicUi.disclosureText` to display your own plain-text notice on the sign-in page; the default is empty.
+
 Open `http://localhost:3000` and sign in with the username and password above.
 
 ## Extensions
