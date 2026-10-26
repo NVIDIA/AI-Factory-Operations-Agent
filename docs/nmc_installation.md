@@ -270,7 +270,12 @@ Use a directory readable by the configured account. The verified request returne
 If the tool is missing, inspect connector enablement and gateway startup. For connection timeouts, inspect the Pod-to-target network path. For authentication or host-key failures, check the configured account, credential and verified host identity without bypassing verification. A local `exec` result saying the sandbox is not ready belongs to the sandbox checks above and does not establish that an SSH client is missing.
 ## UI endpoint
 
-For a shared UI endpoint, follow the Base Command Manager-managed Run:ai pattern:
+For direct IP access, use the [MetalLB Service settings](installation.md#direct-ip-access-with-metallb).
+Supply an existing pool with a reserved, reachable address available to the agent
+namespace. This path requires no DNS, certificate or Gateway; it serves HTTP and
+preserves login authentication.
+
+For hostname-based HTTPS, follow the Base Command Manager-managed Run:ai pattern:
 a reserved MetalLB IP, DNS name and dedicated Kgateway HTTPS listener in front
 of the application's internal Service. Configure the Gateway in `k8s-admin`,
 with a certificate trusted by clients and covering the chosen AFOA hostname.
