@@ -181,6 +181,36 @@ The minimal installation includes the UI, headless interfaces, OpenClaw, and Ope
 
 ## Usage
 
+### Direct IP access with MetalLB
+
+On clusters with MetalLB installed, add this to your installation values:
+
+```yaml
+mosaicUi:
+  service:
+    type: LoadBalancer
+    annotations:
+      metallb.io/address-pool: afoa
+```
+
+Replace `afoa` with an existing MetalLB pool permitted to allocate an address to
+this namespace and Service. The cluster administrator reserves reachable IPs
+outside DHCP and configures the pool and its L2 or BGP advertisement. The agent
+chart does not install MetalLB or allocate network ranges.
+
+After installing, find the assigned address:
+
+```bash
+kubectl -n mosaic get service mosaic-ui
+```
+
+Open `http://<EXTERNAL-IP>:3000` and use the browser credentials described below.
+No DNS name, certificate, Gateway or port forwarding is required. Login remains
+required, but HTTP does not encrypt credentials or traffic. For encrypted access,
+use the HTTPS endpoint below. The default Service remains `ClusterIP`.
+
+### HTTPS access
+
 For a shared HTTPS endpoint, attach the UI to a site-managed Gateway:
 
 ```yaml

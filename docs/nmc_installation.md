@@ -84,7 +84,12 @@ Before following the shared upgrade workflow in a new shell, run `module load ku
 
 ## UI endpoint
 
-For a shared UI endpoint, follow the Base Command Manager-managed Run:ai pattern:
+For direct IP access, use the [MetalLB Service settings](installation.md#direct-ip-access-with-metallb).
+Supply an existing pool with a reserved, reachable address available to the agent
+namespace. This path requires no DNS, certificate or Gateway; it serves HTTP and
+preserves login authentication.
+
+For hostname-based HTTPS, follow the Base Command Manager-managed Run:ai pattern:
 a reserved MetalLB IP, DNS name and dedicated Kgateway HTTPS listener in front
 of the application's internal Service. Configure the Gateway in `k8s-admin`,
 with a certificate trusted by clients and covering the chosen AFOA hostname.
