@@ -1,0 +1,11 @@
+{{/* SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0 */}}
+{{- if and .Values.observability.grafanaUrl (not .Values.observability.grafanaAuth.existingSecret) }}
+Warning: Grafana is configured without authentication credentials.
+If Grafana requires authentication, dashboard discovery, creation and display
+will fail with HTTP 401. Set observability.grafanaAuth.existingSecret to a Secret
+in this release's namespace containing the configured usernameKey and passwordKey
+(defaults: username and password).
+Credentials may be omitted for Grafana installations that allow anonymous access
+with the permissions needed by these operations. Helm does not verify Grafana connectivity.
+{{- end }}
