@@ -179,6 +179,45 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
 
 The minimal installation includes the UI, headless interfaces, OpenClaw, and OpenShell. Configure the modules needed for your cluster using the [Extensions](#extensions) instructions, then continue to [Usage](#usage).
 
+### Optional Nemotron 3.5 Bolt 74B BF16
+
+Use `profiles/vllm-bolt-74b-bf16-1gpu.yaml` instead of the Super profile to select
+`nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16`, served as `nemotron-3.5-bolt`.
+The standalone `helm/afoa-inference` chart has the equivalent
+`profiles/bolt-74b-bf16-1gpu.yaml` override. Existing defaults remain Super VL.
+
+This profile targets one B200 with 180 GiB of memory, tensor parallelism 1,
+262,144-token maximum context and one concurrent sequence. The BF16 weights
+occupy approximately 150 GB; the separate 24GB Bolt quantization targets b12x
+hardware and is not selected by this profile. Context and concurrency consume
+additional memory; measure your workload before increasing either setting.
+
+Bolt uses the upstream thinking mode. To disable thinking for an individual
+request, send `chat_template_kwargs: {"enable_thinking": false}` in that request;
+the model's parser uses this request field to distinguish content from reasoning.
+The other profiles retain their existing disabled-thinking default.
+
+The profile pins both the checkpoint and the vLLM image from the
+[official serving recipe](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16).
+An init container fetches the model's reasoning parser from that same immutable
+checkpoint into a shared volume. It uses the serving image's existing `hf`
+command; no packages are installed and no image files are patched. Downloads
+require Hugging Face access, just like the model weights. `modelToken` in the
+standalone chart, or `llm.vllm.existingSecret` in the bundled chart, can supply
+a download credential if your environment requires one.
+
+For other model-provided plugins, set `modelRevision`, `modelFiles` and
+`extraEnv` alongside the corresponding serving arguments. A revision is required
+whenever additional model files are requested. Deploy a separate inference
+release to try Bolt without interrupting existing clients, then configure the UI
+with `llm.mode=external`, its `/v1` URL, `nemotron-3.5-bolt` and its authentication
+Secret, following the split inference deployment instructions. Set
+`llm.requestCompatibility.chatTemplateKwargs.enable_thinking=false` on that UI
+release. The compatibility proxy already requests disabled reasoning; this field
+makes the mode explicit for Bolt's parser, including non-streaming requests.
+The bundled Bolt profile includes this setting. Caller-provided chat-template
+kwargs take precedence over the proxy defaults.
+
 ## Usage
 
 After installing with either inference path, open the UI by running:

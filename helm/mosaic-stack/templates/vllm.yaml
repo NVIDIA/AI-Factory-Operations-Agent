@@ -37,6 +37,32 @@ spec:
       runtimeClassName: {{ $v.runtimeClassName }}
       {{- end }}
       enableServiceLinks: false
+      {{- if $v.modelFiles }}
+      initContainers:
+        - name: model-files
+          image: {{ include "mosaic-stack.image" $v.image | quote }}
+          command: ["hf", "download"]
+          args:
+            - {{ $v.model | quote }}
+            {{- range $v.modelFiles }}
+            - {{ . | quote }}
+            {{- end }}
+            - --revision
+            - {{ required "modelRevision is required when modelFiles are configured" $v.modelRevision | quote }}
+            - --local-dir
+            - /model-files
+          {{- if $v.existingSecret }}
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $v.existingSecret | quote }}
+                  key: {{ $v.modelTokenSecretKey | quote }}
+          {{- end }}
+          volumeMounts:
+            - name: model-files
+              mountPath: /model-files
+      {{- end }}
       containers:
         - name: vllm
           image: {{ include "mosaic-stack.image" $v.image | quote }}
@@ -49,11 +75,17 @@ spec:
             - --port={{ $v.port }}
             - --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }}
             - --served-model-name={{ $v.servedModelName }}
-            - {{ "--default-chat-template-kwargs={\"enable_thinking\":false}" | quote }}
+            {{- if $v.modelRevision }}
+            - --revision={{ $v.modelRevision }}
+            {{- end }}
+            - {{ printf "--default-chat-template-kwargs=%s" (toJson $v.chatTemplateKwargs) | quote }}
             {{- range $v.extraArgs }}
             - {{ . | quote }}
             {{- end }}
           env:
+            {{- with $v.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
             {{- if $v.existingSecret }}
             - name: HF_TOKEN
               valueFrom:
@@ -97,11 +129,20 @@ spec:
 {{ toYaml $v.resources.limits | indent 14 }}
               nvidia.com/gpu: {{ $v.gpuCount | quote }}
           volumeMounts:
+            {{- if $v.modelFiles }}
+            - name: model-files
+              mountPath: /model-files
+              readOnly: true
+            {{- end }}
             - name: model-cache
               mountPath: /models
             - name: dshm
               mountPath: /dev/shm
       volumes:
+        {{- if $v.modelFiles }}
+        - name: model-files
+          emptyDir: {}
+        {{- end }}
         - name: dshm
           emptyDir:
             medium: Memory
