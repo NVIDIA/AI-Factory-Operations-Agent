@@ -190,6 +190,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mosaic-ui
+  {{- with .Values.mosaicUi.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app: mosaic-ui
     {{- include "mosaic-stack.labels" . | nindent 4 }}
@@ -200,5 +204,5 @@ spec:
     - name: http
       port: {{ .Values.mosaicUi.service.port }}
       targetPort: http
-  type: ClusterIP
+  type: {{ .Values.mosaicUi.service.type | default "ClusterIP" }}
 {{- end }}

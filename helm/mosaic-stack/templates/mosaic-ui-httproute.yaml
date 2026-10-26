@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- $route := .Values.mosaicUi.httpRoute | default dict }}
+{{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled $route.enabled }}
+{{- if not $route.parentRefs }}
+{{- fail "mosaicUi.httpRoute.parentRefs is required when HTTPRoute is enabled" }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mosaic-ui
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    {{- toYaml $route.parentRefs | nindent 4 }}
+  hostnames:
+    - {{ required "mosaicUi.httpRoute.hostname is required when HTTPRoute is enabled" $route.hostname | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: mosaic-ui
+          port: {{ .Values.mosaicUi.service.port }}
+{{- end }}

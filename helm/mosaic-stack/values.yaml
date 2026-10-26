@@ -233,7 +233,13 @@ mosaicUi:
     size: 1Gi
     storageClassName: ""
   service:
+    type: ClusterIP
     port: 3000
+    annotations: {}
+  httpRoute:
+    enabled: false
+    hostname: ""
+    parentRefs: []
   auth:
     create: true
     name: mosaic-ui-auth
