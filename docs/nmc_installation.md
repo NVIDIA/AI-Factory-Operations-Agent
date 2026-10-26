@@ -82,6 +82,26 @@ The command is a complete declaration and can be rerun unchanged. The SSH privat
 
 Before following the shared upgrade workflow in a new shell, run `module load kubernetes/k8s-admin` to select the NMC admin cluster.
 
+## UI endpoint
+
+For a shared UI endpoint, follow the Base Command Manager-managed Run:ai pattern:
+a reserved MetalLB IP, DNS name and dedicated Kgateway HTTPS listener in front
+of the application's internal Service. Configure the Gateway in `k8s-admin`,
+with a certificate trusted by clients and covering the chosen AFOA hostname.
+Use the [HTTPS settings](installation.md#usage) to attach the chart's HTTPRoute.
+The Gateway must allow routes from the agent namespace.
+
+The site owns MetalLB, IP reservations, Gateway, DNS and certificates; the agent
+chart owns its Service and HTTPRoute. See the [BCM Gateway API release notes](https://docs.nvidia.com/base-command-manager/bcm-11-release-notes/bcm11-33-0.html).
+BCM also supports [custom DNS zones](https://docs.nvidia.com/base-command-manager/product-manuals/admin/configuring)
+through its preserved DNS include file. Clients must use a resolver that knows
+the site's AFOA record and trust its certificate issuer. An IP assignment alone
+does not configure DNS or client trust.
+
+Keep the shared-user release in a separate namespace from development, with its
+own pods and storage. Preserve existing endpoints during validation. A Gateway
+in `k8s-user` cannot directly reference the admin-cluster UI Service.
+
 ## Self-hosted inference
 
 Deploy inference in `k8s-user` and connect the agent in `k8s-admin` to its HTTPS endpoint. If you already have an OpenAI-compatible endpoint, skip to [Install the agent](#install-the-agent).

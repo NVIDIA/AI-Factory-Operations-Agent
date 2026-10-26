@@ -181,6 +181,33 @@ The minimal installation includes the UI, headless interfaces, OpenClaw, and Ope
 
 ## Usage
 
+For a shared HTTPS endpoint, attach the UI to a site-managed Gateway:
+
+```yaml
+mosaicUi:
+  httpRoute:
+    enabled: true
+    hostname: afoa.example.com
+    parentRefs:
+      - name: afoa-gateway
+        namespace: afoa
+        sectionName: https
+```
+
+The chart creates an `HTTPRoute` to the internal UI Service and preserves the
+existing login. The site manages Kgateway, the MetalLB address, DNS and a trusted
+certificate covering the hostname. The Gateway must be in the same cluster and
+allow routes from the agent namespace. For BCM-managed NMC installations, use a
+dedicated HTTPS Gateway to follow the Run:ai endpoint pattern. Keep development
+and shared-user releases in separate namespaces to isolate upgrades.
+
+Check that the Gateway reports `Accepted=True` and `Programmed=True`, and the
+route reports `Accepted=True` and `ResolvedRefs=True`. Verify certificate trust,
+login and a streamed response from the users' network before changing existing
+access paths. Keep all site infrastructure configuration in tracked source.
+
+Port forwarding remains available:
+
 After installing with either inference path, open the UI by running:
 
 ```bash
