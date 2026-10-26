@@ -101,6 +101,8 @@ kubernetes:
 
 llm:
   mode: vllm
+  # Enable only when the inference endpoint supports structured reasoning output.
+  reasoning: false
   requestCompatibility:
     enabled: true
     name: llm-openai-compat

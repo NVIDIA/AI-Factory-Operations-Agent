@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const chart = fileURLToPath(new URL("..", import.meta.url));
 const slackManifest = fileURLToPath(new URL("../profiles/slack-app-manifest.json", import.meta.url));
@@ -1184,5 +1185,26 @@ test("configures a tenant-scoped VictoriaMetrics backend and native Grafana data
   }
   for (const template of ["templates/openclaw.yaml", "templates/mosaic-ui.yaml"]) {
     assert.ok(render(...args, "--show-only", template).includes(endpoint));
+  }
+});
+
+
+test("reasoning endpoints preserve reasoning requests while legacy defaults remain compatible", () => {
+  for (const enabled of [false, true]) {
+    const args = ["--set", `llm.reasoning=${enabled}`];
+    const seed = render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml");
+    const config = JSON.parse(configMapBlock(seed, "openclaw.json"));
+    assert.equal(config.models.providers.llm.models[0].reasoning, enabled);
+    assert.equal(config.agents.defaults.thinkingDefault, enabled ? "low" : "off");
+    const proxy = render(...args, "--show-only", "templates/llm-compat.yaml");
+    const code = configMapBlock(proxy, "server.js");
+    const patch = runInNewContext(`${code}\npatchBody`, {
+      URL, Buffer,
+      process: { env: { UPSTREAM_BASE_URL: "https://inference.example.com/v1" } },
+      require: () => ({ createServer: () => ({ listen() {} }) }),
+    });
+    const body = { model: "example-model", reasoning_effort: "low", messages: [{ role: "user", content: "Inspect the available inventory." }] };
+    const result = JSON.parse(patch({ method: "POST", url: "/v1/chat/completions" }, Buffer.from(JSON.stringify(body))).toString());
+    assert.deepEqual(result, { ...body, reasoning_effort: enabled ? "low" : "none" });
   }
 });

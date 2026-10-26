@@ -72,7 +72,7 @@
         "observability",
         "slurm"
       ],
-      "thinkingDefault": "off",
+      "thinkingDefault": {{ ternary "low" "off" .Values.llm.reasoning | quote }},
       "reasoningDefault": "off",
       {{- if .Values.openclaw.slack.enabled }}
       "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
@@ -89,7 +89,7 @@
         "id": "default",
         "name": "OpenClaw Assistant",
         "workspace": "~/.openclaw/workspace",
-        "thinkingDefault": "off",
+        "thinkingDefault": {{ ternary "low" "off" .Values.llm.reasoning | quote }},
         "reasoningDefault": "off"
       }
     ]
@@ -179,7 +179,7 @@
           {
             "id": {{ include "mosaic-stack.llmModel" . | quote }},
             "name": {{ include "mosaic-stack.llmModel" . | quote }},
-            "reasoning": false,
+            "reasoning": {{ .Values.llm.reasoning | toJson }},
             "input": [
               "text"
             ],

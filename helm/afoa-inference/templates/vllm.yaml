@@ -43,7 +43,7 @@ spec:
             - --port=8000
             - --tensor-parallel-size={{ .Values.tensorParallelSize }}
             - --served-model-name={{ .Values.servedModelName }}
-            - '--default-chat-template-kwargs={"enable_thinking":false}'
+            - {{ printf "--default-chat-template-kwargs=%s" (.Values.chatTemplateKwargs | toJson) | quote }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}

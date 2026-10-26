@@ -286,3 +286,19 @@ JS
 Use your configured served model name in the completion check if you changed the default. HTTP 200 for both requests establishes DNS, routing, TLS trust, authentication, and basic inference from the admin cluster. Then ask a short question through the agent UI to verify the full agent path. TLS errors require correcting certificate trust, timeouts require checking routing or server readiness, and 401 responses indicate mismatched keys.
 
 </details>
+
+
+### Reasoning-capable inference
+
+For a Nemotron endpoint that separates reasoning from final content, configure
+vLLM with the model's supported reasoning parser (for this profile,
+`--reasoning-parser=nemotron_v3`). Set `chatTemplateKwargs.enable_thinking: true`
+in inference values and `llm.reasoning: true` in agent values. The agent then
+requests low-effort reasoning and the compatibility proxy preserves that request.
+The endpoint must return reasoning in its structured reasoning field; do not
+strip planning text from final answers using phrase matching.
+
+These settings default to disabled to preserve existing endpoints. Coordinate
+an inference rollout with every deployment using that endpoint; it reloads the
+model. Verify multi-turn conversations, tool calls and final answers after the
+rollout, including existing histories that contain a failed response.
