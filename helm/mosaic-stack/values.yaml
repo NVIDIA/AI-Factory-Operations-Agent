@@ -292,6 +292,10 @@ mosaicUi:
     storageClassName: ""
   service:
     port: 3000
+  httpRoute:
+    enabled: false
+    hostname: ""
+    parentRefs: []
   auth:
     create: true
     name: mosaic-ui-auth
