@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+image: vllm/vllm-openai@sha256:a7deff2c216def98c193352aca50fb03a2ee29231355b3033dc3789009f6d23e
+model: nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16
+servedModelName: nemotron-3.5-bolt
+modelRevision: e09a4cedb1787db1760375ee5539f222cae0c672
+modelFiles:
+  - ultra_v3_reasoning_parser.py
+gpuCount: 1
+tensorParallelSize: 1
+chatTemplateKwargs:
+  enable_thinking: true
+extraEnv:
+  - name: VLLM_USE_V2_MODEL_RUNNER
+    value: "1"
+extraArgs:
+  - --trust-remote-code
+  - --load-format=auto
+  - --max-model-len=262144
+  - --max-num-seqs=1
+  - --gpu-memory-utilization=0.90
+  - --enable-chunked-prefill
+  - --attention-backend=FLASHINFER
+  - --mamba-backend=flashinfer
+  - --seed=42
+  - --enable-auto-tool-choice
+  - --tool-call-parser=qwen3_coder
+  - --reasoning-parser-plugin=/model-files/ultra_v3_reasoning_parser.py
+  - --reasoning-parser=ultra_v3

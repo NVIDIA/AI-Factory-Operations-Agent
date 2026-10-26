@@ -104,6 +104,7 @@ llm:
   requestCompatibility:
     enabled: true
     name: llm-openai-compat
+    chatTemplateKwargs: {}
     port: 8000
   external:
     baseUrl: ""
@@ -122,6 +123,12 @@ llm:
       pullPolicy: IfNotPresent
     model: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
     servedModelName: nemotron-3.5-super-vl
+    # Pin the checkpoint when downloading additional model files, such as parser plugins.
+    modelRevision: ""
+    modelFiles: []
+    extraEnv: []
+    chatTemplateKwargs:
+      enable_thinking: false
     tensorParallelSize: 1
     gpuCount: 1
     port: 8000

@@ -32,6 +32,32 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       enableServiceLinks: false
+      {{- if .Values.modelFiles }}
+      initContainers:
+        - name: model-files
+          image: {{ .Values.image | quote }}
+          command: ["hf", "download"]
+          args:
+            - {{ .Values.model | quote }}
+            {{- range .Values.modelFiles }}
+            - {{ . | quote }}
+            {{- end }}
+            - --revision
+            - {{ required "modelRevision is required when modelFiles are configured" .Values.modelRevision | quote }}
+            - --local-dir
+            - /model-files
+          {{- if .Values.modelToken.existingSecret }}
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modelToken.existingSecret | quote }}
+                  key: {{ .Values.modelToken.secretKey | quote }}
+          {{- end }}
+          volumeMounts:
+            - name: model-files
+              mountPath: /model-files
+      {{- end }}
       containers:
         - name: vllm
           image: {{ .Values.image | quote }}
@@ -43,11 +69,17 @@ spec:
             - --port=8000
             - --tensor-parallel-size={{ .Values.tensorParallelSize }}
             - --served-model-name={{ .Values.servedModelName }}
-            - '--default-chat-template-kwargs={"enable_thinking":false}'
+            {{- if .Values.modelRevision }}
+            - --revision={{ .Values.modelRevision }}
+            {{- end }}
+            - {{ printf "--default-chat-template-kwargs=%s" (toJson .Values.chatTemplateKwargs) | quote }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}
           env:
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
             - name: VLLM_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -91,11 +123,20 @@ spec:
               {{- toYaml .Values.resources.limits | nindent 14 }}
               nvidia.com/gpu: {{ .Values.gpuCount | quote }}
           volumeMounts:
+            {{- if .Values.modelFiles }}
+            - name: model-files
+              mountPath: /model-files
+              readOnly: true
+            {{- end }}
             - name: model-cache
               mountPath: /models
             - name: dshm
               mountPath: /dev/shm
       volumes:
+        {{- if .Values.modelFiles }}
+        - name: model-files
+          emptyDir: {}
+        {{- end }}
         - name: dshm
           emptyDir:
             medium: Memory

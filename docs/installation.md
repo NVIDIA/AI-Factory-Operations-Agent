@@ -146,6 +146,12 @@ The Super profile pins the [Nemotron 3.5 Super VL checkpoint](https://huggingfac
 
 When upgrading from Nemotron 3 Super, preserve existing module and site values and the model-cache size, then apply `profiles/vllm-super-1gpu.yaml` last. The served model name changes to `nemotron-3.5-super-vl`; update external clients that used `nemotron-super-120b`. Restarting inference interrupts requests until the new checkpoint is ready. For shared endpoints, validate a separate inference release before switching clients.
 
+##### Nemotron 3.5 Bolt
+
+To use [Nemotron 3.5 Bolt 74B-A9B BF16](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16) on one B200, replace the Super profile above with `profiles/vllm-bolt-74b-bf16-1gpu.yaml`. It serves `nemotron-3.5-bolt` with 262,144-token context and one concurrent sequence. The BF16 weights use approximately 140 GiB of GPU memory.
+
+For standalone inference, use `helm/afoa-inference/profiles/bolt-74b-bf16-1gpu.yaml` and set `llm.requestCompatibility.chatTemplateKwargs.enable_thinking=false` on the connecting UI release.
+
 ##### Nemotron Ultra
 
 To install AI Factory Operations Agent with Nemotron Ultra running on four Blackwell GPUs on one node, run:
