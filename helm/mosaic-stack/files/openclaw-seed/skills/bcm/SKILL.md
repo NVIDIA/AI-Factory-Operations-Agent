@@ -44,3 +44,5 @@ Pass CMSH commands as the same semicolon-separated command string used by `cmsh 
 - `kubernetes; foreach * (show)`
 
 For broad cluster summaries, combine `bcm_get_info` with `bcm_execute_cmsh` command strings such as `kubernetes; list`, `category; list`, and `device; list`. For a short inventory, summarize the first rows returned by `device; list`; do not use shell pipes or `limit` inside CMSH.
+
+For BCM head-node utilities outside CMSH, use `bcm_execute_headnode_script` when available. Its `script` field selects a reviewed read-only script. `cm-get-product-key` reads the product key from the cluster certificate request without changing licensing; it accepts no arguments. Use `bcm_execute_cmsh` with `licenseinfo` for license status. Only retrieve the product key when requested and keep it out of investigation notes and telemetry. Additional scripts require review and an explicit entry in the adapter allowlist; never substitute arbitrary shell execution.

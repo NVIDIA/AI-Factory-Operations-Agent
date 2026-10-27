@@ -109,6 +109,43 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][:2], ["ssh", "head.example"])
         self.assertNotIn("pip", run.call_args.args[0][-1])
 
+    def test_headnode_scripts_run_only_reviewed_fixed_commands(self):
+        server = self.server()
+        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 0, b"example-key", b""))
+        for name, argv in self.module.HEADNODE_SCRIPTS.items():
+            with self.subTest(script=name):
+                result = server._run_headnode_script(name)
+                self.assertIn("# Result: OK", result)
+                self.assertIn("example-key", result)
+                self.assertEqual(self.module.shlex.split(server._ssh.call_args.args[0]), list(argv))
+                self.assertEqual(server._ssh.call_args.args[1], server.cmsh_exec_timeout)
+
+    def test_unpermitted_script_requests_never_reach_ssh(self):
+        server = self.server()
+        server._ssh = Mock()
+        for name in ["unknown-utility", "/usr/bin/id", "../utility", "utility; id", "utility --write", ""]:
+            with self.subTest(script=name), self.assertRaises(ValueError):
+                server._run_headnode_script(name)
+        server._ssh.assert_not_called()
+
+    def test_headnode_script_errors_are_returned_without_retry(self):
+        server = self.server()
+        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 127, b"", b"utility missing"))
+        result = server._run_headnode_script(next(iter(self.module.HEADNODE_SCRIPTS)))
+        self.assertIn("# Result: ERROR", result)
+        self.assertIn("# Exit code: 127", result)
+        self.assertIn("utility missing", result)
+        server._ssh.assert_called_once()
+
+    def test_script_tool_is_available_without_cmsh_or_edit(self):
+        server = self.server()
+        server.cmsh_enabled = False
+        server._run_headnode_script = Mock(return_value="script result")
+        server.register_mosaic_tools()
+        tool = server.mcp._tool_manager._tools["execute_headnode_script"]
+        self.assertEqual(asyncio.run(tool("reviewed-script")), "script result")
+        server._run_headnode_script.assert_called_once_with("reviewed-script")
+
     def test_cmsh_identity_is_checked_once(self):
         server = self.server()
         server._ssh = Mock(return_value=subprocess.CompletedProcess([], 0, b"", b""))

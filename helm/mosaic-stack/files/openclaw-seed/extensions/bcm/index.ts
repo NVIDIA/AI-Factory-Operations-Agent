@@ -755,6 +755,27 @@ export default definePluginEntry({
       },
     });
 
+    if (config.mcpMode === "ssh-adapter") registerTool({
+      name: "bcm_execute_headnode_script",
+      label: "BCM Head-node Script",
+      description: "Run a selectively permitted read-only BCM script on the configured head node. cm-get-product-key reads the cluster product key without changing the license.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["script"],
+        properties: {
+          script: { type: "string", enum: ["cm-get-product-key"] },
+        },
+      },
+      async execute(_toolCallId: string, rawParams: Record<string, unknown>) {
+        // Keep sensitive script output out of the shared cache and UI telemetry.
+        return toOpenClawResult(await bcmRpc(config, "tools/call", {
+          name: "execute_headnode_script",
+          arguments: { script: stringParam(rawParams.script) },
+        }));
+      },
+    });
+
     if (config.cmshEnabled) registerTool({
       name: "bcm_execute_cmsh",
       label: "BCM Execute CMSH",
