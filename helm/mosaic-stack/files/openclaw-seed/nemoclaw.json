@@ -112,12 +112,26 @@
   },
   {{- end }}
   "tools": {
+    {{- if .Values.modules.webSearch.enabled }}
+    "web": {
+      "search": {
+        "enabled": true,
+        "provider": "brave"
+      }
+    },
+    {{- end }}
     "alsoAllow": [
+      {{- if .Values.modules.webSearch.enabled }}
+      "web_search",
+      {{- end }}
       "group:plugins"
     ],
     "sandbox": {
       "tools": {
         "alsoAllow": [
+          {{- if .Values.modules.webSearch.enabled }}
+          "web_search",
+          {{- end }}
           "group:plugins"
         ]
       }
@@ -201,6 +215,9 @@
   },
   "plugins": {
     "allow": [
+      {{- if .Values.modules.webSearch.enabled }}
+      "brave",
+      {{- end }}
       "automation-guard",
       "bcm",
       "hardware-agent",
@@ -215,6 +232,16 @@
       "slack"{{- end }}
     ],
     "entries": {
+      {{- if .Values.modules.webSearch.enabled }}
+      "brave": {
+        "enabled": true,
+        "config": {
+          "webSearch": {
+            "apiKey": "${BRAVE_API_KEY}"
+          }
+        }
+      },
+      {{- end }}
       "automation-guard": {
         "enabled": true,
         "hooks": {

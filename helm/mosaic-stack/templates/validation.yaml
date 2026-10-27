@@ -1,6 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if .Values.modules.webSearch.enabled -}}
+{{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
+{{- fail "modules.webSearch.enabled requires modules.execution.enabled=true and openclaw.enabled=true" -}}
+{{- end -}}
+{{- if not (and .Values.webSearch.existingSecret .Values.webSearch.apiKeySecretKey) -}}
+{{- fail "webSearch.existingSecret and webSearch.apiKeySecretKey are required when web search is enabled" -}}
+{{- end -}}
+{{- end -}}
+
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}

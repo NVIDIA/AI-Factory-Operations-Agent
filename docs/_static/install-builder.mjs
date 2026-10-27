@@ -5,7 +5,7 @@ const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
 export const modules = {
   kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
-  research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
+  research: 'Research', webSearch: 'Web search', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
 };
 const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
@@ -25,6 +25,7 @@ const fields = {
   evidenceRoot: ['Slurm evidence directory on the collector node', '', '/slurm'],
   evidenceNode: ['Slurm collector node hostname', '', 'slurm-login-node'],
   corpus: ['Research corpus directory on the node', '', '/cm/shared/iraop-corpus'],
+  webSearchSecret: ['Brave Search Secret', 'mosaic-web-search'], webSearchKey: ['Brave Search Secret key', 'BRAVE_API_KEY'],
 };
 export function enabledModules(state) {
   const enabled = new Set(state.modules || []);
@@ -75,6 +76,10 @@ export function buildCommand(state) {
     set('modules.research.secrets.create', false);
     set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : state.inference === 'ultra' ? 'nemotron-ultra-550b' : 'nemotron-3.5-super-vl', true);
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
+  }
+  if (enabled.has('webSearch')) {
+    set('webSearch.existingSecret', value('webSearchSecret'), true);
+    set('webSearch.apiKeySecretKey', value('webSearchKey'), true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
   if (state.sandboxInstalled) set('agentSandbox.install', false);
@@ -146,6 +151,7 @@ if (root) {
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
+      if (enabled.has('webSearch')) keys.push('webSearchSecret', 'webSearchKey');
       for (const key of keys) {
         if (key === 'grafanaType') {
           settingsBody.append(select(key, fields[key][0], [['prometheus', 'Prometheus'], ['victoriametrics-metrics-datasource', 'VictoriaMetrics (native plugin)']]));
@@ -167,6 +173,7 @@ if (root) {
     if (enabled.has('grafana')) notes.push(`Create ${state.grafanaSecret || fields.grafanaSecret[1]} with keys username and password.`);
     if (enabled.has('bcm')) notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
+    if (enabled.has('webSearch')) notes.push(`Create ${state.webSearchSecret?.trim() || fields.webSearchSecret[1]} with a Brave Search API key. Search queries are sent to Brave Search.`);
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';
     if (catalog) renderSizing(sizing, catalog, state, enabled);

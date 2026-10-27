@@ -500,6 +500,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.openclaw.secrets.name }}
                   key: OPENCLAW_GATEWAY_TOKEN
+            {{- if .Values.modules.webSearch.enabled }}
+            - name: BRAVE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.webSearch.existingSecret | quote }}
+                  key: {{ .Values.webSearch.apiKeySecretKey | quote }}
+            {{- end }}
             {{- range $name, $config := .Values.managedMcpServers.servers }}
             {{- if $config.enabled }}
             {{- $server := mergeOverwrite (deepCopy $.Values.managedMcpServers.defaults) $config }}

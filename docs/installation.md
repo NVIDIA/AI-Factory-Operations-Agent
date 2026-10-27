@@ -473,6 +473,34 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
 
+### Web search
+
+Enable OpenClaw's native `web_search` tool with `modules.webSearch.enabled=true`.
+It uses Brave Search and runs in the existing agent gateway, with no additional
+service. Search queries are sent to Brave Search; results include source URLs.
+This is independent of the Research module and bundled product documentation.
+
+Provide a Secret in the release namespace containing a Brave Search API key,
+then add these values to your installation or upgrade configuration:
+
+```yaml
+modules:
+  webSearch:
+    enabled: true
+webSearch:
+  existingSecret: mosaic-web-search
+  apiKeySecretKey: BRAVE_API_KEY
+```
+
+`apiKeySecretKey` can name a different key in your Secret. The credential is
+injected into the gateway through a Secret reference and is not embedded in the
+seed ConfigMap. The gateway needs outbound HTTPS access to
+`api.search.brave.com`. Web search is a read-only tool available in View, Edit,
+and Auto modes. You can select **Web search** in the installation builder.
+
+The module is opt-in. Leaving it unselected adds no search configuration or
+credential requirement and preserves the runtime's existing defaults.
+
 ### Research
 
 To deploy the Research Agent and OpenSearch, set the embedding API key, active
