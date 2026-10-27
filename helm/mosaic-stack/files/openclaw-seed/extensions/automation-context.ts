@@ -23,6 +23,7 @@ const READ_ONLY_TOOLS = new Set([
   "agents_list",
   "bcm_execute_cmsh",
   "bcm_execute_tool",
+  "bcm_execute_headnode_script",
   "bcm_get_info",
   "bcm_health",
   "bcm_list_notes",

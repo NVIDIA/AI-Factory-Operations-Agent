@@ -22,6 +22,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 
+# Only reviewed, read-only scripts with fixed arguments belong here.
+HEADNODE_SCRIPTS = {
+    "cm-get-product-key": ("/cm/local/apps/cmd/sbin/cm-get-product-key",),
+}
+
+
 def valid_hostname(hostname: str) -> bool:
     return 0 < len(hostname) <= 63 and hostname[0].isalnum() and all(c.isalnum() or c == "-" for c in hostname)
 
@@ -148,6 +154,12 @@ class MosaicBCMServer(BCMServer):
         script = f"{shlex.quote(self.cmsh_path)} -c {shlex.quote(body)}"
         return self._result(self._ssh(script, self.cmsh_exec_timeout))
 
+    def _run_headnode_script(self, script: str) -> str:
+        argv = HEADNODE_SCRIPTS.get(script)
+        if argv is None:
+            raise ValueError(f"Script is not permitted. Available: {', '.join(HEADNODE_SCRIPTS)}")
+        return self._result(self._ssh(shlex.join(argv), self.cmsh_exec_timeout))
+
     def _run_hardware_cmsh(self, commands: str) -> str:
         result = self._ssh(f"{shlex.quote(self.cmsh_path)} -c {shlex.quote(commands)}", self.cmsh_exec_timeout)
         if result.returncode != 0:
@@ -239,6 +251,11 @@ class MosaicBCMServer(BCMServer):
         @self.mcp.tool()
         async def execute_cmsh(commands: str) -> str:
             return await asyncio.to_thread(self._run_cmsh, commands)
+
+        @self.mcp.tool()
+        async def execute_headnode_script(script: str) -> str:
+            """Run a reviewed read-only BCM head-node script. Available: cm-get-product-key (no arguments)."""
+            return await asyncio.to_thread(self._run_headnode_script, script)
 
         if self.cmsh_admin_enabled:
             @self.mcp.tool()

@@ -131,6 +131,7 @@ test("separates sandbox execution from external tool permissions", () => {
   assert.equal(toolRequiresEdit("run_kubectl"), false);
   assert.equal(toolRequiresEdit("hardware_analyze_dut"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
+  assert.equal(toolAccess("bcm_execute_headnode_script"), "read");
   assert.equal(toolRequiresEdit("observability_query"), false);
   assert.equal(toolRequiresEdit("third_party_delete_cluster"), true);
   assert.equal(toolAccess("third_party_delete_cluster"), "unknown");
