@@ -22,7 +22,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   prometheusUrl:'http://metrics:9090', alertmanagerUrl:'http://alerts:9093', grafanaUrl:'https://dashboards.example.com/grafana',
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
-  {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
+  {modules:[]}, {modules:['webSearch']}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -40,6 +40,14 @@ test('dependencies are derived without changing requested modules', () => {
   const state={modules:['diagnostics','terminal'],slurmBackend:'vanilla'};
   assert.deepEqual([...enabledModules(state)].sort(),['bcm','diagnostics','kubernetes','terminal']);
   assert.deepEqual(state.modules,['diagnostics','terminal']);
+});
+test('web search configures only the selected Secret reference', () => {
+  const args = argumentsFor({...example, modules:['webSearch'], webSearchSecret:'search-credentials', webSearchKey:'api-key'});
+  assert.deepEqual([...enabledModules({modules:['webSearch']})], ['webSearch']);
+  assert.ok(args.includes('modules.webSearch.enabled=true'));
+  assert.ok(args.includes('webSearch.existingSecret=search-credentials'));
+  assert.ok(args.includes('webSearch.apiKeySecretKey=api-key'));
+  assert.ok(!argumentsFor({...example, modules:[]}).some(arg => arg.startsWith('webSearch.')));
 });
 test('shell metacharacters remain literal arguments and Helm list separators are escaped', () => {
   for(const model of ["quoted' name,revision", 'model $(printf unsafe); $HOME']) {

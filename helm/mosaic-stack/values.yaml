@@ -57,6 +57,8 @@ modules:
       enabled: true
   diagnostics:
     enabled: false
+  webSearch:
+    enabled: false
   research:
     enabled: false
     timeoutMs: 240000
@@ -241,6 +243,11 @@ mosaicUi:
     username: operator
     password: ""
     machineToken: ""
+webSearch:
+  # Brave Search API credentials for OpenClaw's native web_search tool.
+  existingSecret: ""
+  apiKeySecretKey: BRAVE_API_KEY
+
 openclaw:
   enabled: true
   # Skill instructions included in every session, without a separate file read.
