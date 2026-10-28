@@ -259,6 +259,25 @@ openclaw:
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4
+  msteams:
+    enabled: false
+    pluginVersion: 2026.6.10
+    existingSecret: ""
+    appIdKey: MSTEAMS_APP_ID
+    appPasswordKey: MSTEAMS_APP_PASSWORD
+    tenantIdKey: MSTEAMS_TENANT_ID
+    # Microsoft Entra object IDs permitted in DMs and group conversations.
+    allowedUserIds: []
+    # Optional default outbound target, e.g. conversation:<conversation-id>.
+    defaultTo: ""
+    # Native OpenClaw team/channel configuration, keyed by Teams IDs.
+    teams: {}
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      host: ""
+      tlsSecretName: ""
   slack:
     enabled: false
     maxConcurrent: 8

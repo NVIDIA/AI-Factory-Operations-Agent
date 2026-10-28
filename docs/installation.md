@@ -321,6 +321,82 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Microsoft Teams
+
+Teams is optional and uses OpenClaw's native `msteams` plugin, pinned to the
+chart's OpenClaw release. It supports direct messages, group chats, channel
+mentions, and proactive messages with alert explanations.
+
+Register a single-tenant bot and install its Teams app in the intended personal,
+team, or group-chat scope using the [OpenClaw Teams setup guide](https://docs.openclaw.ai/channels/msteams/setup).
+Create a Kubernetes Secret in the release namespace containing
+`MSTEAMS_APP_ID`, `MSTEAMS_APP_PASSWORD`, and `MSTEAMS_TENANT_ID` from that registration.
+Keep the secret values outside Helm values and source control.
+
+Add these values to the release configuration:
+
+```yaml
+openclaw:
+  msteams:
+    enabled: true
+    existingSecret: mosaic-teams
+    allowedUserIds:
+      - "<Microsoft-Entra-user-object-ID>"
+    ingress:
+      enabled: true
+      className: nginx
+      host: teams.example.com
+      tlsSecretName: mosaic-teams-tls
+```
+
+Apply the configuration through the normal Helm upgrade workflow. Set the bot's
+messaging endpoint to `https://teams.example.com/api/messages`. This release's
+plugin listens on port `3978`; the optional ingress exposes only that exact
+webhook path. Bot Framework tokens are validated by the plugin. The OpenClaw
+gateway is not exposed by this ingress. Alternatively, leave the ingress disabled
+and route an existing HTTPS proxy to the `openclaw` Service's `msteams` port.
+Teams requires a reachable HTTPS endpoint with a trusted certificate.
+
+`allowedUserIds` applies to both direct and group messages. To enable specific
+team/channel conversations, add their IDs to the native `teams` mapping:
+
+```yaml
+openclaw:
+  msteams:
+    teams:
+      "<team-ID>":
+        channels:
+          "<channel-ID>":
+            requireMention: true
+```
+
+The existing conversation access policy applies: new conversations start in View.
+This integration does not add Teams-specific Edit approval controls. Slack can
+remain enabled alongside Teams, and Teams DMs use separate sessions per sender.
+
+For proactive alerts, first send a message to the installed bot in the destination
+conversation so OpenClaw records its conversation reference. Use that conversation
+ID as the outbound target. An OpenClaw scheduled job can deliver its generated
+explanation with this delivery configuration:
+
+```json
+{
+  "delivery": {
+    "mode": "announce",
+    "channel": "msteams",
+    "to": "conversation:<conversation-ID>"
+  }
+}
+```
+
+`openclaw.msteams.defaultTo` optionally sets a default outbound target for sends
+that omit a target; scheduled jobs can specify their own destination as above.
+The full explanation appears in the Teams message. Phone banners may show only a
+preview, and depend on Teams and operating-system notification settings. Tenant
+app approval and a real phone notification check are required before claiming
+end-to-end delivery. Basic text messaging does not require the additional
+SharePoint permissions used for channel file uploads.
+
 ### Access Modes
 
 Enable guarded write operations with the Edit module:

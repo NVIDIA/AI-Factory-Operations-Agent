@@ -79,6 +79,91 @@ function render(...args) {
   });
 }
 
+const teamsArgs = [
+  "--set", "openclaw.msteams.enabled=true",
+  "--set", "openclaw.msteams.existingSecret=teams-credentials",
+  "--set", "openclaw.msteams.allowedUserIds[0]=11111111-1111-4111-8111-111111111111",
+];
+
+test("Teams is optional and leaves the default runtime unchanged", () => {
+  const config = openclawConfig();
+  assert.equal(config.channels?.msteams, undefined);
+  assert.ok(!config.plugins.allow.includes("msteams"));
+  assert.equal(config.plugins.entries.msteams, undefined);
+  const output = render();
+  assert.doesNotMatch(output, /name: (?:init-msteams-plugin|MSTEAMS_APP_PASSWORD|openclaw-msteams)/);
+  assert.doesNotMatch(output, /containerPort: 3978/);
+});
+
+test("Teams configures native messaging, separate DM sessions, and outbound targets", () => {
+  const config = openclawConfig(...teamsArgs,
+    "--set-string", "openclaw.msteams.defaultTo=conversation:destination",
+    "--set-json", 'openclaw.msteams.teams={"team-one":{"channels":{"channel-one":{"requireMention":true}}}}',
+  );
+  const teams = config.channels.msteams;
+  assert.ok(config.plugins.allow.includes("msteams"));
+  assert.equal(config.plugins.entries.msteams.enabled, true);
+  assert.equal(teams.appPassword, "${MSTEAMS_APP_PASSWORD}");
+  assert.equal(teams.appId, "${MSTEAMS_APP_ID}");
+  assert.equal(teams.tenantId, "${MSTEAMS_TENANT_ID}");
+  assert.equal(teams.defaultTo, "conversation:destination");
+  assert.equal(teams.dmPolicy, "allowlist");
+  assert.deepEqual(teams.groupAllowFrom, teams.allowFrom);
+  assert.equal(teams.teams["team-one"].channels["channel-one"].requireMention, true);
+  assert.equal(config.session.dmScope, "per-channel-peer");
+});
+
+test("Teams preserves Slack configuration when both channels are enabled", () => {
+  const slackArgs = [
+    "--set", "openclaw.slack.enabled=true",
+    "--set", "openclaw.slack.existingSecret=slack-credentials",
+    "--set", "openclaw.slack.allowedUserIds[0]=U11111111",
+  ];
+  const slack = openclawConfig(...slackArgs);
+  const both = openclawConfig(...slackArgs, ...teamsArgs);
+  assert.deepEqual(both.channels.slack, slack.channels.slack);
+  assert.deepEqual(both.session, slack.session);
+  assert.deepEqual(both.messages, slack.messages);
+  assert.ok(both.plugins.allow.includes("slack"));
+  assert.equal(both.channels.msteams.enabled, true);
+});
+
+test("Teams reads credentials from configurable Secret keys and exposes only its webhook", () => {
+  const output = render(...teamsArgs,
+    "--set", "openclaw.msteams.appPasswordKey=client-secret",
+    "--set", "openclaw.msteams.ingress.enabled=true",
+    "--set", "openclaw.msteams.ingress.host=teams.example.com",
+    "--set", "openclaw.msteams.ingress.tlsSecretName=teams-tls",
+  );
+  assert.match(output, /@openclaw\/msteams@2026\.6\.10/);
+  assert.match(output, /name: MSTEAMS_APP_PASSWORD\s+valueFrom:\s+secretKeyRef:\s+name: "teams-credentials"\s+key: "client-secret"/);
+  const ingress = output.split("---").find(doc => doc.includes("kind: Ingress"));
+  assert.ok(ingress);
+  assert.match(ingress, /secretName: "teams-tls"/);
+  assert.match(ingress, /path: \/api\/messages\s+pathType: Exact/);
+  assert.match(ingress, /port:\s+name: msteams/);
+  assert.doesNotMatch(ingress, /gateway|18789/);
+  const config = openclawConfig(...teamsArgs);
+  assert.equal(config.channels.msteams.webhook.port, 3978);
+  assert.match(output, /port: 3978\s+targetPort: msteams/);
+  assert.equal(render(...teamsArgs).includes("kind: Ingress"), false);
+});
+
+test("Teams rejects incomplete credentials, access settings, and ingress hosts", () => {
+  for (const args of [
+    ["--set", "openclaw.msteams.enabled=true"],
+    [...teamsArgs, "--set", "openclaw.msteams.existingSecret="],
+    ["--set", "openclaw.msteams.enabled=true", "--set", "openclaw.msteams.existingSecret=teams-credentials"],
+    [...teamsArgs, "--set", "modules.execution.enabled=false"],
+    [...teamsArgs, "--set", "openclaw.enabled=false"],
+    [...teamsArgs, "--set", "openclaw.msteams.ingress.enabled=true"],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, ...args], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /openclaw\.msteams/);
+  }
+});
+
 function renderDiagnostics(...args) {
   return render(
     "--set", "modules.diagnostics.enabled=true",

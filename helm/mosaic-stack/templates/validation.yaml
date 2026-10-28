@@ -4,6 +4,20 @@
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
+{{- if .Values.openclaw.msteams.enabled -}}
+{{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
+{{- fail "openclaw.msteams.enabled requires modules.execution.enabled and openclaw.enabled" -}}
+{{- end -}}
+{{- if not .Values.openclaw.msteams.existingSecret -}}
+{{- fail "openclaw.msteams.existingSecret is required when Teams is enabled" -}}
+{{- end -}}
+{{- if empty .Values.openclaw.msteams.allowedUserIds -}}
+{{- fail "openclaw.msteams.allowedUserIds must contain at least one Microsoft Entra object ID" -}}
+{{- end -}}
+{{- if and .Values.openclaw.msteams.ingress.enabled (not .Values.openclaw.msteams.ingress.host) -}}
+{{- fail "openclaw.msteams.ingress.host is required when the Teams ingress is enabled" -}}
+{{- end -}}
+{{- end -}}
 {{- if not (has .Values.modules.slurm.backend (list "auto" "vanilla" "bcm")) -}}
 {{- fail "modules.slurm.backend must be one of: auto, vanilla, bcm" -}}
 {{- end -}}

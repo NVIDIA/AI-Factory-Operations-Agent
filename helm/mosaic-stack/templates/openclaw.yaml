@@ -306,6 +306,24 @@ spec:
             - name: remote-ssh-credentials
               mountPath: /credentials
         {{- end }}
+        {{- if .Values.openclaw.msteams.enabled }}
+        - name: init-msteams-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - node /app/dist/index.js plugins install {{ printf "@openclaw/msteams@%v" .Values.openclaw.msteams.pluginVersion | quote }} --force
+          env:
+            - name: HOME
+              value: /home/node
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+        {{- end }}
         {{- if .Values.openclaw.slack.enabled }}
         - name: init-slack-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
@@ -563,6 +581,15 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/llm-ca/ca.crt
             {{- end }}
+            {{- if .Values.openclaw.msteams.enabled }}
+            {{- range $env, $key := dict "MSTEAMS_APP_ID" .Values.openclaw.msteams.appIdKey "MSTEAMS_APP_PASSWORD" .Values.openclaw.msteams.appPasswordKey "MSTEAMS_TENANT_ID" .Values.openclaw.msteams.tenantIdKey }}
+            - name: {{ $env }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.openclaw.msteams.existingSecret | quote }}
+                  key: {{ $key | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.openclaw.slack.enabled }}
             - name: SLACK_BOT_TOKEN
               valueFrom:
@@ -648,6 +675,10 @@ spec:
                   key: {{ default "token" .Values.slurmEvidenceCollector.auth.secretKey }}
             {{- end }}
           ports:
+            {{- if .Values.openclaw.msteams.enabled }}
+            - containerPort: 3978
+              name: msteams
+            {{- end }}
             - containerPort: 18789
               name: gateway
           readinessProbe:
@@ -772,6 +803,11 @@ spec:
   selector:
     app: openclaw
   ports:
+    {{- if .Values.openclaw.msteams.enabled }}
+    - name: msteams
+      port: 3978
+      targetPort: msteams
+    {{- end }}
     - name: gateway
       port: {{ .Values.openclaw.service.port }}
       targetPort: gateway
