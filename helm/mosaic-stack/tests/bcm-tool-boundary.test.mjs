@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { toolAccess, toolRequiresEdit } from "../files/openclaw-seed/extensions/automation-context.ts";
 
 const plugin = readFileSync(
   new URL("../files/openclaw-seed/extensions/bcm/index.ts", import.meta.url),
@@ -65,6 +66,13 @@ const redfishToolNames = [
   "bcm_redfish_firmware",
   "bcm_redfish_get",
 ];
+
+test("classifies every registered Redfish tool as read-only in the global session policy", () => {
+  for (const name of redfishToolNames) {
+    assert.equal(toolAccess(name), "read", name);
+    assert.equal(toolRequiresEdit(name), false, name);
+  }
+});
 
 async function loadBcmPlugin() {
   const { registerHooks } = await import("node:module");
