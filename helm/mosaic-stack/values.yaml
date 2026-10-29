@@ -259,6 +259,9 @@ openclaw:
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4
+  weixin:
+    enabled: false
+    pluginVersion: 2.4.10
   slack:
     enabled: false
     maxConcurrent: 8

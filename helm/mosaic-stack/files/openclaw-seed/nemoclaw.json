@@ -94,10 +94,16 @@
       }
     ]
   },
-  {{- if .Values.openclaw.slack.enabled }}
+  {{- if .Values.openclaw.weixin.enabled }}
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  {{- else if .Values.openclaw.slack.enabled }}
   "session": {
     "dmScope": {{ .Values.openclaw.slack.session.dmScope | quote }}
   },
+  {{- end }}
+  {{- if .Values.openclaw.slack.enabled }}
   "diagnostics": {
     "enabled": true,
     "stuckSessionWarnMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionWarnMs }},
@@ -138,8 +144,15 @@
     "servers": {{ $managedMcpServers | toJson }}
   },
   {{- end }}
-  {{- if .Values.openclaw.slack.enabled }}
+  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.weixin.enabled }}
   "channels": {
+    {{- if .Values.openclaw.weixin.enabled }}
+    "openclaw-weixin": {
+      "enabled": true,
+      "quoteCache": { "enabled": false }
+    }{{- if .Values.openclaw.slack.enabled }},{{- end }}
+    {{- end }}
+    {{- if .Values.openclaw.slack.enabled }}
     "slack": {
       "enabled": true,
       "mode": "socket",
@@ -174,6 +187,7 @@
       "unfurlLinks": false,
       "unfurlMedia": false
     }
+    {{- end }}
   },
   {{- end }}
   "models": {
@@ -221,7 +235,8 @@
       "observability",
       "remote-ssh",
       "slurm",
-      "llm"{{- if .Values.openclaw.slack.enabled }},
+      "llm"{{- if .Values.openclaw.weixin.enabled }},
+      "openclaw-weixin"{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
@@ -257,7 +272,10 @@
       },
       "llm": {
         "enabled": true
-      }{{- if .Values.openclaw.slack.enabled }},
+      }{{- if .Values.openclaw.weixin.enabled }},
+      "openclaw-weixin": {
+        "enabled": true
+      }{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack": {
         "enabled": true
       }{{- end }}{{- if .Values.modules.webSearch.enabled }},

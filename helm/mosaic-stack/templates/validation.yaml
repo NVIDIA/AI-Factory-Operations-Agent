@@ -24,6 +24,14 @@
 {{- fail (printf "Slack edit user %q must also appear in openclaw.slack.allowedUserIds" .) -}}
 {{- end -}}
 {{- end -}}
+{{- if .Values.openclaw.weixin.enabled -}}
+{{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
+{{- fail "openclaw.weixin.enabled requires modules.execution.enabled and openclaw.enabled" -}}
+{{- end -}}
+{{- if ne (toString .Values.openclaw.weixin.pluginVersion) "2.4.10" -}}
+{{- fail "openclaw.weixin.pluginVersion must be 2.4.10: the owner-only adapter is version-qualified" -}}
+{{- end -}}
+{{- end -}}
 {{- if .Values.modules.webSearch.enabled -}}
 {{- if not (has .Values.modules.webSearch.provider (list "duckduckgo" "brave")) -}}
 {{- fail "modules.webSearch.provider must be one of: duckduckgo, brave" -}}

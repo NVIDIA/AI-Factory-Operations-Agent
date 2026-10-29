@@ -306,6 +306,34 @@ spec:
             - name: remote-ssh-credentials
               mountPath: /credentials
         {{- end }}
+        {{- if .Values.openclaw.weixin.enabled }}
+        - name: init-weixin-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              node /app/dist/index.js plugins install {{ printf "@tencent-weixin/openclaw-weixin@%v" .Values.openclaw.weixin.pluginVersion | quote }} --force
+              node /seed/weixin-owner-patch.mjs
+          env:
+            - name: HOME
+              value: /home/node
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+            - name: openclaw-seed
+              mountPath: /seed
+              readOnly: true
+        {{- end }}
         {{- if .Values.openclaw.slack.enabled }}
         - name: init-slack-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}

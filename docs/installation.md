@@ -321,6 +321,67 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Personal WeChat / Weixin
+
+Personal WeChat is optional. It uses Tencent's external
+`@tencent-weixin/openclaw-weixin@2.4.10` channel plugin with the chart's existing
+OpenClaw runtime. This is a direct-message integration, not WeCom or a group bot.
+The plugin receives messages through outbound iLink HTTP long polling and replies
+through the iLink API; it does not require an Ingress or an inbound port.
+See the [OpenClaw WeChat guide](https://docs.openclaw.ai/channels/wechat) and the
+[external package](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin).
+
+Add this setting to the release configuration and apply it through the normal
+Helm upgrade workflow:
+
+```yaml
+openclaw:
+  weixin:
+    enabled: true
+```
+
+After the Gateway is running, start interactive login on the Pod:
+
+```bash
+kubectl -n mosaic exec -it deployment/openclaw -c gateway -- \
+  node /app/dist/index.js channels login --channel openclaw-weixin
+```
+
+Scan the QR code with the intended owner's personal WeChat account and confirm
+the login. The external plugin records the account and its owner. Restart the
+Pod so the Gateway reloads its persistent account index:
+
+```bash
+kubectl -n mosaic rollout restart deployment/openclaw
+kubectl -n mosaic rollout status deployment/openclaw
+```
+
+Credentials, the account index, synchronization cursors, and reply context tokens
+remain under `/home/node/.openclaw` on the existing OpenClaw PVC. They must not be
+copied into Helm values, source control, or support logs. Recreating that PVC
+requires pairing again. The integration disables the plugin's additional quote
+cache and uses `per-account-channel-peer` DM sessions, including when Slack is
+also enabled, to isolate each account, channel, and sender.
+
+This integration accepts messages only from the saved QR owner for each account.
+A version-qualified startup adapter checks that identity before slash commands,
+media downloads, or agent dispatch. Accounts without a saved owner are denied;
+legacy pairing files do not grant other senders access. This closes the external
+plugin's ownerless-account fallback and its pre-authorization slash-command path
+for this deployment. The adapter is idempotent and refuses to start if its pinned
+source target changes. Other plugin versions require a separate compatibility
+review rather than overriding the version in values.
+
+The existing MOSAIC conversation policy applies; new sessions start in View.
+This change does not provide WeChat Edit approval controls. Replying requires
+the iLink context established by an inbound message, so do not assume arbitrary
+proactive broadcast delivery. Validate owner DM/reply, rejection of another
+sender, and a successful reply after a Pod restart with the real account before
+relying on the integration. Render tests do not establish platform delivery.
+
+Disable with `openclaw.weixin.enabled=false` and upgrade. The PVC and saved login
+are retained for re-enabling; disabling is not a platform-side account logout.
+
 ### Access Modes
 
 Enable guarded write operations with the Edit module:
