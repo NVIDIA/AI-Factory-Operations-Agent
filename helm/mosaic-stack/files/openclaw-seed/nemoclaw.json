@@ -143,14 +143,16 @@
     "servers": {{ $managedMcpServers | toJson }}
   },
   {{- end }}
-  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.msteams.enabled }}
+  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
   "channels": {
-    {{- if .Values.openclaw.msteams.enabled }}
+    {{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
     "msteams": {
-      "enabled": true,
+      "enabled": {{ .Values.openclaw.msteams.enabled }},
+      {{- if .Values.openclaw.msteams.enabled }}
       "appId": "${MSTEAMS_APP_ID}",
       "appPassword": "${MSTEAMS_APP_PASSWORD}",
       "tenantId": "${MSTEAMS_TENANT_ID}",
+      {{- end }}
       "configWrites": false,
       "dmPolicy": "allowlist",
       "allowFrom": {{ .Values.openclaw.msteams.allowedUserIds | toJson }},
@@ -232,7 +234,7 @@
     }
   },
   "cron": {
-    "enabled": false
+    "enabled": {{ .Values.openclaw.cron.enabled }}
   },
   "plugins": {
     "allow": [
@@ -246,7 +248,7 @@
       "observability",
       "remote-ssh",
       "slurm",
-      "llm"{{- if .Values.openclaw.msteams.enabled }},
+      "llm"{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
       "msteams"{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
@@ -283,7 +285,7 @@
       },
       "llm": {
         "enabled": true
-      }{{- if .Values.openclaw.msteams.enabled }},
+      }{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
       "msteams": {
         "enabled": true
       }{{- end }}{{- if .Values.openclaw.slack.enabled }},

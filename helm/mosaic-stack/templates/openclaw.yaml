@@ -306,7 +306,7 @@ spec:
             - name: remote-ssh-credentials
               mountPath: /credentials
         {{- end }}
-        {{- if .Values.openclaw.msteams.enabled }}
+        {{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
         - name: init-msteams-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}

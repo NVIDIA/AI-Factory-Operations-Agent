@@ -259,7 +259,11 @@ openclaw:
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4
+  cron:
+    enabled: false
   msteams:
+    # Preinstall the plugin before bot registration; enabled also installs it.
+    install: false
     enabled: false
     pluginVersion: 2026.6.10
     existingSecret: ""
