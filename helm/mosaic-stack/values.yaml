@@ -259,6 +259,17 @@ openclaw:
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4
+  feishu:
+    enabled: false
+    pluginVersion: 2026.6.10
+    domain: feishu
+    existingSecret: ""
+    appIdKey: FEISHU_APP_ID
+    appSecretKey: FEISHU_APP_SECRET
+    # Feishu open_ids (ou_...) allowed in DMs and approved groups.
+    allowedUserIds: []
+    # Empty disables group messaging. Entries are chat_ids (oc_...).
+    allowedGroupIds: []
   slack:
     enabled: false
     maxConcurrent: 8

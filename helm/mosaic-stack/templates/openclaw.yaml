@@ -306,6 +306,37 @@ spec:
             - name: remote-ssh-credentials
               mountPath: /credentials
         {{- end }}
+        {{- if .Values.openclaw.feishu.enabled }}
+        - name: init-feishu-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              node /app/dist/index.js plugins install {{ printf "@openclaw/feishu@%v" .Values.openclaw.feishu.pluginVersion | quote }} --force
+          env:
+            - name: HOME
+              value: /home/node
+            {{- range $env, $key := dict "FEISHU_APP_ID" .Values.openclaw.feishu.appIdKey "FEISHU_APP_SECRET" .Values.openclaw.feishu.appSecretKey }}
+            - name: {{ $env }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.openclaw.feishu.existingSecret | quote }}
+                  key: {{ $key | quote }}
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+        {{- end }}
         {{- if .Values.openclaw.slack.enabled }}
         - name: init-slack-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
@@ -562,6 +593,15 @@ spec:
             {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/llm-ca/ca.crt
+            {{- end }}
+            {{- if .Values.openclaw.feishu.enabled }}
+            {{- range $env, $key := dict "FEISHU_APP_ID" .Values.openclaw.feishu.appIdKey "FEISHU_APP_SECRET" .Values.openclaw.feishu.appSecretKey }}
+            - name: {{ $env }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.openclaw.feishu.existingSecret | quote }}
+                  key: {{ $key | quote }}
+            {{- end }}
             {{- end }}
             {{- if .Values.openclaw.slack.enabled }}
             - name: SLACK_BOT_TOKEN

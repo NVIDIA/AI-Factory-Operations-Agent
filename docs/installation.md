@@ -321,6 +321,61 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Feishu / Lark
+
+Feishu is optional and uses `@openclaw/feishu`, pinned to `2026.6.10` to match
+the chart's OpenClaw runtime. The channel supports bot DMs and mentions in
+explicitly allowed groups. It uses an outbound WebSocket connection; no public
+Ingress, callback Service, or additional listening port is needed.
+
+Create an enterprise self-built app in [Feishu Open Platform](https://open.feishu.cn/)
+or [Lark Developer](https://open.larksuite.com/), enable its bot, and subscribe to
+`im.message.receive_v1` using long connections. Grant the message receive/send
+permissions for the intended DM and group scopes, publish the app, and make it
+available to the intended users. Follow the [versioned OpenClaw guide](https://github.com/openclaw/openclaw/blob/v2026.6.10/docs/channels/feishu.md).
+
+Create an existing Kubernetes Secret in the release namespace with keys
+`FEISHU_APP_ID` and `FEISHU_APP_SECRET`. For example, have your secret manager
+produce a protected env file outside the repository, then run:
+
+```bash
+kubectl -n mosaic create secret generic mosaic-feishu \
+  --from-env-file=/secure/path/feishu.env
+```
+
+Add these values to the release configuration and apply them through the normal
+Helm upgrade workflow:
+
+```yaml
+openclaw:
+  feishu:
+    enabled: true
+    domain: feishu  # use lark for the international platform
+    existingSecret: mosaic-feishu
+    allowedUserIds:
+      - ou_operator
+    allowedGroupIds: []  # optionally add specific oc_... chat IDs
+```
+
+Use real `open_id` user IDs and `chat_id` group IDs. Group messages require both
+an allowed group and an allowed sender, plus an explicit bot mention. DMs are
+isolated by channel and sender; group sessions are isolated by group and sender.
+When Slack is enabled too, its existing configuration and DM scope are preserved.
+The optional `appIdKey` and `appSecretKey` values select alternate Secret keys.
+Secrets are passed to both the installer and Gateway through `secretKeyRef`.
+
+The integration is for messaging: Feishu document, drive, wiki, permissions,
+spreadsheet, and workplace tools are disabled. The existing conversation access
+policy applies and new sessions start in View; this change adds no Feishu Edit
+approval UI. Slack can remain enabled alongside Feishu.
+
+Validate the real app before relying on the integration: an allowed DM and
+allowed group mention must get a reply; an unlisted sender/group and an
+unmentioned group message must not start a run. Restart the OpenClaw Pod and
+repeat the DM check. A successful Helm render alone does not validate the app's
+platform permissions or message delivery. Disable the channel with
+`openclaw.feishu.enabled=false` and upgrade; the existing OpenClaw PVC is retained.
+
 ### Access Modes
 
 Enable guarded write operations with the Edit module:

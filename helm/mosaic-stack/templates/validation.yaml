@@ -24,6 +24,25 @@
 {{- fail (printf "Slack edit user %q must also appear in openclaw.slack.allowedUserIds" .) -}}
 {{- end -}}
 {{- end -}}
+{{- if .Values.openclaw.feishu.enabled -}}
+{{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
+{{- fail "openclaw.feishu.enabled requires modules.execution.enabled and openclaw.enabled" -}}
+{{- end -}}
+{{- if not .Values.openclaw.feishu.existingSecret -}}
+{{- fail "openclaw.feishu.existingSecret is required when Feishu is enabled" -}}
+{{- end -}}
+{{- if not (has .Values.openclaw.feishu.domain (list "feishu" "lark")) -}}
+{{- fail "openclaw.feishu.domain must be feishu or lark" -}}
+{{- end -}}
+{{- if empty .Values.openclaw.feishu.allowedUserIds -}}
+{{- fail "openclaw.feishu.allowedUserIds must contain at least one Feishu open_id" -}}
+{{- end -}}
+{{- range concat .Values.openclaw.feishu.allowedUserIds .Values.openclaw.feishu.allowedGroupIds -}}
+{{- if or (not (kindIs "string" .)) (empty .) (eq . "*") -}}
+{{- fail "Feishu allowlists require explicit, nonempty user/group IDs" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- if .Values.modules.webSearch.enabled -}}
 {{- if not (has .Values.modules.webSearch.provider (list "duckduckgo" "brave")) -}}
 {{- fail "modules.webSearch.provider must be one of: duckduckgo, brave" -}}
