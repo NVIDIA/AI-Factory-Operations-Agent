@@ -95,6 +95,33 @@ test("Teams is optional and leaves the default runtime unchanged", () => {
   assert.doesNotMatch(output, /containerPort: 3978/);
 });
 
+test("Teams can be preinstalled without credentials or an inbound listener", () => {
+  const args = ["--set", "openclaw.msteams.install=true"];
+  const config = openclawConfig(...args);
+  assert.ok(config.plugins.allow.includes("msteams"));
+  assert.equal(config.plugins.entries.msteams.enabled, true);
+  assert.equal(config.channels.msteams.enabled, false);
+  assert.equal(config.channels.msteams.appId, undefined);
+  assert.equal(config.channels.msteams.appPassword, undefined);
+  assert.deepEqual(config.channels.msteams.allowFrom, []);
+  const output = render(...args);
+  assert.match(output, /name: init-msteams-plugin/);
+  assert.match(output, /@openclaw\/msteams@2026\.6\.10/);
+  assert.match(output, /name: openclaw-home\s+mountPath: \/home\/node\/\.openclaw/);
+  assert.doesNotMatch(output, /name: MSTEAMS_APP_PASSWORD|containerPort: 3978|kind: Ingress/);
+  for (const setting of ["modules.execution.enabled=false", "openclaw.enabled=false"]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, ...args, "--set", setting], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /openclaw\.msteams/);
+  }
+});
+
+test("Teams scheduled delivery requires explicit cron enablement", () => {
+  assert.equal(openclawConfig().cron.enabled, false);
+  assert.equal(openclawConfig(...teamsArgs).cron.enabled, false);
+  assert.equal(openclawConfig(...teamsArgs, "--set", "openclaw.cron.enabled=true").cron.enabled, true);
+});
+
 test("Teams configures native messaging, separate DM sessions, and outbound targets", () => {
   const config = openclawConfig(...teamsArgs,
     "--set-string", "openclaw.msteams.defaultTo=conversation:destination",
@@ -157,11 +184,33 @@ test("Teams rejects incomplete credentials, access settings, and ingress hosts",
     [...teamsArgs, "--set", "modules.execution.enabled=false"],
     [...teamsArgs, "--set", "openclaw.enabled=false"],
     [...teamsArgs, "--set", "openclaw.msteams.ingress.enabled=true"],
+    [...teamsArgs, "--set", "openclaw.msteams.appIdKey="],
+    [...teamsArgs, "--set", "openclaw.msteams.appPasswordKey="],
+    [...teamsArgs, "--set", "openclaw.msteams.tenantIdKey="],
   ]) {
     const result = spawnSync("helm", ["template", "mosaic", chart, ...args], { encoding: "utf8" });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /openclaw\.msteams/);
   }
+});
+
+test("Teams requires concrete Entra object IDs instead of wildcard or malformed allowlists", () => {
+  const credentialsArgs = teamsArgs.slice(0, -2);
+  for (const value of [
+    '["*"]', '[""]', '[" "]', '["not-an-object-id"]', '[42]',
+    '["11111111-1111-4111-8111-111111111111","*"]',
+    '"11111111-1111-4111-8111-111111111111"',
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, ...credentialsArgs,
+      "--set-json", `openclaw.msteams.allowedUserIds=${value}`], { encoding: "utf8" });
+    assert.notEqual(result.status, 0, value);
+    assert.match(result.stderr, /openclaw\.msteams\.allowedUserIds/);
+  }
+  const ids = ["11111111-1111-4111-8111-111111111111", "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"];
+  const config = openclawConfig(...credentialsArgs,
+    "--set-json", `openclaw.msteams.allowedUserIds=${JSON.stringify(ids)}`);
+  assert.deepEqual(config.channels.msteams.allowFrom, ids);
+  assert.deepEqual(config.channels.msteams.groupAllowFrom, ids);
 });
 
 function renderDiagnostics(...args) {
