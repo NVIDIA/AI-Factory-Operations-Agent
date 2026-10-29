@@ -1,6 +1,24 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+{{- $webhook := .Values.alertmanagerWebhook -}}
+{{- if $webhook.enabled -}}
+{{- if or (not .Values.modules.ui.enabled) (not .Values.mosaicUi.enabled) -}}
+{{- fail "alertmanagerWebhook.enabled requires modules.ui.enabled and mosaicUi.enabled" -}}
+{{- end -}}
+{{- if ne (int .Values.mosaicUi.replicaCount) 1 -}}
+{{- fail "Alertmanager webhook requires mosaicUi.replicaCount=1 because the UI alert store is process-local" -}}
+{{- end -}}
+{{- if or (not $webhook.auth.existingSecret) (not (regexMatch "^[A-Za-z0-9._-]+$" $webhook.auth.tokenKey)) -}}
+{{- fail "alertmanagerWebhook.auth requires existingSecret and a nonempty tokenKey" -}}
+{{- end -}}
+{{- if or (lt (int $webhook.service.port) 1024) (gt (int $webhook.service.port) 65535) -}}
+{{- fail "alertmanagerWebhook.service.port must be between 1024 and 65535" -}}
+{{- end -}}
+{{- if and $webhook.ingress.enabled (or (not $webhook.ingress.host) (not $webhook.ingress.tlsSecretName)) -}}
+{{- fail "Alertmanager webhook ingress requires host and tlsSecretName" -}}
+{{- end -}}
+{{- end -}}
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}

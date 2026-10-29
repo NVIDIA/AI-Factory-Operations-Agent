@@ -34,6 +34,24 @@ observability:
     usernameKey: username
     passwordKey: password
 
+alertmanagerWebhook:
+  enabled: false
+  # Separate inbound bearer token; never reuse mosaicUi.auth.machineToken.
+  auth:
+    existingSecret: ""
+    tokenKey: token
+  service:
+    port: 3004
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    tlsSecretName: ""
+    annotations: {}
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+
 agentSandbox:
   install: true
 

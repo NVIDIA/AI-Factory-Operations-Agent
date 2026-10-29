@@ -23,6 +23,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
+  {modules:['alertmanagerWebhook']},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -63,6 +64,16 @@ test('Loki connection settings remain optional and use Secret references', () =>
   assert.ok(defaults.includes('observability.loki.url=<Loki URL>'));
   assert.ok(defaults.includes('observability.loki.auth.existingSecret='));
   assert.ok(argumentsFor({...state,modules:[]}).includes('observability.loki.url='));
+});
+
+test('webhook selection enables a separate receiver with Secret references and no polling URL', () => {
+  const args = argumentsFor({...example, modules:['alertmanagerWebhook'], webhookSecret:'inbound-only', webhookKey:'bearer'});
+  for (const setting of ['alertmanagerWebhook.enabled=true', 'alertmanagerWebhook.auth.existingSecret=inbound-only',
+    'alertmanagerWebhook.auth.tokenKey=bearer', 'observability.alertmanagerUrl=', 'modules.observability.enabled=true']) {
+    assert.ok(args.includes(setting), setting);
+  }
+  assert.ok(!args.some(arg => arg.startsWith('modules.alertmanagerWebhook.')));
+  assert.ok(argumentsFor({...example, modules:[]}).includes('alertmanagerWebhook.enabled=false'));
 });
 
 test('builder covers every module toggle and observability connection setting', () => {

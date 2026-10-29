@@ -269,6 +269,12 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 `alertmanagerUrl` is the Alertmanager API base URL. AI Factory Operations Agent reads active alerts from its `/api/v2/alerts` endpoint.
 
+For push delivery, enable the optional [Alertmanager webhook receiver](alertmanager_webhook.md).
+An Alertmanager administrator must configure its receiver and routing; installing
+Mosaic does not register a subscription or change an existing Alertmanager.
+Webhook delivery populates the same alert list. It does not add a background
+AI investigation worker or configure Teams notifications.
+
 ### Grafana
 
 To connect AI Factory Operations Agent to an existing Grafana service, run:
