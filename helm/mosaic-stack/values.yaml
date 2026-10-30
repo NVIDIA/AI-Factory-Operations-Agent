@@ -239,7 +239,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/afoa-release/mosaic-ui
-    tag: 3bfa02c3
+    tag: 2cb4cc82
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
