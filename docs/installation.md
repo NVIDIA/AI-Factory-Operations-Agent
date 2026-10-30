@@ -12,6 +12,8 @@ Optionally, use the [installation builder](installation_builder.md) to select mo
 
 ## Custom Installation
 
+New installations in these examples use namespace `aifoa`. The Helm release remains named `mosaic`. For an existing installation, use its current namespace in every command, including upgrades; changing `-n` creates or targets a different installation and does not migrate its data. Custom namespace names remain supported.
+
 ### 1. Create The Namespace And Registry Access
 
 Ask your NVIDIA contact to invite the email address you will use with NGC to
@@ -30,8 +32,8 @@ printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
 
-kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret docker-registry nvcr-image-pull-secret \
+kubectl create namespace aifoa --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n aifoa create secret docker-registry nvcr-image-pull-secret \
   --docker-server=nvcr.io \
   --docker-username='$oauthtoken' \
   --docker-password="$NGC_API_KEY" \
@@ -58,13 +60,13 @@ export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
 export EXTERNAL_LLM_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
 read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
 
-kubectl -n mosaic create secret generic mosaic-external-llm \
+kubectl -n aifoa create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set llm.mode=external \
   --set-string llm.external.baseUrl="$EXTERNAL_LLM_BASE_URL" \
@@ -123,7 +125,7 @@ To install AI Factory Operations Agent with Nemotron 3.5 Super VL running on 1 G
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
-  -n mosaic \
+  -n aifoa \
   -f "$MOSAIC_CHART_PATH/profiles/vllm-super-1gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set modules.ui.enabled=true \
@@ -156,7 +158,7 @@ When upgrading an existing release, preserve its `llm.vllm.modelCache.size` over
 
 ```bash
 helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
-  -n mosaic \
+  -n aifoa \
   -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-4gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
   --set modules.ui.enabled=true \
@@ -242,7 +244,7 @@ The minimal installation includes the UI, headless interfaces, OpenClaw, OpenShe
 After installing with either inference path, open the UI by running:
 
 ```bash
-kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
+kubectl -n aifoa port-forward svc/mosaic-ui 3000:3000
 ```
 
 By default, the chart creates the `mosaic-ui-auth` Secret and generates both the UI password and an internal machine token. Leave `mosaicUi.auth.password` and `mosaicUi.auth.machineToken` empty; users do not need to provide either value. The generated credentials are preserved across upgrades.
@@ -250,8 +252,8 @@ By default, the chart creates the `mosaic-ui-auth` Secret and generates both the
 Retrieve the browser login with:
 
 ```bash
-kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.username}' | base64 --decode; echo
-kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
+kubectl -n aifoa get secret mosaic-ui-auth -o jsonpath='{.data.username}' | base64 --decode; echo
+kubectl -n aifoa get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
 `username` and `password` are browser credentials. `machineToken` is used automatically by OpenClaw when it calls protected AI Factory Operations Agent UI APIs; it is never entered in the browser.
@@ -282,7 +284,7 @@ prefix and omit `/api/v1`. Set `PROMETHEUS_URL` to your endpoint:
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.observability.enabled=true \
   --set-string observability.prometheusUrl="$PROMETHEUS_URL" \
@@ -298,7 +300,7 @@ To connect Mosaic to an existing Loki service, run:
 export LOKI_URL='https://logs.example.com'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.observability.enabled=true \
   --set-string observability.loki.url="$LOKI_URL" \
@@ -318,7 +320,7 @@ AI Factory Operations Agent defaults to the Alertmanager service installed by NM
 export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set-string observability.alertmanagerUrl="$ALERTMANAGER_URL" \
   --wait \
@@ -338,14 +340,14 @@ export GRAFANA_DATASOURCE_TYPE='prometheus'
 export GRAFANA_USERNAME='admin'
 read -rsp 'Grafana password: ' GRAFANA_PASSWORD; echo
 
-kubectl -n mosaic create secret generic mosaic-grafana-auth \
+kubectl -n aifoa create secret generic mosaic-grafana-auth \
   --from-literal=username="$GRAFANA_USERNAME" \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.grafana.enabled=true \
   --set-string observability.grafanaUrl="$GRAFANA_URL" \
@@ -372,7 +374,7 @@ To enable the optional browser terminal service, run:
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.terminal.enabled=true \
   --wait \
@@ -512,13 +514,13 @@ export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
 export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
 test -r "$CLUSTER_MANAGER_SSH_KEY_PATH"
 
-kubectl -n mosaic create secret generic bcm-host-ssh-key \
+kubectl -n aifoa create secret generic bcm-host-ssh-key \
   --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.bcm.enabled=true \
   --set bcmMcp.enabled=true \
@@ -542,7 +544,7 @@ export IRAOP_API_KEY="$(openssl rand -hex 32)"
 export MOSAIC_CHAT_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
 export IRA_CORPUS_PATH='/cm/shared/iraop-corpus'
 
-kubectl -n mosaic create secret generic iraop-secrets \
+kubectl -n aifoa create secret generic iraop-secrets \
   --from-literal=NVIDIA_API_KEY="$NVIDIA_API_KEY" \
   --from-literal=NVIDIA_CHAT_API_KEY=EMPTY \
   --from-literal=IRAOP_API_KEY="$IRAOP_API_KEY" \
@@ -550,7 +552,7 @@ kubectl -n mosaic create secret generic iraop-secrets \
 
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.research.enabled=true \
   --set modules.research.secrets.create=false \
@@ -569,7 +571,7 @@ The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ss
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.diagnostics.enabled=true \
   --wait \
@@ -592,7 +594,7 @@ For air-gapped installations, or to keep the agent from making external requests
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.webSearch.enabled=false \
   --wait \
@@ -609,7 +611,7 @@ Brave Search is an API-backed provider. It needs a paid Brave account; at the ti
 
    ```bash
    read -rsp 'Brave Search API key: ' WEB_SEARCH_KEY; echo
-   kubectl -n mosaic create secret generic mosaic-web-search \
+   kubectl -n aifoa create secret generic mosaic-web-search \
      --from-literal=WEB_SEARCH_KEY="$WEB_SEARCH_KEY" \
      --dry-run=client -o yaml | kubectl apply -f -
    unset WEB_SEARCH_KEY
@@ -620,7 +622,7 @@ Brave Search is an API-backed provider. It needs a paid Brave account; at the ti
    ```bash
    helm upgrade mosaic "$MOSAIC_CHART" \
      --devel \
-     -n mosaic \
+     -n aifoa \
      --reuse-values \
      --set modules.webSearch.enabled=true \
      --set modules.webSearch.provider=brave \
@@ -629,7 +631,7 @@ Brave Search is an API-backed provider. It needs a paid Brave account; at the ti
      --timeout 12m
    ```
 
-OpenClaw `2026.6.10` does not bundle the Brave provider. When `provider=brave`, an init container downloads `@openclaw/brave-plugin` at `modules.webSearch.brave.pluginVersion` from `registry.npmjs.org`, verifies it against `modules.webSearch.brave.pluginSha256`, and installs it before the gateway starts. The `openclaw` pod then also needs HTTPS egress to `registry.npmjs.org` and `api.search.brave.com`. To rotate the key, update the Secret and run `kubectl -n mosaic rollout restart deployment/openclaw`. Updating only the Secret does not restart the pod.
+OpenClaw `2026.6.10` does not bundle the Brave provider. When `provider=brave`, an init container downloads `@openclaw/brave-plugin` at `modules.webSearch.brave.pluginVersion` from `registry.npmjs.org`, verifies it against `modules.webSearch.brave.pluginSha256`, and installs it before the gateway starts. The `openclaw` pod then also needs HTTPS egress to `registry.npmjs.org` and `api.search.brave.com`. To rotate the key, update the Secret and run `kubectl -n aifoa rollout restart deployment/openclaw`. Updating only the Secret does not restart the pod.
 
 After enabling the required plugins, use the earlier port-forward to open the UI.
 
@@ -642,7 +644,7 @@ MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --atomic \
   --wait \
@@ -657,7 +659,7 @@ The AI Factory Operations Agent UI service also exposes a headless API:
 
 ```bash
 export MOSAIC_URL=http://127.0.0.1:3000
-export MOSAIC_UI_MACHINE_TOKEN="$(kubectl -n mosaic get secret mosaic-ui-auth \
+export MOSAIC_UI_MACHINE_TOKEN="$(kubectl -n aifoa get secret mosaic-ui-auth \
   -o jsonpath='{.data.machineToken}' | base64 --decode)"
 curl -sS "$MOSAIC_URL/api/headless/chat" \
   --header @<(printf 'Authorization: Bearer %s\n' "$MOSAIC_UI_MACHINE_TOKEN") \
@@ -668,7 +670,7 @@ curl -sS "$MOSAIC_URL/api/headless/chat" \
 Invoke the packaged CLI inside the `mosaic-ui` pod with:
 
 ```bash
-kubectl -n mosaic exec deploy/mosaic-ui -- \
+kubectl -n aifoa exec deploy/mosaic-ui -- \
   mosaic --session headless "summarize whether the cluster is healthy"
 ```
 
@@ -723,7 +725,7 @@ To use the vanilla collector with a site-specific evidence root, run:
 export SLURM_EVIDENCE_ROOT='/shared/slurm'
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.slurm.enabled=true \
   --set modules.slurm.backend=vanilla \
@@ -739,7 +741,7 @@ After enabling the Base Command Manager extension, enable Slurm through it with:
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.slurm.enabled=true \
   --set modules.slurm.backend=auto \
@@ -758,7 +760,7 @@ Enable read-only access to the local cluster with:
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
   --wait \
@@ -768,7 +770,7 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 To register another cluster, first create a kubeconfig for a read-only identity on that cluster. Store it as a Secret in the AI Factory Operations Agent namespace:
 
 ```bash
-kubectl -n mosaic create secret generic production-west-kubeconfig \
+kubectl -n aifoa create secret generic production-west-kubeconfig \
   --from-file=config=/path/to/read-only-kubeconfig
 ```
 
@@ -777,7 +779,7 @@ Register that Secret with AI Factory Operations Agent by running:
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set modules.kubernetes.enabled=true \
   --set-json 'kubernetes.clusters=[{"name":"production-west","kubeconfigSecretRef":{"name":"production-west-kubeconfig","key":"config"}}]' \
@@ -799,7 +801,7 @@ If the cluster already provides a compatible `agent-sandbox` installation, run:
 ```bash
 helm upgrade mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --reuse-values \
   --set agentSandbox.install=false \
   --wait \

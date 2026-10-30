@@ -42,8 +42,8 @@ printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
 
-kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic mosaic-external-llm \
+kubectl create namespace aifoa --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n aifoa create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
@@ -55,7 +55,7 @@ kubectl -n mosaic create secret generic mosaic-external-llm \
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --create-namespace \
   --set global.registryCredentials.create=true \
   --set-string global.registryCredentials.password="$NGC_API_KEY" \

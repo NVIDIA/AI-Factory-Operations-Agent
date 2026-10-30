@@ -24,7 +24,7 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_API_KEY:?Set EXTERNAL_LLM_API_KEY for the selected provider}"
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 NMC_POLICY_RELEASE=${NMC_POLICY_RELEASE:-net-pol}
 NMC_POLICY_NAMESPACE=${NMC_POLICY_NAMESPACE:-default}
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
@@ -123,7 +123,7 @@ A rule selecting `app.kubernetes.io/name=coredns` does not match pods labeled on
 If installation times out, check DNS from the running UI pod. If the UI is unavailable, use a diagnostic pod in the same namespace:
 
 ```bash
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 kubernetes.default.svc.cluster.local
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 dl.k8s.io
 ```

@@ -180,11 +180,11 @@ printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --username '$oauthtoken' \
   --password-stdin
 
-kubectl create namespace mosaic --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic mosaic-external-llm \
+kubectl create namespace aifoa --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n aifoa create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n mosaic create secret generic bcm-host-ssh-key \
+kubectl -n aifoa create secret generic bcm-host-ssh-key \
   --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
@@ -201,7 +201,7 @@ Base Command Manager inspection. Other cluster integrations remain disabled.
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
 helm upgrade --install mosaic "$MOSAIC_CHART" \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --create-namespace \
   --set global.registryCredentials.create=true \
   --set-string global.registryCredentials.password="$NGC_API_KEY" \
@@ -238,10 +238,10 @@ read-only Base Command Manager request. The first request creates or updates `ai
 
 ```bash
 kubectl get nodes
-kubectl -n mosaic get pods
+kubectl -n aifoa get pods
 
 MANAGER_TEST_PROMPT='/cluster-management Use Base Command Manager to run "device; list" and summarize the first five devices.'
-kubectl -n mosaic exec deploy/mosaic-ui -- \
+kubectl -n aifoa exec deploy/mosaic-ui -- \
   mosaic --session bcm-install-validation --timeout-ms 180000 \
   "$MANAGER_TEST_PROMPT"
 
@@ -250,7 +250,7 @@ cmsh -c 'user; use aichatbotuser; get profile'
 if systemctl is-active --quiet shorewall; then
   systemctl restart shorewall
   kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
-  kubectl -n mosaic exec deploy/mosaic-ui -- \
+  kubectl -n aifoa exec deploy/mosaic-ui -- \
     mosaic --session bcm-restart-validation --timeout-ms 180000 \
     "$MANAGER_TEST_PROMPT"
 fi
@@ -264,7 +264,7 @@ remain disabled.
 Keep this port-forward running on the Base Command Manager head node:
 
 ```bash
-kubectl -n mosaic port-forward svc/mosaic-ui 3210:3000
+kubectl -n aifoa port-forward svc/mosaic-ui 3210:3000
 ```
 
 From the operator's workstation, keep an SSH tunnel to the head node running:
@@ -276,9 +276,9 @@ ssh -L 3210:127.0.0.1:3210 root@bcm-head.example.com
 Retrieve the generated UI credentials on the head node:
 
 ```bash
-kubectl -n mosaic get secret mosaic-ui-auth \
+kubectl -n aifoa get secret mosaic-ui-auth \
   -o jsonpath='{.data.username}' | base64 --decode; echo
-kubectl -n mosaic get secret mosaic-ui-auth \
+kubectl -n aifoa get secret mosaic-ui-auth \
   -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
