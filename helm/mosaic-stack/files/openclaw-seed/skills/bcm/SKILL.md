@@ -44,3 +44,18 @@ Pass CMSH commands as the same semicolon-separated command string used by `cmsh 
 - `kubernetes; foreach * (show)`
 
 For broad cluster summaries, combine `bcm_get_info` with `bcm_execute_cmsh` command strings such as `kubernetes; list`, `category; list`, and `device; list`. For a short inventory, summarize the first rows returned by `device; list`; do not use shell pipes or `limit` inside CMSH.
+
+## Redfish (out-of-band)
+
+Determine available capabilities from the tools registered in the current session. `bcm_search_tools` searches only the diagnostic command catalog for `bcm_execute_tool`; it does not enumerate agent tools. Empty diagnostic search results provide no evidence that another registered capability is absent.
+
+When the `bcm_redfish_*` tools are registered, they read a node's BMC over Redfish through the Base Command Manager service. Prefer them over CMSH when the node is unreachable in-band or down, for power state, hardware health, temperature, fan, power supply, or system event log questions, and for firmware inventory. Pass only the Base Command Manager hostname; the service resolves the BMC address and credentials from Base Command Manager. Never ask the user for BMC addresses, usernames, or passwords, and never put them in a reply.
+
+Redfish access is read-only in every session mode. Resets, power actions, BMC configuration, accounts, sessions, certificates, event subscriptions, and virtual media are unavailable; if the user asks for one, say that Redfish actions are not available through this agent rather than retrying through another tool. A refusal from `bcm_redfish_get` means the path is outside the read-only allowlist. An `Actions` object in a returned resource is descriptive metadata, not an executable tool. When reporting it, distinguish the actions the BMC advertises from the read-only operations available through the registered Redfish tools. Do not offer to execute advertised actions or ask for confirmation to perform them.
+
+Use the named tools first: `bcm_redfish_system_summary` (power state, health, model, BIOS version), `bcm_redfish_thermal` (temperatures closest to their thresholds and fan readings), `bcm_redfish_power` (power draw and power supplies), `bcm_redfish_sel` (newest BMC event log entries across log services), and `bcm_redfish_firmware`. When `bcm_redfish_sel` returns `complete: false`, report the failed sources from `errors`; missing entries from a failed source are unknown, not an empty log. Systems such as DGX expose several chassis; pass `chassis` to the thermal or power tool, for example a GPU baseboard chassis, when the default chassis does not cover the question. Use `bcm_redfish_get` with an allowlisted `/redfish/v1/...` path only for detail the named tools omit, starting from a collection such as `/redfish/v1/Chassis` to discover member ids.
+
+Examples:
+
+- "What's the power state and health of dgx-03 according to its BMC?" → `bcm_redfish_system_summary` with `hostname: "dgx-03"`.
+- "Show the last 20 SEL entries on dgx-03" → `bcm_redfish_sel` with `hostname: "dgx-03", limit: 20`; report timestamp, severity, source, and message for each entry.

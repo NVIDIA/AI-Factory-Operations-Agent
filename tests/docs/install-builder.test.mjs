@@ -23,6 +23,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
+  {modules:['bcm'],redfish:true},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -40,6 +41,14 @@ test('dependencies are derived without changing requested modules', () => {
   const state={modules:['diagnostics','terminal'],slurmBackend:'vanilla'};
   assert.deepEqual([...enabledModules(state)].sort(),['bcm','diagnostics','kubernetes','terminal']);
   assert.deepEqual(state.modules,['diagnostics','terminal']);
+});
+test('Redfish is opt-in and requires BCM, including when BCM is selected by a dependency', () => {
+  for (const [selected, redfish, expected] of [
+    [['bcm'],true,true], [['diagnostics'],true,true], [['bcm'],false,false], [[],true,false],
+  ]) {
+    const args = argumentsFor({...example, modules:selected, redfish});
+    assert.ok(args.includes(`modules.bcm.redfish.enabled=${expected}`));
+  }
 });
 test('shell metacharacters remain literal arguments and Helm list separators are escaped', () => {
   for(const model of ["quoted' name,revision", 'model $(printf unsafe); $HOME']) {

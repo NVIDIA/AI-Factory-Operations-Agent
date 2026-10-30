@@ -50,6 +50,14 @@ modules:
     enabled: true
   bcm:
     enabled: true
+    # Read-only Redfish through the BCM MCP SSH adapter; BMCs are resolved by hostname from BCM.
+    redfish:
+      enabled: false
+      # BMCs usually present self-signed certificates.
+      verifyTls: false
+      timeoutSeconds: 60
+      # Run each GET with curl on the BCM head node, which is routed to the BMC network.
+      viaHeadNode: true
   slurm:
     enabled: true
     backend: auto

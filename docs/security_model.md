@@ -39,6 +39,8 @@ The read-only and administrative Base Command Manager paths use separate identit
 
 Base Command Manager's configured profile remains authoritative. Enabling Base Command Manager administration requires an operator-provided credential with the intended cluster permissions.
 
+When `modules.bcm.redfish.enabled=true`, the `bcm_redfish_*` tools read node BMCs in every mode, including View and automated sessions. They are never mutation tools. The model supplies only a Base Command Manager hostname and a path or named query. The Base Command Manager adapter resolves the BMC address and credentials through CMSH and does not return them. Its `RedfishPolicy` allowlist is enforced server-side before any credential lookup, and again on every resource embedded in a response, so `$expand` cannot reach a denied resource. It permits only `GET` on inventory, health, sensor, log, firmware, and task resources, and rejects any path containing `Actions`, as well as account, session, certificate, event, Secure Boot, BIOS settings, and virtual media resources. Responses have password, token, and secret fields redacted, and errors omit the BMC address. Like other read-only tools, Redfish is not a confidentiality boundary: anything the allowlist permits is visible to the session.
+
 ## Diagnostic Commands And SSH
 
 Local `exec` runs inside the per-session OpenShell sandbox in View, Edit, Auto, and automated sessions. OpenShell enforces this boundary; the session guard does not parse or allowlist sandbox commands.

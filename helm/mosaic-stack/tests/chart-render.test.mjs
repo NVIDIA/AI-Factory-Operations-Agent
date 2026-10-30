@@ -916,6 +916,44 @@ test("renders an authenticated BCM admin path only for BCM edit mode", () => {
   assert.doesNotMatch(output, /"authToken": "[A-Za-z0-9]{48}"/);
 });
 
+const bcmAdapterArgs = [
+  "--set", "bcmMcp.enabled=true",
+  "--set", "bcmMcp.mode=ssh-adapter",
+  "--set", "bcmMcp.headHost=bcm-head",
+  "--set", "bcmMcp.hostSshKeySecretName=bcm-host-ssh",
+];
+
+test("renders read-only Redfish only when enabled", () => {
+  const disabled = render(...bcmAdapterArgs);
+  assert.doesNotMatch(disabled, /name: MOSAIC_BCM_REDFISH_/);
+  assert.match(disabled, /"redfishEnabled": false/);
+
+  const enabled = render(...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true");
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_ENABLED\s+value: "true"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_VERIFY_TLS\s+value: "false"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_TIMEOUT\s+value: "60"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_VIA_HEAD_NODE\s+value: "true"/);
+  assert.match(enabled, /"redfishEnabled": true/);
+  assert.doesNotMatch(enabled, /name: MOSAIC_BCM_REDFISH_(?:USER|PASS|IP)/);
+
+  const direct = render(...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true",
+    "--set", "modules.bcm.redfish.viaHeadNode=false", "--set", "modules.bcm.redfish.verifyTls=true");
+  assert.match(direct, /name: MOSAIC_BCM_REDFISH_VERIFY_TLS\s+value: "true"/);
+  assert.match(direct, /name: MOSAIC_BCM_REDFISH_VIA_HEAD_NODE\s+value: "false"/);
+});
+
+test("rejects Redfish without the BCM SSH adapter", () => {
+  for (const [args, expected] of [
+    [["--set", "modules.bcm.redfish.enabled=true"], /modules\.bcm\.redfish\.enabled requires/],
+    [["--set", "modules.bcm.redfish.enabled=true", "--set", "bcmMcp.enabled=true"], /requires|ssh-adapter/],
+    [[...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true", "--set", "modules.bcm.redfish.timeoutSeconds=0"], /timeoutSeconds must be between 1 and 300/],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+  }
+});
+
 test("keeps the managed BCM adapter read-only when edit mode is disabled", () => {
   const output = render(
     "--set",

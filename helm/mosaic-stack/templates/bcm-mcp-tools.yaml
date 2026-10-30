@@ -127,6 +127,16 @@ spec:
               value: {{ .Values.bcmMcp.config.cmshExecTimeout | default "120" | quote }}
             - name: MOSAIC_BCM_CMSH_PATH
               value: {{ .Values.bcmMcp.config.cmshPath | default "/cm/local/apps/cmd/bin/cmsh" | quote }}
+            {{- if .Values.modules.bcm.redfish.enabled }}
+            - name: MOSAIC_BCM_REDFISH_ENABLED
+              value: "true"
+            - name: MOSAIC_BCM_REDFISH_VERIFY_TLS
+              value: {{ .Values.modules.bcm.redfish.verifyTls | quote }}
+            - name: MOSAIC_BCM_REDFISH_TIMEOUT
+              value: {{ .Values.modules.bcm.redfish.timeoutSeconds | quote }}
+            - name: MOSAIC_BCM_REDFISH_VIA_HEAD_NODE
+              value: {{ .Values.modules.bcm.redfish.viaHeadNode | quote }}
+            {{- end }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.bcmMcp.service.port }}

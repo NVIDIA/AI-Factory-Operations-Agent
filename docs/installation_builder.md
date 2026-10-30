@@ -4,6 +4,8 @@ Select your inference path and modules to generate an installation command. Comp
 
 CPU, RAM, GPUs and disk update automatically with your selections. Values come from this documentation version’s rendered Helm manifests. Different chart versions or site overrides can change the requirements.
 
+Select Base Command Manager to expose the optional **Read-only Redfish** checkbox inside its module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```

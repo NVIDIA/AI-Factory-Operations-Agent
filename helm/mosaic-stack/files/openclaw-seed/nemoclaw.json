@@ -327,7 +327,8 @@
           "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
           "hitl": {{ .Values.modules.edit.hitl }},
           "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
-          "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
+          "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }},
+          "redfishEnabled": {{ and .Values.modules.bcm.redfish.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }}
         }
       },
       "remote-ssh": {
