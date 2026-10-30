@@ -691,6 +691,12 @@ test("can disable Feishu sender name lookup", () => {
   assert.equal(config.channels.feishu.resolveSenderNames, false);
 });
 
+test("Feishu scheduled delivery requires explicit cron enablement", () => {
+  assert.equal(openclawConfig().cron.enabled, false);
+  assert.equal(openclawConfig(...feishuArgs).cron.enabled, false);
+  assert.equal(openclawConfig(...feishuArgs, "--set", "openclaw.cron.enabled=true").cron.enabled, true);
+});
+
 test("rejects incomplete or shared Feishu configuration", () => {
   for (const args of [
     ["--set", "openclaw.feishu.enabled=true"],

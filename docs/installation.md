@@ -454,6 +454,25 @@ kubectl -n mosaic logs deploy/openclaw -c gateway | grep '\[feishu\]'
 | `permission error resolving sender name` or `ignoring stale permission scope error` | The app lacks `contact:contact.base:readonly`. |
 | `failed to resolve sender name` | The name lookup failed for another reason, most often because the sender is outside the app's contact data range. |
 
+To deliver scheduled reports to Feishu, enable the OpenClaw scheduler, which is disabled by default:
+
+```yaml
+openclaw:
+  cron:
+    enabled: true
+```
+
+Then create an isolated job that announces its result to a user (`user:ou_...`) or a group chat (`chat:oc_...`):
+
+```bash
+kubectl -n mosaic exec deploy/openclaw -c gateway -- node /app/dist/index.js cron create "0 9 * * *" \
+  --tz Asia/Shanghai --name "Daily cluster check" --session isolated \
+  --message "Run a read-only cluster check. Summarize node status, GPU capacity, allocatable and requested counts, failing pods, and recent warning events." \
+  --announce --channel feishu --to "user:ou_xxxxxxxxxxxxxxxx"
+```
+
+Creating, editing, and manually running jobs requires the `operator.admin` scope. After each pod start, the gateway CLI is paired with read access only, so its first job command opens a scope upgrade request. Approve that request from the OpenClaw Control UI, which listens on the `openclaw` Service's gateway port and accepts the token from the `openclaw-secrets` Secret. Alternatively, manage jobs directly in the Control UI. Jobs persist on the OpenClaw volume across pod restarts, and scheduled runs stay in View.
+
 ### Access Modes
 
 Enable guarded write operations with the Edit module:

@@ -263,6 +263,8 @@ openclaw:
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4
+  cron:
+    enabled: false
   slack:
     enabled: false
     maxConcurrent: 8
