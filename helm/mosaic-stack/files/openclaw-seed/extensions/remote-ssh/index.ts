@@ -10,40 +10,15 @@ import {
 } from "../automation-context.ts";
 import { isAllowedDiagnosticArgv } from "../diagnostic-policy.ts";
 import { runMutationOnce } from "../mutation-ledger.ts";
-import { classifySshRequest, normalizeHosts } from "./policy.ts";
+import { classifySshRequest, remoteSshConfig } from "./policy.ts";
 import { runSsh, sshResult as result } from "./runner.ts";
-
-type RemoteSshConfig = {
-  command?: string;
-  keyPath?: string;
-  knownHostsPath?: string;
-  hosts?: unknown;
-  hitl?: boolean;
-  approvalTimeoutMs?: number;
-  timeoutMs?: number;
-  maxOutputBytes?: number;
-};
-
-function config(value: unknown) {
-  const raw = value && typeof value === "object" ? value as RemoteSshConfig : {};
-  return {
-    command: raw.command || "/tools/ssh",
-    keyPath: raw.keyPath || "/var/run/mosaic-ssh/id",
-    knownHostsPath: raw.knownHostsPath || "/var/run/mosaic-ssh/known_hosts",
-    hosts: normalizeHosts(raw.hosts),
-    hitl: raw.hitl !== false,
-    approvalTimeoutMs: raw.approvalTimeoutMs || 120_000,
-    timeoutMs: raw.timeoutMs || 60_000,
-    maxOutputBytes: raw.maxOutputBytes || 65_536,
-  };
-}
 
 export default definePluginEntry({
   id: "remote-ssh",
   name: "Remote SSH",
   description: "Constrained argv execution on configured remote hosts.",
   register(api) {
-    const settings = config(api.pluginConfig);
+    const settings = remoteSshConfig(api.pluginConfig);
     api.session.state.registerSessionExtension(sessionAccessExtension);
 
     api.registerTrustedToolPolicy({
@@ -92,7 +67,7 @@ export default definePluginEntry({
     api.registerTool({
       name: "run_remote_ssh",
       label: "Remote SSH",
-      description: "Run one exact argv command on a configured remote host. Allowlisted read-only diagnostics run without approval; all other commands require Edit and approval when HITL is enabled. Host aliases are fixed by the installer; SSH options, credentials, destinations and nested SSH are not accepted. Pass an argv array, never a raw command string. Shell builtins and environment initialization require explicit shell argv in Edit or Auto, under the same validation and approval policy.",
+      description: "Run one exact argv command on a configured remote host. Allowlisted read-only diagnostics run without approval; all other commands require Edit and approval when HITL is enabled. Host aliases are fixed by the installer; SSH options, credentials, destinations and nested SSH are not accepted. Pass an argv array, never a raw command string. Shell builtins and environment initialization require explicit shell argv in Edit or Auto, under the same validation and approval policy. Use host-local input files in place with their owning client; reading their contents is not a prerequisite. For configuration inventory, list paths and use the client's redacted metadata view rather than dumping credential contents. Kubernetes configuration and operations can use run_kubectl_admin with host and --kubeconfig; config view returns native redacted metadata.",
       parameters: {
         type: "object",
         additionalProperties: false,

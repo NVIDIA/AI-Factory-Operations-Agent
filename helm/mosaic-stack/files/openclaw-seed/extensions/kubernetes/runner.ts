@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
+import { resolveCluster, type KubectlRequest, type KubernetesClusterConfig } from "./policy.ts";
 
 export function kubectlArgv(
   kubeconfig: string,
@@ -9,6 +10,9 @@ export function kubectlArgv(
   server?: string,
   tlsServerName?: string,
 ) {
+  const separator = args.indexOf("--");
+  const clientArgs = separator < 0 ? args : args.slice(0, separator);
+  if (clientArgs.some(arg => arg === "--kubeconfig" || arg.startsWith("--kubeconfig="))) return args;
   return [
     "--kubeconfig", kubeconfig,
     ...(server ? ["--server", server] : []),
@@ -84,5 +88,39 @@ export function toolResult(payload: { command: string[]; [key: string]: unknown 
     isError: payload.blocked === true || payload.previousStatus === "failed"
       || (typeof payload.exitCode === "number" && payload.exitCode !== 0),
     details: payload,
+  };
+}
+
+
+export async function kubectlTarget(
+  settings: {
+    command: string;
+    defaultCluster: string;
+    clusters: Record<string, string | KubernetesClusterConfig>;
+    timeoutMs: number;
+    maxOutputBytes: number;
+    remoteSsh?: unknown;
+  },
+  params: Record<string, unknown>,
+  request: KubectlRequest,
+) {
+  if (params.host !== undefined) {
+    if (!request.mutating) throw new Error("Host execution requires the Kubernetes admin tool");
+    if (!settings.remoteSsh) throw new Error("Remote Kubernetes execution requires configured SSH access");
+    if (params.cluster !== undefined) throw new Error("Choose either a registered cluster or an SSH host");
+    const { remoteSshConfig, classifySshRequest } = await import("../remote-ssh/policy.ts");
+    const { runSsh } = await import("../remote-ssh/runner.ts");
+    const ssh = remoteSshConfig(settings.remoteSsh);
+    const remote = classifySshRequest({ host: params.host, argv: ["kubectl", ...request.args] }, ssh.hosts);
+    return {
+      name: `ssh:${remote.host.alias} (${remote.host.user}@${remote.host.address}:${remote.host.port})`,
+      execute: () => runSsh(ssh, remote.host, remote.remoteCommand, request.stdin),
+    };
+  }
+  const cluster = resolveCluster(params.cluster, settings.defaultCluster, settings.clusters);
+  return {
+    name: cluster.name,
+    execute: () => runKubectl(settings.command, request.args, cluster.kubeconfig,
+      settings.timeoutMs, settings.maxOutputBytes, request.stdin, cluster.server, cluster.tlsServerName),
   };
 }

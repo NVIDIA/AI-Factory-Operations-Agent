@@ -90,7 +90,12 @@ const externalCreate = await kubectlAdmin("external", [
 ]);
 assert.equal(externalCreate.code, 1);
 assert.match(externalCreate.stderr, /forbidden/i);
-assert.throws(() => validateKubectlAdminRequest(["get", "pods", "--kubeconfig=/tmp/other"], undefined));
+for (const option of [["--kubeconfig", clusters.external], [`--kubeconfig=${clusters.external}`]]) {
+  const request = validateKubectlAdminRequest(["get", "configmap", "external-cluster-marker", "-n", "kube-system", "-o", "name", ...option], undefined);
+  const alternate = await runKubectl("/tools/kubectl", request.args, clusters.local, 30_000, 1_048_576);
+  assert.equal(alternate.code, 0, alternate.stderr);
+  assert.match(alternate.stdout, /external-cluster-marker/);
+}
 
 for (const args of [
   ["get", "secrets", "-A"],

@@ -25,10 +25,12 @@ Setting `modules.edit.hitl=false` also removes approvals from Edit mode. Keep th
 Read and write operations use separate tools and Kubernetes credentials:
 
 - `run_kubectl` uses the chart's read-only ServiceAccount. Its ClusterRole grants `get`, `list`, and `watch` for the supported operational resources. The tool rejects Secrets, interactive access, credential overrides, and shell syntax.
-- `run_kubectl_admin` is installed only when Kubernetes editing is enabled. It accepts exact kubectl argv and optional standard input, executes without a local shell, requires approval in Edit, and skips approval in Auto. Credential overrides remain blocked so the installer-selected cluster and identity stay authoritative.
+- `run_kubectl_admin` is installed only when Kubernetes editing is enabled. It accepts exact kubectl argv and optional standard input, executes without a local shell, requires approval in Edit, and skips approval in Auto. It accepts `--kubeconfig PATH` and `--kubeconfig=PATH` for a file available in the gateway container. The selected kubeconfig supplies the connection settings instead of the registered cluster defaults. Other credential override flags remain blocked. Its optional `host` field targets an installer-configured SSH host instead of the gateway; the kubeconfig stays on that host. Host and cluster are mutually exclusive. The existing SSH identity, host verification, argument validation, timeouts, and output limits apply, and Edit retains approval while Auto skips it.
 - Its default ClusterRole permits `create`, `delete`, `patch`, and `update` for ConfigMaps, Pods, Services, Deployments, DaemonSets, StatefulSets, Jobs, and CronJobs, plus `create` on `pods/exec`. An operator can replace that role through `modules.edit.kubernetes.existingClusterRole` to define the actual administrative scope.
 
 Kubernetes RBAC remains authoritative in every mode. Auto bypasses approval, not RBAC or request validation.
+
+In Edit and Auto, authorized operations using files on a configured SSH host can execute through `run_remote_ssh`, including kubectl with a host-local kubeconfig. The existing SSH host restrictions and approval policy apply. This execution path uses credentials in place and does not require registering the same cluster with the gateway Kubernetes tool. Policy denials still cannot be bypassed through another tool.
 
 ## Base Command Manager Boundaries
 

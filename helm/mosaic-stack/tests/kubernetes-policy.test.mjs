@@ -113,7 +113,6 @@ test("keeps mutation out of the read tool and protects admin credentials", () =>
   assert.throws(() => validateKubectlReadRequest(["apply", "-f", "-"]), /read command/);
   assert.deepEqual(validateKubectlAdminRequest(["get", "secrets", "-A"], undefined).args, ["get", "secrets", "-A"]);
   assert.deepEqual(validateKubectlAdminRequest(["delete", "pods", "--all"], undefined).args, ["delete", "pods", "--all"]);
-  assert.throws(() => validateKubectlAdminRequest(["get", "pods", "--kubeconfig=/tmp/admin"], undefined), /not allowed/);
   assert.throws(() => validateKubectlAdminRequest(["get", "pods", "-s=https:\/\/alternate.invalid"], undefined), /not allowed/);
   assert.throws(() => validateKubectlAdminRequest(["get", "pods"], { unexpected: true }), /stdin must be a string/);
   assert.throws(() => validateKubectlAdminRequest(["get", "pods"], "x".repeat(1_048_577)), /cannot exceed/);
@@ -235,4 +234,26 @@ test("separates exec payload options from kubectl connection options", () => {
     assert.throws(() => validateKubectlAdminRequest(["get", "pods", "--", flag], undefined));
   }
   assert.throws(() => validateKubectlAdminRequest(["exec", "worker", "--", "utility", "bad\nargument"], undefined));
+});
+
+
+test("alternate kubeconfigs require the admin tool and preserve exact argv for approval", () => {
+  for (const config of ["/configs/one", "/mounted/cluster two"]) {
+    for (const option of [["--kubeconfig", config], [`--kubeconfig=${config}`]]) {
+      for (const operation of [["get", "namespaces"], ["delete", "deployment", "sample"]]) {
+        const args = [...operation, ...option];
+        assert.throws(() => validateKubectlReadRequest(args));
+        const request = validateKubectlAdminRequest(args, undefined);
+        assert.deepEqual(request.args, args);
+        assert.equal(request.mutating, true);
+        assert.ok(formatKubectlApproval(request, "local").description.includes(config));
+        assert.deepEqual(kubectlArgv("/default/config", request.args, "https://default.invalid", "default.invalid"), args);
+      }
+    }
+  }
+});
+
+test("a pod command's kubeconfig option does not replace the kubectl connection", () => {
+  const args = ["exec", "worker", "--", "utility", "--kubeconfig=/child/config"];
+  assert.deepEqual(kubectlArgv("/default/config", args), ["--kubeconfig", "/default/config", ...args]);
 });

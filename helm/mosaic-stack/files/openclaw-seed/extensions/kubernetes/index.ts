@@ -11,13 +11,12 @@ import { runMutationOnce } from "../mutation-ledger.ts";
 import {
   formatKubectlApproval,
   isKubectlExecFallback,
-  resolveCluster,
   validateKubectlAdminRequest,
   validateKubectlReadRequest,
   type KubectlRequest,
   type KubernetesClusterConfig,
 } from "./policy.ts";
-import { runKubectl, toolResult } from "./runner.ts";
+import { kubectlTarget, toolResult } from "./runner.ts";
 
 type KubernetesConfig = {
   command?: string;
@@ -59,33 +58,24 @@ function rejectedResult(error: unknown) {
 }
 
 async function executeRequest(
-  settings: Required<KubernetesConfig>,
+  settings: Required<KubernetesConfig> & { remoteSsh?: unknown },
   toolCallId: string,
   toolName: string,
   rawParams: Record<string, unknown>,
   request: KubectlRequest,
 ) {
-  const cluster = resolveCluster(rawParams.cluster, settings.defaultCluster, settings.clusters);
-  const execute = () => runKubectl(
-    settings.command,
-    request.args,
-    cluster.kubeconfig,
-    settings.timeoutMs,
-    settings.maxOutputBytes,
-    request.stdin,
-    cluster.server,
-    cluster.tlsServerName,
-  );
+  const target = await kubectlTarget(settings, rawParams, request);
+  const execute = target.execute;
   const attempt = request.mutating
     ? await runMutationOnce({
         toolCallId,
         toolName,
-        target: `${cluster.name}:${request.targets.join(",")}`,
+        target: `${target.name}:${request.targets.join(",")}`,
         args: { args: request.args, stdinSha256: request.stdinSha256 },
       }, execute, value => value.code === 0 ? "completed" : "failed")
     : { replayed: false as const, state: "completed" as const, result: await execute() };
   if (attempt.replayed) return toolResult({
-    cluster: cluster.name,
+    cluster: target.name,
     command: ["kubectl", ...request.args],
     mutating: true,
     replayed: true,
@@ -95,7 +85,7 @@ async function executeRequest(
   });
   const execution = attempt.result;
   return toolResult({
-    cluster: cluster.name,
+    cluster: target.name,
     command: ["kubectl", ...request.args],
     mutating: request.mutating,
     idempotencyKey: request.mutating ? toolCallId : undefined,
@@ -112,7 +102,9 @@ export default definePluginEntry({
   name: "Kubernetes",
   description: "Approval-aware kubectl access to registered Kubernetes clusters.",
   register(api) {
-    const settings = config(api.pluginConfig);
+    const remoteEntry = api.config.plugins?.entries?.["remote-ssh"];
+    const settings = { ...config(api.pluginConfig), remoteSsh: remoteEntry?.enabled ? remoteEntry.config : undefined };
+    const hosts = (settings.remoteSsh as { hosts?: { alias: string }[] } | undefined)?.hosts || [];
     api.session.state.registerSessionExtension(sessionAccessExtension);
 
     api.registerTrustedToolPolicy({
@@ -132,9 +124,9 @@ export default definePluginEntry({
           }
           if (event.toolName !== "run_kubectl_admin") return;
           const request = validateKubectlAdminRequest(event.params.args, event.params.stdin);
+          const target = await kubectlTarget(settings, event.params, request);
           if (!settings.hitl || contextSkipsApproval(context)) return;
-          const cluster = resolveCluster(event.params.cluster, settings.defaultCluster, settings.clusters);
-          const approval = formatKubectlApproval(request, cluster.name);
+          const approval = formatKubectlApproval(request, target.name);
           const identityDecision = await requestIdentityApproval(context, {
             toolCallId: event.toolCallId,
             toolName: event.toolName,
@@ -168,7 +160,7 @@ export default definePluginEntry({
       name: "run_kubectl",
       label: "Kubernetes Agent",
       description:
-        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. The Kubernetes credential enforces read-only access. Mutations use run_kubectl_admin when edit mode is enabled. Interactive access, Secrets, credential overrides, and shell syntax are rejected.",
+        "Run one read-only kubectl operation in the gateway container against a registered cluster. Pass argv without the kubectl prefix. The Kubernetes credential enforces read-only access. Mutations use run_kubectl_admin when edit mode is enabled. Interactive access, Secrets, credential overrides, and shell syntax are rejected. A config discovered on an SSH host is not a gateway cluster registration or a gateway file. For host-local configs, use run_kubectl_admin with its host field and --kubeconfig in Edit or Auto. The config path is enough; its contents need not be read.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -176,7 +168,7 @@ export default definePluginEntry({
         properties: {
           cluster: {
             type: "string",
-            description: "Registered cluster name. Defaults to " + settings.defaultCluster + ".",
+            description: "Registered gateway cluster names: " + JSON.stringify(Object.keys(settings.clusters)) + ". Defaults to " + settings.defaultCluster + ". Host-local config names are not registered gateway clusters.",
           },
           args: {
             type: "array",
@@ -206,15 +198,20 @@ export default definePluginEntry({
       name: "run_kubectl_admin",
       label: "Kubernetes Admin",
       description:
-        "Run exact kubectl arguments, including noninteractive exec inside existing pods for diagnostics or authorized changes. Pod exec uses this tool even when the child command only reads data; run_kubectl cannot execute commands in pods. Execution has the container’s existing device mounts and privileges. Edit mode requires approval and Auto mode does not. For scripts, use exec with -i before -- and send the script through stdin to bash -s. Without -i, kubectl does not forward stdin into the container. Use run_kubectl for resource reads.",
+        "Run exact kubectl arguments in the gateway container, or set host to execute on that configured SSH host. A --kubeconfig path is resolved in the selected execution environment; use it directly without reading or copying authentication material. For configuration inventory, config view with --kubeconfig returns native redacted metadata. Omit cluster when host is set. Edit requires approval and Auto does not. Use run_kubectl for reads with registered gateway credentials. Supports noninteractive pod exec and authorized changes; pod exec uses this tool even for reads and retains the selected executor's existing mounts and privileges. For scripts, exec with -i before -- forwards stdin to bash -s. Without -i, kubectl does not forward stdin into the container.",
       parameters: {
         type: "object",
         additionalProperties: false,
         required: ["args"],
         properties: {
+          ...(hosts.length ? { host: {
+            type: "string",
+            enum: hosts.map(host => host.alias),
+            description: "Execute kubectl on this configured SSH host using its local files. Omit cluster when host is set. Defaults to gateway execution when omitted.",
+          } } : {}),
           cluster: {
             type: "string",
-            description: "Registered cluster name. Defaults to " + settings.defaultCluster + ".",
+            description: "Registered gateway cluster names: " + JSON.stringify(Object.keys(settings.clusters)) + ". Defaults to " + settings.defaultCluster + ". For an alternate gateway-mounted config, use --kubeconfig in args instead of inventing a cluster name.",
           },
           args: {
             type: "array",
