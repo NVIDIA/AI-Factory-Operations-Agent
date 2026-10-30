@@ -600,6 +600,125 @@ test("rejects incomplete native Slack configuration", () => {
   }
 });
 
+const feishuArgs = [
+  "--set",
+  "openclaw.feishu.enabled=true",
+  "--set",
+  "openclaw.feishu.existingSecret=mosaic-feishu",
+  "--set",
+  "openclaw.feishu.allowedUserIds[0]=ou_1234567890",
+];
+
+test("does not render Feishu runtime behavior when disabled", () => {
+  const output = render();
+  assert.doesNotMatch(output, /init-feishu-plugin|FEISHU_APP_(?:ID|SECRET)|@openclaw\/feishu/);
+  assert.match(output, /"feishuEnabled": false/);
+  const config = openclawConfig();
+  assert.equal(config.channels, undefined);
+  assert.equal(config.plugins.allow.includes("feishu"), false);
+});
+
+test("renders native Feishu WebSocket messaging for approved users", () => {
+  const output = render(...feishuArgs);
+  assert.match(output, /name: init-feishu-plugin/);
+  // An npm spec install keeps OpenClaw's trusted official plugin status; a path install would not.
+  assert.match(output, /node \/app\/dist\/index\.js plugins install "@openclaw\/feishu@2026\.6\.10" --force/);
+  assert.match(output, /plugins inspect feishu --json > \/tmp\/feishu-plugin\.json/);
+  assert.match(output, /' "sha512-9kTlp3[A-Za-z0-9+/]+={0,2}"/);
+  assert.match(output, /name: FEISHU_APP_ID\s+valueFrom:\s+secretKeyRef:\s+name: "mosaic-feishu"\s+key: "FEISHU_APP_ID"/);
+  assert.match(output, /name: FEISHU_APP_SECRET\s+valueFrom:\s+secretKeyRef:\s+name: "mosaic-feishu"\s+key: "FEISHU_APP_SECRET"/);
+  assert.doesNotMatch(output, /init-slack-plugin|SLACK_(?:BOT|APP)_TOKEN/);
+  const config = openclawConfig(...feishuArgs);
+  assert.deepEqual(config.session, { dmScope: "per-channel-peer" });
+  assert.deepEqual(Object.keys(config.channels), ["feishu"]);
+  assert.deepEqual(config.channels.feishu, {
+    enabled: true,
+    domain: "feishu",
+    connectionMode: "websocket",
+    appId: "${FEISHU_APP_ID}",
+    appSecret: "${FEISHU_APP_SECRET}",
+    configWrites: false,
+    dmPolicy: "allowlist",
+    allowFrom: ["ou_1234567890"],
+    groupPolicy: "disabled",
+    groupAllowFrom: [],
+    groupSenderAllowFrom: ["ou_1234567890"],
+    requireMention: true,
+    streaming: true,
+    resolveSenderNames: true,
+    tools: { doc: false, chat: false, wiki: false, drive: false, perm: false, scopes: false, bitable: false },
+  });
+  // OpenClaw 2026.6.10 accepts per-channel queue modes only for built-in channels.
+  assert.equal(config.messages, undefined);
+  assert.ok(config.plugins.allow.includes("feishu"));
+  assert.deepEqual(config.plugins.entries.feishu, { enabled: true });
+  assert.equal(config.plugins.entries["automation-guard"].config.feishuEnabled, true);
+  const guardSchema = JSON.parse(
+    readFileSync(new URL("../files/openclaw-seed/extensions/automation-guard/openclaw.plugin.json", import.meta.url)),
+  ).configSchema;
+  assert.equal(guardSchema.additionalProperties, false);
+  for (const key of Object.keys(config.plugins.entries["automation-guard"].config)) {
+    assert.ok(Object.hasOwn(guardSchema.properties, key), `automation-guard schema is missing ${key}`);
+  }
+});
+
+test("restricts Feishu group mentions to approved chats and users alongside Slack", () => {
+  const config = openclawConfig(
+    ...feishuArgs,
+    "--set",
+    "openclaw.feishu.groupChatIds[0]=oc_1234567890",
+    "--set",
+    "openclaw.feishu.domain=lark",
+    "--set",
+    "openclaw.slack.enabled=true",
+    "--set",
+    "openclaw.slack.existingSecret=mosaic-slack",
+    "--set",
+    "openclaw.slack.allowedUserIds[0]=U12345678",
+  );
+  assert.deepEqual(Object.keys(config.channels), ["feishu", "slack"]);
+  assert.equal(config.channels.feishu.domain, "lark");
+  assert.equal(config.channels.feishu.groupPolicy, "allowlist");
+  assert.deepEqual(config.channels.feishu.groupAllowFrom, ["oc_1234567890"]);
+  assert.deepEqual(config.channels.feishu.groupSenderAllowFrom, ["ou_1234567890"]);
+  assert.equal(config.channels.feishu.requireMention, true);
+  assert.deepEqual(config.session, { dmScope: "per-channel-peer" });
+  assert.deepEqual(config.messages, { queue: { byChannel: { slack: "followup" } } });
+});
+
+test("can disable Feishu sender name lookup", () => {
+  const config = openclawConfig(...feishuArgs, "--set", "openclaw.feishu.resolveSenderNames=false");
+  assert.equal(config.channels.feishu.resolveSenderNames, false);
+});
+
+test("rejects incomplete or shared Feishu configuration", () => {
+  for (const args of [
+    ["--set", "openclaw.feishu.enabled=true"],
+    ["--set", "openclaw.feishu.enabled=true", "--set", "openclaw.feishu.existingSecret=mosaic-feishu"],
+    [...feishuArgs, "--set", "openclaw.feishu.allowedUserIds[1]=*"],
+    [...feishuArgs, "--set", "openclaw.feishu.domain=larksuite"],
+    [...feishuArgs, "--set", "modules.execution.enabled=false"],
+    [
+      ...feishuArgs,
+      "--set",
+      "openclaw.slack.enabled=true",
+      "--set",
+      "openclaw.slack.existingSecret=mosaic-slack",
+      "--set",
+      "openclaw.slack.allowedUserIds[0]=U12345678",
+      "--set",
+      "openclaw.slack.session.dmScope=main",
+    ],
+  ]) {
+    const result = spawnSync(
+      "helm",
+      ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, args.join(" "));
+  }
+});
+
 const disableWebSearch = ["--set", "modules.webSearch.enabled=false"];
 const braveArgs = [
   "--set",

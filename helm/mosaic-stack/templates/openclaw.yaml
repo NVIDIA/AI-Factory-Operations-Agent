@@ -306,6 +306,35 @@ spec:
             - name: remote-ssh-credentials
               mountPath: /credentials
         {{- end }}
+        {{- if .Values.openclaw.feishu.enabled }}
+        - name: init-feishu-plugin
+          image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              node /app/dist/index.js plugins install {{ printf "@openclaw/feishu@%v" .Values.openclaw.feishu.pluginVersion | quote }} --force
+              node /app/dist/index.js plugins inspect feishu --json > /tmp/feishu-plugin.json
+              node -e '
+                const install = JSON.parse(require("fs").readFileSync("/tmp/feishu-plugin.json", "utf8")).install;
+                if (install?.integrity !== process.argv[1]) {
+                  console.error(`@openclaw/feishu integrity ${install?.integrity} does not match ${process.argv[1]}`);
+                  process.exit(1);
+                }
+                console.log(`@openclaw/feishu integrity verified: ${install.integrity}`);
+              ' {{ .Values.openclaw.feishu.pluginIntegrity | quote }}
+          env:
+            - name: HOME
+              value: /home/node
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: openclaw-home
+              mountPath: /home/node/.openclaw
+        {{- end }}
         {{- if .Values.openclaw.slack.enabled }}
         - name: init-slack-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
@@ -577,6 +606,18 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.openclaw.slack.existingSecret | quote }}
                   key: {{ .Values.openclaw.slack.appTokenKey | quote }}
+            {{- end }}
+            {{- if .Values.openclaw.feishu.enabled }}
+            - name: FEISHU_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.feishu.existingSecret | quote }}
+                  key: {{ .Values.openclaw.feishu.appIdKey | quote }}
+            - name: FEISHU_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openclaw.feishu.existingSecret | quote }}
+                  key: {{ .Values.openclaw.feishu.appSecretKey | quote }}
             {{- end }}
             {{- if and .Values.modules.webSearch.enabled (eq .Values.modules.webSearch.provider "brave") }}
             - name: WEB_SEARCH_KEY

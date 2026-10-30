@@ -18,6 +18,8 @@ Automated alert and cluster-health sessions are always View-only. They cannot be
 
 For native Slack, `openclaw.slack.allowedUserIds` remains the messaging allowlist for DMs, group DMs, and channel mentions. `openclaw.slack.editUserIds` is narrower: those verified users receive Edit and approve their own mutations through Slack buttons; every other allowed Slack user remains in View.
 
+For native Feishu, `openclaw.feishu.allowedUserIds` is the messaging allowlist for DMs and group mentions, and `openclaw.feishu.groupChatIds` limits which group chats are admitted. Feishu has no identity-verified approval path, so every Feishu run is View even if the conversation's stored mode was changed elsewhere. The chart also disables the Feishu plugin's document, wiki, drive, Bitable, chat, and permission tools.
+
 Setting `modules.edit.hitl=false` also removes approvals from Edit mode. Keep the default `true` unless every user permitted to select Edit is trusted to make changes directly.
 
 ## Kubernetes Boundaries

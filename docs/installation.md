@@ -379,6 +379,81 @@ helm upgrade mosaic "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Feishu / Lark
+
+Feishu and Lark messaging is optional and uses OpenClaw's native `feishu` channel plugin, pinned to the chart's OpenClaw release. The gateway opens an outbound persistent connection to the Feishu Open Platform, so no ingress or public endpoint is required. The `openclaw` pod needs HTTPS egress to `open.feishu.cn` and to the persistent connection endpoint that it returns, currently `msg-frontier.feishu.cn` (`open.larksuite.com` and `msg-frontier.larksuite.com` for Lark). Before the gateway starts, an init container installs `@openclaw/feishu` at `openclaw.feishu.pluginVersion` from `registry.npmjs.org` and stops the pod unless the integrity that npm verified matches `openclaw.feishu.pluginIntegrity`, so the pod also needs egress to `registry.npmjs.org`.
+
+In the [Feishu Open Platform](https://open.feishu.cn/app) or Lark Developer console, create a custom app and:
+
+1. Enable the **Bot** capability.
+2. Grant the messaging scopes `im:message`, `im:message.p2p_msg:readonly`, `im:message.group_at_msg:readonly`, `im:message:send_as_bot`, and `im:resource`, plus `cardkit:card:write` for streaming replies and `contact:contact.base:readonly` so the agent sees sender names instead of `open_id` values. Name lookups also require the senders to be inside the app's contact data range, configured under the app's data permissions. If the contact scope cannot be granted, set `openclaw.feishu.resolveSenderNames: false`; otherwise every message makes a failed name lookup. The chart disables the plugin's document, wiki, drive, Bitable, chat, and permission tools, so their scopes are not needed.
+3. Under event subscriptions, choose the persistent connection mode and add `im.message.receive_v1`. The console verifies the connection, so save this step after the gateway is running with the app credentials.
+4. Publish a version and set the app's availability to the intended users.
+
+Create a Secret in the release namespace from the app's App ID and App Secret. Keep the secret values outside Helm values and source control.
+
+```bash
+read -rp 'Feishu App ID (cli_...): ' FEISHU_APP_ID
+read -rsp 'Feishu App Secret: ' FEISHU_APP_SECRET; echo
+
+kubectl -n mosaic create secret generic mosaic-feishu \
+  --from-literal=FEISHU_APP_ID="$FEISHU_APP_ID" \
+  --from-literal=FEISHU_APP_SECRET="$FEISHU_APP_SECRET" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset FEISHU_APP_SECRET
+```
+
+Add these values to the release configuration and apply them through the normal Helm upgrade workflow:
+
+```yaml
+openclaw:
+  feishu:
+    enabled: true
+    existingSecret: mosaic-feishu
+    # Use lark for Lark tenants.
+    domain: feishu
+    allowedUserIds:
+      - "ou_xxxxxxxxxxxxxxxx"
+    # Optional group chats where allowed users can @mention the bot.
+    groupChatIds:
+      - "oc_xxxxxxxxxxxxxxxx"
+```
+
+`allowedUserIds` lists Feishu `open_id` values (`ou_...`). An `open_id` is specific to the app. To find one, deploy with a placeholder ID, have the user send the bot a direct message, and read the rejected sender from the gateway log:
+
+```bash
+kubectl -n mosaic logs deploy/openclaw -c gateway | grep 'blocked unauthorized sender'
+```
+
+`groupChatIds` lists group `chat_id` values (`oc_...`), shown in the group's settings. A group message reaches the agent only when its chat is listed, its sender is in `allowedUserIds`, and it @mentions the bot. Group messages are ignored while `groupChatIds` is empty.
+
+Each Feishu user has a separate direct-message session, and each group chat shares one session among its allowed members. Feishu conversations always run in View, whether or not the Edit module is enabled; use the web UI for Edit or Auto. Slack can remain enabled alongside Feishu.
+
+To rotate the App Secret, update the Secret and run `kubectl -n mosaic rollout restart deployment/openclaw`. Updating only the Secret does not restart the pod. When changing `openclaw.feishu.pluginVersion`, set `openclaw.feishu.pluginIntegrity` to the new package's integrity:
+
+```bash
+read -rp 'Feishu plugin version: ' VERSION
+curl -fsSL "https://registry.npmjs.org/@openclaw/feishu/-/feishu-${VERSION}.tgz" \
+  | python3 -c 'import base64, hashlib, sys; print("sha512-" + base64.b64encode(hashlib.sha512(sys.stdin.buffer.read()).digest()).decode())'
+```
+
+The Feishu connection does not affect the gateway's readiness, so a Ready `openclaw` pod does not mean that Feishu is connected. Check the plugin's log lines instead:
+
+```bash
+kubectl -n mosaic logs deploy/openclaw -c gateway | grep '\[feishu\]'
+```
+
+| Log message | Meaning |
+|---|---|
+| `app_id or app_secret is invalid` | The Secret holds a wrong App ID or App Secret. |
+| `bot open_id unknown` | The bot identity lookup failed, usually because of wrong credentials or a missing Bot capability. Group mentions are ignored until a later retry succeeds. |
+| `blocked unauthorized sender ou_...` | The direct-message sender is not in `allowedUserIds`. |
+| `not in groupAllowFrom` | The group chat is not in `groupChatIds`. |
+| `not in group ... sender allowlist` | The group message sender is not in `allowedUserIds`. |
+| `did not mention bot` | A group message without an @mention, ignored by design. |
+| `permission error resolving sender name` or `ignoring stale permission scope error` | The app lacks `contact:contact.base:readonly`. |
+| `failed to resolve sender name` | The name lookup failed for another reason, most often because the sender is outside the app's contact data range. |
+
 ### Access Modes
 
 Enable guarded write operations with the Edit module:
@@ -394,7 +469,7 @@ modules:
 
 Every interactive conversation starts in **View**. Users can switch that conversation to **Edit** for approval-gated changes or **Auto** for validated changes without approval. Auto requires confirmation through a warning dialog. Other conversations remain in View, and automated alert and cluster-health sessions are always read-only. When the module is disabled, the access control is not shown.
 
-Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions.
+Native Slack users remain read-only unless their verified Slack user ID is listed under `openclaw.slack.editUserIds`. Edit users approve their own mutations with Slack buttons. The broader `openclaw.slack.allowedUserIds` list controls who may use AI Factory Operations Agent through DMs, group DMs, and channel mentions. Feishu users are always read-only.
 
 Privileges are attached to separate tools and credentials. Read-only infrastructure tools and sandbox-local execution run automatically in View. OpenShell enforces local execution boundaries; the diagnostic command allowlist applies to remote SSH. Mutating Kubernetes, Base Command Manager, and SSH operations are blocked in View, approval-gated in Edit when `hitl: true`, and automatic in Auto. Kubernetes RBAC, request validation, configured SSH hosts, and audit logging apply in every mode.
 

@@ -58,6 +58,22 @@ export default definePluginEntry({
       });
       api.on("agent_end", (_event, context) => clearRunAccess(context.runId));
     }
+    if (pluginConfig.feishuEnabled === true) {
+      // Feishu has no identity-verified approval path, so its runs stay in View
+      // even if the conversation's stored access state was changed elsewhere.
+      api.on("before_prompt_build", (_event, context) => {
+        if (context.channel !== "feishu" && context.messageProvider !== "feishu") return;
+        setRunAccess(context.runId, {
+          mode: "view",
+          provider: "feishu",
+          ...(context.senderId ? { senderId: context.senderId } : {}),
+        });
+        return {
+          prependContext: "[Runtime Context]\nai_factory_operations_agent_access_mode=view\nThis access mode is authoritative for the current Feishu user.",
+        };
+      });
+      api.on("agent_end", (_event, context) => clearRunAccess(context.runId));
+    }
     api.session.state.registerSessionExtension(sessionAccessExtension);
     api.registerTrustedToolPolicy({
       id: "session-access",

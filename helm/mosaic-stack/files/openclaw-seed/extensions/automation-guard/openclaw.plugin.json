@@ -20,6 +20,9 @@
         "type": "array",
         "items": { "type": "string" }
       },
+      "feishuEnabled": {
+        "type": "boolean"
+      },
       "hitl": {
         "type": "boolean"
       },

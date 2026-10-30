@@ -287,6 +287,27 @@ openclaw:
       mode: partial
       nativeTransport: true
     pluginVersion: 2026.6.6
+  feishu:
+    enabled: false
+    pluginVersion: 2026.6.10
+    # npm integrity of the @openclaw/feishu tarball for pluginVersion. The plugin is
+    # installed by npm spec, which OpenClaw trusts as the official package, and the
+    # pod does not start unless npm's recorded integrity matches this value.
+    pluginIntegrity: sha512-9kTlp3KynPbiQ4OBst4TW+zFE4rTOlRxwfslTWJ4/jhueHAHoVtPEwEheIEijdT9tO9fESOHMUxPMsAaOgiagw==
+    # API domain: feishu (Feishu) or lark (Lark international).
+    domain: feishu
+    existingSecret: ""
+    appIdKey: FEISHU_APP_ID
+    appSecretKey: FEISHU_APP_SECRET
+    # Feishu open_id (ou_...) or user_id values permitted to message the bot.
+    allowedUserIds: []
+    # Group chat IDs (oc_...) where allowed users can @mention the bot.
+    # Group messages are disabled while this list is empty.
+    groupChatIds: []
+    streaming: true
+    # Show sender display names to the agent. Requires the contact:contact.base:readonly
+    # scope, with senders inside the app's contact data range.
+    resolveSenderNames: true
   image:
     repository: ghcr.io/openclaw/openclaw
     tag: 2026.6.10

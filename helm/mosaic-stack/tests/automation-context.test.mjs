@@ -108,6 +108,28 @@ test("fails closed when a Slack Edit run has no identity approval broker", async
   clearRunAccess("run-no-broker");
 });
 
+test("keeps Feishu runs in View even when the conversation stores Auto", () => {
+  const feishu = {
+    runId: "run-feishu",
+    sessionKey: "agent:default:feishu:direct:ou_1234567890",
+    getSessionExtension: () => ({ mode: "auto" }),
+  };
+  setRunAccess(feishu.runId, { mode: "view", provider: "feishu", senderId: "ou_1234567890" });
+  assert.equal(runAccessMode(feishu), "view");
+  assert.equal(contextAllowsMutation(true, feishu), false);
+  assert.equal(contextSkipsApproval(feishu), false);
+  clearRunAccess(feishu.runId);
+  assert.equal(runAccessMode(feishu), "auto");
+
+  const guard = readFileSync(
+    new URL("../files/openclaw-seed/extensions/automation-guard/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(guard, /pluginConfig\.feishuEnabled === true/);
+  assert.match(guard, /context\.channel !== "feishu" && context\.messageProvider !== "feishu"/);
+  assert.match(guard, /mode: "view",\s*provider: "feishu"/);
+});
+
 test("projects and registers access state in every approval-owning plugin", () => {
   assert.deepEqual(sessionAccessExtension.project({ state: { mode: "auto" } }), { mode: "auto" });
   for (const plugin of ["automation-guard", "kubernetes", "bcm", "remote-ssh"]) {
