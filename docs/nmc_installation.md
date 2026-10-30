@@ -14,7 +14,7 @@ sudo -i
 
 Skip this command if already root. A non-root account can run the same flow when the site has granted it the required Kubernetes administrator access and a readable SSH key for the BCM adapter; set `CLUSTER_MANAGER_SSH_KEY_PATH` to that key. Having Linux sudo access alone does not grant Kubernetes permissions. Run `module load` inside the selected login shell, rather than `sudo module load`; `module` is a shell function. Do not prepend `sudo` to each Helm or kubectl command, because it can select another user's kubeconfig and credentials.
 
-The agent installation pulls its chart from NGC and works from any directory without a Git checkout. The separate inference installation below uses a chart in this repository and must run from its checkout root. Each `module load` selects a different Kubernetes cluster for subsequent commands in that shell.
+Both the agent and standalone inference charts are pulled from NGC. The commands work from any directory and do not require Git or a repository checkout. Each `module load` selects a different Kubernetes cluster for subsequent commands in that shell.
 
 ## Install the agent
 
@@ -157,16 +157,17 @@ Deploy inference in `k8s-user` and connect the agent in `k8s-admin` to its HTTPS
 
 ### 1. Configure inference
 
-In the login shell described above, clone the repository and enter its root directory before using `./helm/afoa-inference`:
+In the login shell described above, sign in to NGC using the same invited account described in [Install the agent](#install-the-agent). The standalone inference chart is published alongside the agent chart:
 
 ```bash
-git clone https://github.com/NVIDIA/AI-Factory-Operations-Agent.git
-cd AI-Factory-Operations-Agent
+: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with private registry access}"
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
+  --username '$oauthtoken' --password-stdin
+INFERENCE_CHART=oci://nvcr.io/0948643769302270/afoa-release/afoa-inference
+INFERENCE_CHART_VERSION=0.0.2-main.20261030003406.gd14c5492
 ```
 
-If you already have a checkout, enter that directory instead of cloning again. Save `inference-values.yaml` in the checkout root and run the inference Helm command there. On a head node without GitHub access, transfer a reviewed checkout or the matching source release archive through your site's approved process and enter its extracted root.
-
-The example chart is at `helm/afoa-inference`; it is separate from the published agent chart. You need:
+This pins a published development version. Select another published version deliberately when upgrading. No checkout or `cd` step is needed. You need:
 
 - A compatible GPU in `k8s-user`, the NVIDIA device plugin and a GPU runtime. The default [Nemotron 3.5 Super VL profile](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) requests one GPU, 8 CPUs, 64 GiB host memory and a 500 GiB persistent cache. Check the model card for GPU memory and driver requirements.
 - A StorageClass for the cache, plus access to the vLLM image and model weights.
@@ -194,7 +195,8 @@ kubectl -n afoa-inference create secret generic afoa-inference-auth \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install afoa-inference ./helm/afoa-inference \
+helm upgrade --install afoa-inference "$INFERENCE_CHART" \
+  --version "$INFERENCE_CHART_VERSION" \
   -n afoa-inference \
   -f inference-values.yaml \
   --wait \
