@@ -284,3 +284,5 @@ kubectl -n mosaic get secret mosaic-ui-auth \
 
 Open `http://127.0.0.1:3210` on the workstation. Both forwarding processes
 must remain running.
+
+For optional BMC inventory and monitoring, follow the [Read-only Redfish installation](installation.md#read-only-redfish).

@@ -29,6 +29,7 @@ type BcmConfig = {
   hitl: boolean;
   approvalTimeoutMs: number;
   slurmEnabled: boolean;
+  redfishEnabled: boolean;
   timeoutMs: number;
   subagentEventsUrl: string;
 };
@@ -148,6 +149,7 @@ function readConfig(pluginConfig: unknown): BcmConfig {
     hitl: boolConfig(pluginConfig, "hitl", true),
     approvalTimeoutMs: numberConfig(pluginConfig, "approvalTimeoutMs", 120_000),
     slurmEnabled: boolConfig(pluginConfig, "slurmEnabled", false),
+    redfishEnabled: boolConfig(pluginConfig, "redfishEnabled", false),
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
@@ -489,6 +491,35 @@ async function callBcmTool(
   }
 }
 
+async function redfishTool(
+  config: BcmConfig,
+  mcpToolName: string,
+  args: Record<string, unknown>,
+  options: SubagentOptions,
+) {
+  const result = await callBcmTool(config, mcpToolName, args, options);
+  const text = textFromResult(result.details);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    return result;
+  }
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const { error, status } = payload as { error?: unknown; status?: unknown };
+    throw new Error(status === 403
+      ? `Redfish request refused: ${String(error)}. Redfish access is read-only; actions and account, session, certificate, and event services are unavailable.`
+      : `Redfish request failed: ${String(error)}`);
+  }
+  return jsonToolResult(payload);
+}
+
+function hostnameParam(value: unknown) {
+  const hostname = stringParam(value);
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(hostname)) throw new Error("hostname must be a BCM node hostname");
+  return hostname;
+}
+
 function stringParam(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
@@ -694,7 +725,7 @@ export default definePluginEntry({
     registerTool({
       name: "bcm_search_tools",
       label: "BCM Search Tools",
-      description: "Search bcm-mcp-tools diagnostic tool IDs and descriptions before choosing a BCM command to run.",
+      description: "Search the diagnostic command catalog used by bcm_execute_tool. This does not search registered agent tools, including the separate bcm_redfish_* tools. Use the current tool definitions to determine agent capabilities; zero catalog matches do not mean a capability is unavailable.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -706,7 +737,7 @@ export default definePluginEntry({
       },
       async execute(toolCallId: string, rawParams: Record<string, unknown>) {
         const query = stringParam(rawParams.query);
-        return callBcmTool(
+        const result = await callBcmTool(
           config,
           "search_tool",
           { query,
@@ -715,6 +746,13 @@ export default definePluginEntry({
           },
           subagentOptions(config, toolCallId, "bcm_search_tools", "BCM tool search"),
         );
+        return {
+          ...result,
+          content: [
+            { type: "text", text: "Search scope: diagnostic commands for bcm_execute_tool only. Registered agent tools are outside this catalog. Check the current tool definitions before concluding that a capability is unavailable." },
+            ...result.content,
+          ],
+        };
       },
     });
 
@@ -813,6 +851,91 @@ export default definePluginEntry({
           : attempt.result;
       },
     });
+
+    if (config.redfishEnabled) {
+      const hostname = { type: "string", description: "BCM node hostname, for example dgx-03. The BMC address and credentials are resolved from BCM." };
+      const chassis = { type: "string", description: "Optional Redfish chassis id. Defaults to the chassis linked to the node's system." };
+      const redfishTools: Array<{
+        name: string;
+        label: string;
+        description: string;
+        mcpToolName: string;
+        properties: Record<string, unknown>;
+        args: (params: Record<string, unknown>) => Record<string, unknown>;
+      }> = [
+        {
+          name: "bcm_redfish_system_summary",
+          label: "BCM Redfish System Summary",
+          description: "Read a node's power state, health, model, serial number, and BIOS version from its BMC over Redfish. Read-only; works when the node is unreachable in-band.",
+          mcpToolName: "redfish_system_summary",
+          properties: {},
+          args: () => ({}),
+        },
+        {
+          name: "bcm_redfish_thermal",
+          label: "BCM Redfish Thermal",
+          description: "Summarize a node's BMC temperature and fan sensors with thresholds and health over Redfish. Read-only.",
+          mcpToolName: "redfish_thermal",
+          properties: { chassis },
+          args: (params) => ({ chassis: stringParam(params.chassis) }),
+        },
+        {
+          name: "bcm_redfish_power",
+          label: "BCM Redfish Power",
+          description: "Read a node's power draw and power supply status from its BMC over Redfish. Read-only.",
+          mcpToolName: "redfish_power",
+          properties: { chassis },
+          args: (params) => ({ chassis: stringParam(params.chassis) }),
+        },
+        {
+          name: "bcm_redfish_sel",
+          label: "BCM Redfish Event Log",
+          description: "Return the newest BMC system event log and manager log entries for a node over Redfish, newest first. Read-only.",
+          mcpToolName: "redfish_sel",
+          properties: { limit: { type: "number", description: "Maximum entries to return, 1-200. Default 50." } },
+          args: (params) => ({ limit: numberParam(params.limit, 50, 1, 200) }),
+        },
+        {
+          name: "bcm_redfish_firmware",
+          label: "BCM Redfish Firmware",
+          description: "List a node's firmware inventory from its BMC over Redfish. Read-only.",
+          mcpToolName: "redfish_firmware",
+          properties: {},
+          args: () => ({}),
+        },
+        {
+          name: "bcm_redfish_get",
+          label: "BCM Redfish GET",
+          description: "Read one Redfish resource from a node's BMC with GET. The server allows only inventory, health, sensor, log, firmware, and task paths under /redfish/v1 and refuses actions and account, session, certificate, and event services. Optional query parameters: $top, $skip, and $expand=. (one level, not on the service root).",
+          mcpToolName: "redfish_get",
+          properties: { path: { type: "string", description: "Redfish path, for example /redfish/v1/Chassis/DGX/Sensors." } },
+          args: (params) => {
+            const path = stringParam(params.path);
+            if (!path.startsWith("/redfish/v1") || path.length > 512) throw new Error("path must be a /redfish/v1 resource path");
+            return { path };
+          },
+        },
+      ];
+      for (const tool of redfishTools) registerTool({
+        name: tool.name,
+        label: tool.label,
+        description: tool.description,
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          required: ["hostname", ...(tool.name === "bcm_redfish_get" ? ["path"] : [])],
+          properties: { hostname, ...tool.properties },
+        },
+        async execute(toolCallId: string, rawParams: Record<string, unknown>) {
+          return redfishTool(
+            config,
+            tool.mcpToolName,
+            { hostname: hostnameParam(rawParams.hostname), ...tool.args(rawParams) },
+            subagentOptions(config, toolCallId, tool.name, tool.label),
+          );
+        },
+      });
+    }
 
     registerTool({
       name: "bcm_list_notes",

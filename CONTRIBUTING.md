@@ -27,6 +27,8 @@ Open an issue before substantial implementation work so maintainers can confirm 
 4. Open a pull request using the repository template.
 5. Address review feedback and ensure required status checks pass.
 
+When adding a heading or installation option to `docs/installation.md`, update `docs/installation_builder.md` and `docs/_static/install-builder.mjs` in the same change. Keep the builder's options, generated Helm flags, prerequisites, and guide links aligned with the installation guide. For sections that do not map to a selectable option, include the relevant guidance or link in the builder page. Validate with `node --test tests/docs/*.test.mjs` and `uv run --project docs --locked sphinx-build -W --keep-going -b html -c docs . docs/_build/html`, then inspect the rendered builder.
+
 ## Developer Certificate Of Origin
 
 External contributions require agreement to the [Developer Certificate of Origin 1.1](DCO.md). Every commit must include a `Signed-off-by` line. Add it automatically with the `-s` option:

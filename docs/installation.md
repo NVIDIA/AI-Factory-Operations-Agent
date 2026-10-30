@@ -531,6 +531,65 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 
 The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
 
+### Read-only Redfish
+
+Redfish lets the agent read a node's BMC when the node is down or unreachable in-band: power state,
+hardware health, temperatures, fans, power supplies, BMC event logs, and firmware inventory. The
+agent passes only a Base Command Manager hostname. The Base Command Manager adapter looks up the
+BMC address and credentials through CMSH, the same lookup the Hardware Agent uses, and never returns
+them to the model.
+
+Prerequisites:
+
+- The [Base Command Manager extension](#base-command-manager) is configured in `ssh-adapter` mode.
+- The adapter's SSH identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
+- The head node can reach the BMC network over HTTPS and has `curl`. Check one BMC from the head node:
+
+  ```bash
+  curl -sk https://<bmc-address>/redfish/v1 | head -c 300; echo
+  ```
+
+Enable it:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.bcm.redfish.enabled=true \
+  --wait \
+  --timeout 12m
+```
+
+By default each request runs `curl` on the head node over the adapter's existing SSH session
+(`modules.bcm.redfish.viaHeadNode=true`), because the head node is routed to the BMC network. The
+BMC credential reaches `curl` on standard input, so it does not appear in process listings. Set
+`viaHeadNode=false` only when the adapter pod itself can reach the BMCs. BMCs usually present
+self-signed certificates, so `modules.bcm.redfish.verifyTls` defaults to `false`.
+`modules.bcm.redfish.timeoutSeconds` (default `60`) bounds each request; some DGX BMCs take about
+30 seconds to return the expanded firmware inventory.
+
+The adapter enforces the following allowlist before it looks up any credential. Only `GET` is
+used, and the only query parameters accepted are `$top`, `$skip`, and `$expand=.` limited to one
+level, which is refused on the service root:
+
+| Resource | Paths under `/redfish/v1` |
+| --- | --- |
+| Service root and collections | `/`, `Systems`, `Chassis`, `Managers` |
+| Systems | `Systems/{id}` and its `Processors`, `Memory`, `Storage`, `EthernetInterfaces`, and `LogServices/{id}/Entries` |
+| Chassis | `Chassis/{id}` and its `Thermal`, `ThermalSubsystem`, `Power`, `PowerSubsystem`, and `Sensors` |
+| Managers | `Managers/{id}` and its `EthernetInterfaces` and `LogServices/{id}/Entries` |
+| Firmware and tasks | `UpdateService/FirmwareInventory`, `TaskService/Tasks` |
+
+Everything else is refused, including any path containing `Actions`, and `AccountService`,
+`SessionService`, `CertificateService`, `EventService`, `SecureBoot`, `Bios/Settings`, and
+`VirtualMedia`. Paths with `..`, `//`, `%`, or other query parameters are also refused. The adapter
+also checks every resource embedded in a response, such as `$expand` results and continuation pages,
+against the same allowlist. It reduces any embedded resource outside it to a bare link, so a BMC that
+expands more than requested cannot return denied content. Fields named like passwords, tokens, or
+secrets are redacted from responses. Resets and other BMC actions are not
+available in any session mode.
+
 ### Research
 
 To deploy the Research Agent and OpenSearch, set the embedding API key, active

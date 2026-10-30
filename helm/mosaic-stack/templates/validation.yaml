@@ -24,6 +24,14 @@
 {{- fail (printf "Slack edit user %q must also appear in openclaw.slack.allowedUserIds" .) -}}
 {{- end -}}
 {{- end -}}
+{{- if .Values.modules.bcm.redfish.enabled -}}
+{{- if not (and .Values.modules.bcm.enabled .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter")) -}}
+{{- fail "modules.bcm.redfish.enabled requires modules.bcm.enabled=true, bcmMcp.enabled=true and bcmMcp.mode=ssh-adapter" -}}
+{{- end -}}
+{{- if or (lt (int .Values.modules.bcm.redfish.timeoutSeconds) 1) (gt (int .Values.modules.bcm.redfish.timeoutSeconds) 300) -}}
+{{- fail "modules.bcm.redfish.timeoutSeconds must be between 1 and 300" -}}
+{{- end -}}
+{{- end -}}
 {{- if .Values.modules.webSearch.enabled -}}
 {{- if not (has .Values.modules.webSearch.provider (list "duckduckgo" "brave")) -}}
 {{- fail "modules.webSearch.provider must be one of: duckduckgo, brave" -}}

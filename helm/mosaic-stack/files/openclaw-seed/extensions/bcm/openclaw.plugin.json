@@ -17,7 +17,13 @@
       "bcm_list_notes",
       "bcm_search_notes",
       "bcm_add_note",
-      "bcm_remove_note"
+      "bcm_remove_note",
+      "bcm_redfish_system_summary",
+      "bcm_redfish_thermal",
+      "bcm_redfish_power",
+      "bcm_redfish_sel",
+      "bcm_redfish_firmware",
+      "bcm_redfish_get"
     ],
     "trustedToolPolicies": ["bcm-access"]
   },
@@ -73,6 +79,10 @@
       "slurmEnabled": {
         "type": "boolean",
         "description": "Expose BCM WLM-backed Slurm job evidence."
+      },
+      "redfishEnabled": {
+        "type": "boolean",
+        "description": "Expose read-only Redfish tools that read node BMCs through the BCM MCP service."
       },
       "timeoutMs": {
         "type": "number",
