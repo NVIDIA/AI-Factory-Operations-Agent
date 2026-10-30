@@ -10,7 +10,7 @@ export const modules = {
 };
 const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
-  namespace: ['Namespace', 'mosaic'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
+  namespace: ['Namespace', 'aifoa'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
   version: ['Pinned chart version (optional)', '', 'e.g. 0.0.1'],
   baseUrl: ['Inference API base URL', '', 'https://inference.example.com/v1'],
   model: ['Inference model', '', 'Your served model name'], llmSecret: ['Inference Secret (apiKey)', 'mosaic-external-llm'],

@@ -4,6 +4,18 @@ This guide installs AI Factory Operations Agent on an NVIDIA Mission Control adm
 
 For self-hosted inference on the separate GPU workload cluster, first follow [Self-hosted inference](#self-hosted-inference), then use its endpoint, served model name, and API key below. The bundled vLLM profile requires GPUs in the same cluster as the agent and should not be used on a GPU-free admin cluster.
 
+## Execution environment
+
+Run the NMC examples on the Base Command Manager head node in a Bash login shell. They assume a root login, which can read `/root/.ssh/id_ecdsa` and load the cluster administrator modules. From a sudo-enabled account, enter that shell **before** setting credentials:
+
+```bash
+sudo -i
+```
+
+Skip this command if already root. A non-root account can run the same flow when the site has granted it the required Kubernetes administrator access and a readable SSH key for the BCM adapter; set `CLUSTER_MANAGER_SSH_KEY_PATH` to that key. Having Linux sudo access alone does not grant Kubernetes permissions. Run `module load` inside the selected login shell, rather than `sudo module load`; `module` is a shell function. Do not prepend `sudo` to each Helm or kubectl command, because it can select another user's kubeconfig and credentials.
+
+Both the agent and standalone inference charts are pulled from NGC. The commands work from any directory and do not require Git or a repository checkout. Each `module load` selects a different Kubernetes cluster for subsequent commands in that shell.
+
 ## Install the agent
 
 Run this flow as a Kubernetes administrator on the Base Command Manager head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
@@ -24,7 +36,7 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_API_KEY:?Set EXTERNAL_LLM_API_KEY for the selected provider}"
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 NMC_POLICY_RELEASE=${NMC_POLICY_RELEASE:-net-pol}
 NMC_POLICY_NAMESPACE=${NMC_POLICY_NAMESPACE:-default}
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
@@ -123,7 +135,7 @@ A rule selecting `app.kubernetes.io/name=coredns` does not match pods labeled on
 If installation times out, check DNS from the running UI pod. If the UI is unavailable, use a diagnostic pod in the same namespace:
 
 ```bash
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 kubernetes.default.svc.cluster.local
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 dl.k8s.io
 ```
@@ -145,7 +157,17 @@ Deploy inference in `k8s-user` and connect the agent in `k8s-admin` to its HTTPS
 
 ### 1. Configure inference
 
-Run from a checkout of this repository. The example chart is at `helm/afoa-inference`; it is separate from the published agent chart. You need:
+In the login shell described above, sign in to NGC using the same invited account described in [Install the agent](#install-the-agent). The standalone inference chart is published alongside the agent chart:
+
+```bash
+: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with private registry access}"
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
+  --username '$oauthtoken' --password-stdin
+INFERENCE_CHART=oci://nvcr.io/0948643769302270/afoa-release/afoa-inference
+INFERENCE_CHART_VERSION=0.0.2-main.20261030003406.gd14c5492
+```
+
+This pins a published development version. Select another published version deliberately when upgrading. No checkout or `cd` step is needed. You need:
 
 - A compatible GPU in `k8s-user`, the NVIDIA device plugin and a GPU runtime. The default [Nemotron 3.5 Super VL profile](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) requests one GPU, 8 CPUs, 64 GiB host memory and a 500 GiB persistent cache. Check the model card for GPU memory and driver requirements.
 - A StorageClass for the cache, plus access to the vLLM image and model weights.
@@ -173,7 +195,8 @@ kubectl -n afoa-inference create secret generic afoa-inference-auth \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install afoa-inference ./helm/afoa-inference \
+helm upgrade --install afoa-inference "$INFERENCE_CHART" \
+  --version "$INFERENCE_CHART_VERSION" \
   -n afoa-inference \
   -f inference-values.yaml \
   --wait \
@@ -186,7 +209,43 @@ When upgrading from Nemotron 3 Super, preserve site settings and cache size, and
 
 The first download and GPU kernel compilation can take more than 30 minutes. Wait for Helm to finish; startup checks are below.
 
-### 3. Connect the agent
+### 3. Verify inference
+
+Before installing the agent, confirm that the inference server can discover its model and generate a response. Run this while `k8s-user` is selected. The check uses the server's existing API key inside its pod and does not print it:
+
+```bash
+module load kubernetes/k8s-user
+kubectl -n afoa-inference rollout status statefulset/afoa-inference --timeout=2h
+kubectl -n afoa-inference exec -i afoa-inference-0 -c vllm -- python3 - <<'PYTHON'
+import json
+import os
+from urllib.request import Request, urlopen
+
+base = "http://127.0.0.1:8000/v1"
+headers = {"Authorization": "Bearer " + os.environ["VLLM_API_KEY"],
+           "Content-Type": "application/json"}
+def request(path, payload=None):
+    data = None if payload is None else json.dumps(payload).encode()
+    with urlopen(Request(base + path, data=data, headers=headers), timeout=120) as response:
+        print(path + ": HTTP " + str(response.status))
+        return json.load(response)
+
+models = request("/models")["data"]
+assert models, "No model is served"
+result = request("/chat/completions", {
+    "model": models[0]["id"],
+    "messages": [{"role": "user", "content": "Reply with ready."}],
+    "max_tokens": 128,
+    "chat_template_kwargs": {"enable_thinking": False},
+})
+assert result["choices"][0]["message"]["content"], "No completion text returned"
+print("Inference ready")
+PYTHON
+```
+
+Success is `/models: HTTP 200`, `/chat/completions: HTTP 200`, and `Inference ready`. This verifies the loaded model and authentication inside the inference pod. The cross-cluster check below separately verifies the ingress route, DNS and TLS from the agent pod. A failed request exits with an error; inspect [startup and connectivity checks below](#self-hosted-inference) before continuing.
+
+### 4. Connect the agent
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://inference.example.com/v1'
@@ -318,3 +377,51 @@ JS
 Use your configured served model name in the completion check if you changed the default. HTTP 200 for both requests establishes DNS, routing, TLS trust, authentication, and basic inference from the admin cluster. Then ask a short question through the agent UI to verify the full agent path. TLS errors require correcting certificate trust, timeouts require checking routing or server readiness, and 401 responses indicate mismatched keys.
 
 </details>
+
+
+## Uninstall across both clusters
+
+Run these commands in the same administrator login shell. Confirm the release and namespace in each cluster with `helm list -A`. Set the **existing** agent namespace explicitly; a new-install default does not migrate an older deployment. Uninstall the agent before its dedicated inference server. Keep a shared inference server running for its other clients.
+
+Back up conversations, workspaces, audit logs and any other required persistent data before uninstalling. The agent chart owns PVCs such as `openclaw-home-pvc` and `mosaic-audit-log`; Helm deletes those claims on uninstall, and the StorageClass reclaim policy decides whether the backing volumes are deleted. If this release installed the AgentSandbox controller, confirm no other release depends on that controller before uninstalling. Helm retains the CRDs installed from `crds/`; do not delete shared CRDs or platform controllers as cleanup.
+
+### 1. Remove the agent from `k8s-admin`
+
+```bash
+module load kubernetes/k8s-admin
+: "${AGENT_NAMESPACE:?Set the existing agent namespace}"
+helm list -A
+helm uninstall mosaic --namespace "$AGENT_NAMESPACE" --wait --timeout 12m
+kubectl -n "$AGENT_NAMESPACE" get pods,pvc,secrets
+```
+
+Use the actual release name if it differs from `mosaic`. Secrets created with kubectl, including `mosaic-external-llm`, `bcm-host-ssh-key` and `mosaic-grafana-auth`, are not Helm-owned and remain. Keep them if another workload uses them. Only for a namespace dedicated entirely to this installation, delete the namespace after confirming all remaining resources and data can be discarded:
+
+```bash
+kubectl delete namespace "$AGENT_NAMESPACE"
+```
+
+The NMC `net-pol` release is shared platform infrastructure. Do not uninstall it. If the installation added the agent namespace to `admin.namespaceList`, have its owner remove only that entry through the existing policy-management workflow once the namespace has no remaining consumers.
+
+### 2. Remove dedicated inference from `k8s-user`
+
+Skip this section if you used an existing or shared inference endpoint.
+
+```bash
+module load kubernetes/k8s-user
+helm list -A
+helm uninstall afoa-inference --namespace afoa-inference --wait --timeout 12m
+kubectl -n afoa-inference get pods,pvc,secrets
+```
+
+The inference StatefulSet's model-cache PVC is retained by default after Helm uninstall so downloaded weights can be reused. The API-key and TLS Secrets also remain if created separately. To discard the cache and those Secrets, delete the namespace **only if it is dedicated to this inference installation**:
+
+```bash
+kubectl delete namespace afoa-inference
+```
+
+Deleting that namespace deletes its retained PVCs; the PV reclaim policy determines whether the storage is destroyed. Finish by selecting the admin cluster again:
+
+```bash
+module load kubernetes/k8s-admin
+```

@@ -161,3 +161,10 @@ for (const grafanaType of [undefined, 'victoriametrics-metrics-datasource']) tes
   assert.ok(args.includes(`observability.grafanaDatasourceType=${grafanaType || 'prometheus'}`));
   assert.ok(args.includes('observability.grafanaDatasourceUid=metrics'));
 });
+
+test('namespace selection defaults to aifoa and preserves custom installations', () => {
+  for (const namespace of [undefined, 'existing-agent']) {
+    const args = argumentsFor({...example, modules:[], namespace});
+    assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
+  }
+});

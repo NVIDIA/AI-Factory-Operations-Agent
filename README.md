@@ -49,7 +49,7 @@ Use the complete installation guide for your environment:
 After installation, forward the AI Factory Operations Agent UI service:
 
 ```bash
-kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
+kubectl -n aifoa port-forward svc/mosaic-ui 3000:3000
 ```
 
 Open `http://localhost:3000`.

@@ -79,7 +79,7 @@ def render_footprint(state):
         kind = document.get("kind")
         spec = document.get("spec", {})
         name = document["metadata"]["name"]
-        key = f"{kind}/{document['metadata'].get('namespace', 'mosaic')}/{name}"
+        key = f"{kind}/{document['metadata'].get('namespace', 'aifoa')}/{name}"
         if kind == "PersistentVolumeClaim":
             components[key] = {"name": name, "kind": kind, "storage": spec["resources"]["requests"]["storage"], "count": 1}
         elif kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "Sandbox"}:

@@ -12,7 +12,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: loki-readonly
-  namespace: mosaic
+  namespace: aifoa
 type: Opaque
 stringData:
   authorization: "Bearer <your-read-only-token>"
