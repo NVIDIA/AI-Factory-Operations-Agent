@@ -73,3 +73,17 @@ for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.
   assert.equal(queries.at(-1).datasource.uid,alternate.uid);
  });
 }
+
+test("registerGrafanaTools registers tools without prometheusUrl", () => {
+  const tools = {};
+  registerGrafanaTools({
+    pluginConfig: {
+      grafanaEnabled: true,
+      grafanaUrl: "http://grafana:3000",
+      datasourceUid: "prom-1",
+    },
+    registerTool: x => { tools[x.name] = x; },
+  });
+  assert.ok(tools.dashboard_list);
+  assert.ok(tools.dashboard_create);
+});

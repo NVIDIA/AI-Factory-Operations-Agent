@@ -33,7 +33,7 @@ function resolveString(pluginConfig: unknown, key: string, fallback?: string) {
     const value = String((pluginConfig as Record<string, unknown>)[key] || "").trim();
     if (value) return value.replace(/\/+$/, "");
   }
-  if (fallback) return fallback;
+  if (fallback !== undefined) return fallback;
   throw new Error(`observability.${key} is required`);
 }
 
@@ -190,19 +190,26 @@ async function validatePanels(
       issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Log panels require a Loki datasource. Select one from availableDatasources."});
       continue;
     }
-    const url = new URL(`${prometheusUrl}/api/v1/query`);
-    url.searchParams.set("query", panel.query);
+    if (selected.type !== "loki" && !prometheusUrl) {
+      issues.push({panelTitle: panel.title, query: panel.query, severity: "error", message: "Prometheus URL is not configured. Metric panel queries cannot be validated."});
+      continue;
+    }
     try {
-      const payload = selected.type !== "loki" ? await fetchJson(url.toString()) : {};
-      const data = payload.data as { result?: unknown[] } | undefined;
-      const result = Array.isArray(data?.result) ? data.result : [];
-      if (requireData && selected.type !== "loki" && result.length === 0) {
-        issues.push({
-          panelTitle: panel.title,
-          query: panel.query,
-          severity: "error",
-          message: "Query is valid but returned no series. Adjust the metric name, labels, or time window.",
-        });
+      let result: unknown[] = [];
+      if (selected.type !== "loki") {
+        const url = new URL(`${prometheusUrl}/api/v1/query`);
+        url.searchParams.set("query", panel.query);
+        const payload = await fetchJson(url.toString());
+        const data = payload.data as { result?: unknown[] } | undefined;
+        result = Array.isArray(data?.result) ? data.result : [];
+        if (requireData && result.length === 0) {
+          issues.push({
+            panelTitle: panel.title,
+            query: panel.query,
+            severity: "error",
+            message: "Query is valid but returned no series. Adjust the metric name, labels, or time window.",
+          });
+        }
       }
       let frameCount = 0;
       try {
@@ -360,7 +367,7 @@ type PluginApi = { pluginConfig: unknown; registerTool(tool: any): void };
 export function registerGrafanaTools(api: PluginApi) {
     if (!boolConfig(api.pluginConfig, "grafanaEnabled", true)) return;
     const grafanaUrl = resolveString(api.pluginConfig, "grafanaUrl");
-    const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl");
+    const prometheusUrl = resolveString(api.pluginConfig, "prometheusUrl", "");
     const uiUrl = resolveString(api.pluginConfig, "uiUrl", DEFAULT_UI_URL);
     const datasourceUid = resolveString(api.pluginConfig, "datasourceUid");
     const defaultDatasource = {

@@ -1027,32 +1027,5 @@ export default definePluginEntry({
         );
       },
     });
-
-    registerTool({
-      name: "bcm_search_docs",
-      label: "BCM Search Docs",
-      description: "Search local BCM documentation indexed by bcm-mcp-tools, when that optional server feature is enabled.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        required: ["query"],
-        properties: {
-          query: { type: "string", description: "BCM documentation search query." },
-          limit: { type: "number", description: "Maximum documentation matches to return." },
-        },
-      },
-      async execute(toolCallId: string, rawParams: Record<string, unknown>) {
-        const query = stringParam(rawParams.query);
-        if (!query) {
-          throw new Error("query is required");
-        }
-        return callBcmTool(
-          config,
-          "search_bcm_docs",
-          { query, limit: numberParam(rawParams.limit, 3, 1, 20) },
-          subagentOptions(config, toolCallId, "bcm_search_docs", "BCM docs search"),
-        );
-      },
-    });
   },
 });

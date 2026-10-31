@@ -17,6 +17,11 @@ test("allows bounded read-only diagnostic argv", () => {
     ["systemctl", "status", "slurmd", "--no-pager"],
     ["scontrol", "show", "nodes"],
     ["ibstat"],
+    ["lspci"],
+    ["lspci", "-s", "0000:01:00.0", "-vvv"],
+    ["lspci", "-vvv", "-s", "0000:01:00.0"],
+    ["lspci", "-d", "10de:", "-vvv"],
+    ["lspci", "-t"],
   ]) assert.equal(isAllowedDiagnosticArgv(argv), true, argv.join(" "));
 });
 
@@ -27,6 +32,8 @@ test("rejects mutation flags, arbitrary programs, paths, and shell syntax", () =
     ["systemctl", "restart", "slurmd"],
     ["journalctl", "--rotate"],
     ["dmesg", "-c"],
+    ["lspci", "-s"],
+    ["lspci", "-s", "-vvv"],
     ["ss", "-K"],
     ["scontrol", "update", "NodeName=n1", "State=DOWN"],
     ["cat", "/etc/shadow"],

@@ -49,6 +49,23 @@ function nvidiaToolArgs(args: string[]) {
   return args.every(argument => /^(-[A-Za-z]+|--[A-Za-z][A-Za-z0-9_-]*(=[A-Za-z0-9_.,:-]+)?)$/.test(argument));
 }
 
+function lspci(args: string[]) {
+  let needsValue = false;
+  for (const argument of args) {
+    if (needsValue) {
+      if (argument.startsWith('-') || !/^[A-Za-z0-9_.:-]+$/.test(argument)) return false;
+      needsValue = false;
+    } else if (argument === '-s' || argument === '-d') {
+      needsValue = true;
+    } else if (argument.startsWith('-s') || argument.startsWith('-d')) {
+      if (!/^-[sd][A-Za-z0-9_.:-]+$/.test(argument)) return false;
+    } else if (!/^(-[Dknmvxbt]+|-[a-zA-Z]{2,})$/.test(argument)) {
+      return false;
+    }
+  }
+  return !needsValue;
+}
+
 const RULES: Record<string, (args: string[]) => boolean> = {
   hostname: exact([], ['-f'], ['--fqdn'], ['-s'], ['--short'], ['-I'], ['--all-ip-addresses']),
   uname: flags(/^(-[asnrvmpio]+|--(all|kernel-name|nodename|kernel-release|kernel-version|machine|processor|hardware-platform|operating-system))$/),
@@ -63,7 +80,7 @@ const RULES: Record<string, (args: string[]) => boolean> = {
   vmstat: flags(/^(-[sDd]+|--(stats|disk-sum|disk))$/),
   iostat: flags(/^(-[cdxmkNyz]+|--(compact|dec|human|pretty))$/),
   mpstat: flags(/^(-[A-Za-z]+|--[A-Za-z][A-Za-z-]*)$/),
-  lspci: flags(/^(-[Dknmvx]+|-[a-zA-Z]{2,})$/),
+  lspci,
   ibstat: nvidiaToolArgs,
   ibstatus: nvidiaToolArgs,
   ibv_devinfo: nvidiaToolArgs,

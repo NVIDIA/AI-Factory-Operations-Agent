@@ -81,3 +81,51 @@ test(`stdio bridge exposes and invokes tools ${token ? "with" : "without"} a tok
   }
 });
 }
+
+test("stdio bridge preserves path prefix in MOSAIC_URL", async t => {
+  const server = createServer((request, response) => {
+    response.setHeader("content-type", "application/json");
+    if (request.url === "/prefix/api/openclaw/tools") {
+      response.end(JSON.stringify({ tools: [{ name: "subpath_tool", description: "Read subpath status." }] }));
+      return;
+    }
+    response.end(JSON.stringify({ success: true }));
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const { port } = server.address();
+  const child = spawn(process.execPath, [bridge], {
+    env: { ...process.env, MOSAIC_URL: `http://127.0.0.1:${port}/prefix` },
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  t.after(() => child.kill("SIGTERM"));
+
+  const responses = new Map();
+  let buffer = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", chunk => {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (line) {
+        const response = JSON.parse(line);
+        responses.set(response.id, response);
+      }
+    }
+  });
+
+  const request = async (id, method, params) => {
+    child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      if (responses.has(id)) return responses.get(id);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    throw new Error(`MCP response ${id} timed out`);
+  };
+
+  const listed = await request(1, "tools/list");
+  assert.ok(listed.result.tools.some(tool => tool.name === "subpath_tool"));
+});

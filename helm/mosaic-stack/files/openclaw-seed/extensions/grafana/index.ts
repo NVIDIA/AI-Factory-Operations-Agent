@@ -75,7 +75,7 @@ function resolveString(pluginConfig: unknown, key: string, fallback?: string) {
     const value = String((pluginConfig as Record<string, unknown>)[key] || "").trim();
     if (value) return value.replace(/\/+$/, "");
   }
-  if (fallback) return fallback;
+  if (fallback !== undefined) return fallback;
   throw new Error(`grafana.${key} is required`);
 }
 
