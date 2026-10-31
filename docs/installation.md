@@ -621,6 +621,61 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 unset NVIDIA_API_KEY IRAOP_API_KEY
 ```
 
+`iraop_query` requires a nonempty answer and at least one document reference with
+a filename and positive page number. A response without that evidence returns
+`status: "incomplete"` and an error event in the Research panel. Its unverified
+answer is withheld from model-visible content; the full original MCP response
+remains in the tool result's `details` in the OpenClaw session transcript. The
+chat history API may omit `details`. OpenClaw assigns its transport-level
+`isError` flag independently, so `isError: false` does not mean research passed.
+
+Missing sources can reflect an agent or model/tool execution problem even when
+the PDF is indexed and direct search works. Check collection metadata, the
+original PDF, actual search execution and citations separately. A source
+reference alone does not establish that every claim or inline citation is
+correct, or that a proposed cause matches the current cluster.
+
+#### Optional research tool compatibility
+
+Some inference configurations return a named search tool's JSON arguments as
+ordinary text, without an OpenAI `tool_calls` envelope. The research agent then
+never executes the search. An opt-in workaround is available in the existing
+LLM compatibility proxy:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel -n mosaic --reuse-values \
+  --set modules.research.enabled=true \
+  --set llm.requestCompatibility.enabled=true \
+  --set llm.requestCompatibility.researchToolCalls.enabled=true \
+  --wait --timeout 12m
+```
+
+This setting is disabled by default. For an initial research request exposing
+`task` and the supported query-only `opensearch_search` schema, it explicitly
+selects that read-only search and disables thinking for this first generation.
+It wraps only a complete, validated JSON argument object into the named tool
+envelope; the original research agent must execute the actual search. Proper
+upstream tool calls pass through. Explicit selection of another tool, synthesis
+after a tool result, and unrelated OpenClaw requests retain their existing
+behavior. Malformed or unfinished arguments return an error, never a fabricated
+search result. Collection scope remains enforced by the research service.
+
+Use this workaround only after reproducing the protocol problem. For example,
+the installed vLLM `Qwen3CoderToolParser` may declare named/required tool calls
+unsupported; the checkpoint's documented parser configuration should also be
+checked. This proxy setting does not change or restart the model server, and
+does not certify document relevance, citation accuracy or general answer quality.
+
+For a controlled validation, additionally set
+`llm.requestCompatibility.researchToolCalls.auditEnabled=true`. Full research
+request bodies, raw upstream response bytes and returned response bytes are
+saved as Base64 in `/audit/records` inside the proxy Pod. Authentication/cookie
+headers are excluded. These traces can contain private prompts and documents;
+export them to the authorized evidence location before replacing the Pod.
+The volume is temporary and limited to 128 MiB; audit write failures fail the
+request. Disable this tracing setting after the required evidence is exported.
+
 ### Hardware Agent
 
 The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.

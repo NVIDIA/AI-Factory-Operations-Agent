@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -437,7 +437,44 @@ test("uses one no-reasoning request contract for external endpoints", () => {
     "--show-only", "templates/llm-compat.yaml",
   );
   assert.match(output, /json\.reasoning_effort = 'none'/);
-  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
+  assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|scrubVisibleThinking|pipeOpenAiStream/);
+  assert.match(output, /name: RESEARCH_TOOL_CALLS_ENABLED\s+value: "false"/);
+});
+
+test("research compatibility is opt-in and requires the research module", () => {
+  const args = ["--show-only", "templates/llm-compat.yaml"];
+  const disabled = render(...args, "--set", "llm.requestCompatibility.researchToolCalls.enabled=true");
+  assert.match(disabled, /name: RESEARCH_TOOL_CALLS_ENABLED\s+value: "false"/);
+  assert.doesNotMatch(disabled, /name: research-audit/);
+  const enabled = render(...args, "--set", "modules.research.enabled=true,llm.requestCompatibility.researchToolCalls.enabled=true,llm.requestCompatibility.researchToolCalls.auditEnabled=true");
+  assert.match(enabled, /name: RESEARCH_TOOL_CALLS_ENABLED\s+value: "true"/);
+  assert.match(enabled, /name: RESEARCH_TOOL_CALLS_AUDIT_DIR\s+value: \/audit\/records/);
+  assert.match(enabled, /fsGroup: 1000/);
+  assert.match(enabled, /sizeLimit: 128Mi/);
+});
+
+test("the rendered compatibility server is the tested source file", () => {
+  const output = render("--show-only", "templates/llm-compat.yaml");
+  const source = readFileSync(join(chart, "files/llm-compat-server.mjs"), "utf8");
+  assert.equal(configMapBlock(output, "server.mjs").trimEnd(), source.trimEnd());
+});
+
+test("a compatibility source change rolls the proxy without a chart version change", () => {
+  const directory = mkdtempSync(join(tmpdir(), "mosaic-compat-checksum-"));
+  try {
+    const copy = join(directory, "chart");
+    cpSync(chart, copy, { recursive: true });
+    const checksum = () => {
+      const output = execFileSync("helm", ["template", "mosaic", copy, "--show-only", "templates/llm-compat.yaml"], { encoding: "utf8" });
+      return output.match(/checksum\/config: ([a-f0-9]{64})/)[1];
+    };
+    const before = checksum();
+    const path = join(copy, "files/llm-compat-server.mjs");
+    writeFileSync(path, readFileSync(path, "utf8") + "\n// Independent test change.\n");
+    assert.notEqual(checksum(), before);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("configures chart-managed vLLM for non-thinking generation", () => {

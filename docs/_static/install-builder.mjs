@@ -48,6 +48,8 @@ export function buildCommand(state) {
   }
   for (const name of ['ui', 'execution', 'observability', ...Object.keys(modules).filter(name => !observabilityServices.includes(name))]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
   set('modules.bcm.redfish.enabled', enabled.has('bcm') && !!state.redfish);
+  set('llm.requestCompatibility.researchToolCalls.enabled', enabled.has('research') && !!state.researchToolCalls);
+  if (enabled.has('research') && state.researchToolCalls) set('llm.requestCompatibility.enabled', true);
   for (const service of ['prometheus', 'alertmanager']) {
     set(`observability.${service}Url`, enabled.has(service) ? value(`${service}Url`) : '', true);
   }
@@ -115,12 +117,17 @@ if (root) {
   const redfishOptions = document.createElement('div'); redfishOptions.className = 'builder-suboptions';
   const redfishLabel = document.createElement('label'); const redfishInput = document.createElement('input'); redfishInput.type = 'checkbox'; redfishInput.name = 'redfish';
   redfishInput.addEventListener('change', () => {state.redfish = redfishInput.checked; update(false);}); redfishLabel.append(redfishInput, document.createTextNode('Read-only Redfish')); redfishOptions.append(redfishLabel);
+  const researchOptions = document.createElement('div'); researchOptions.className = 'builder-suboptions';
+  const researchLabel = document.createElement('label'); const researchInput = document.createElement('input'); researchInput.type = 'checkbox'; researchInput.name = 'researchToolCalls';
+  researchInput.addEventListener('change', () => {state.researchToolCalls = researchInput.checked; update(false);}); researchLabel.append(researchInput, document.createTextNode('Search tool compatibility workaround')); researchOptions.append(researchLabel);
   for (const [name, label] of Object.entries(modules)) {
     const wrapper = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.name = name;
     input.addEventListener('change', () => {const requested = new Set(state.modules); input.checked ? requested.add(name) : requested.delete(name); state.modules = [...requested]; update(true);});
     wrapper.append(input, document.createTextNode(label)); inputs.set(name, input);
     if (name === 'bcm') {
       const block = document.createElement('div'); block.className = 'builder-module'; block.append(wrapper, redfishOptions); buttons.append(block);
+    } else if (name === 'research') {
+      const block = document.createElement('div'); block.className = 'builder-module'; block.append(wrapper, researchOptions); buttons.append(block);
     } else buttons.append(wrapper);
   }
   moduleGroup.append(buttons); form.append(moduleGroup);
@@ -142,6 +149,7 @@ if (root) {
   function update(renderSettings) {
     const enabled = enabledModules(state);
     redfishOptions.hidden = !enabled.has('bcm'); redfishInput.checked = !!state.redfish;
+    researchOptions.hidden = !enabled.has('research'); researchInput.checked = !!state.researchToolCalls;
     for (const [name, input] of inputs) {input.checked = enabled.has(name); input.disabled = enabled.has(name) && !state.modules.includes(name);}
     if (renderSettings) {
       settingsBody.replaceChildren();
@@ -177,6 +185,7 @@ if (root) {
     if (enabled.has('bcm')) notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
     if (enabled.has('bcm') && state.redfish) notes.push('Redfish reads node BMCs through the BCM head using credentials stored in BCM. Resets and configuration changes are unavailable. BMC TLS certificate verification is off by default; see the Redfish installation guide to configure it.');
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
+    if (enabled.has('research') && state.researchToolCalls) notes.push('The search workaround is for inference backends returning named search arguments as ordinary text. Verify the affected protocol first; it does not establish answer or citation quality. Full request tracing stays disabled by default.');
     if (enabled.has('webSearch')) notes.push('Web search uses DuckDuckGo without an API key; the OpenClaw pod needs HTTPS egress to duckduckgo.com. Clear it for air-gapped installations.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';

@@ -24,6 +24,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['bcm'],redfish:true},
+  {modules:['research'],researchToolCalls:true},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -48,6 +49,16 @@ test('Redfish is opt-in and requires BCM, including when BCM is selected by a de
   ]) {
     const args = argumentsFor({...example, modules:selected, redfish});
     assert.ok(args.includes(`modules.bcm.redfish.enabled=${expected}`));
+  }
+});
+test('search compatibility is opt-in, requires Research, and does not enable request tracing', () => {
+  for (const [selected, researchToolCalls, expected] of [
+    [['research'], true, true], [['research'], false, false], [[], true, false],
+  ]) {
+    const args = argumentsFor({...example, modules:selected, researchToolCalls});
+    assert.ok(args.includes(`llm.requestCompatibility.researchToolCalls.enabled=${expected}`));
+    assert.equal(args.includes('llm.requestCompatibility.enabled=true'), expected);
+    assert.ok(!args.includes('llm.requestCompatibility.researchToolCalls.auditEnabled=true'));
   }
 });
 test('shell metacharacters remain literal arguments and Helm list separators are escaped', () => {

@@ -126,6 +126,11 @@ llm:
     enabled: true
     name: llm-openai-compat
     port: 8000
+    researchToolCalls:
+      # Opt in only for affected research backends returning named arguments as text.
+      enabled: false
+      # Temporary full body traces contain private prompts; export before Pod replacement.
+      auditEnabled: false
   external:
     baseUrl: ""
     model: ""
