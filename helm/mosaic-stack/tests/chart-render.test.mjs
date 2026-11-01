@@ -618,7 +618,65 @@ test("Feishu keeps credentials in Secret references and preserves Slack", () => 
   assert.equal(config.channels.feishu.appSecret, "${FEISHU_APP_SECRET}");
   const output = render(...feishuArgs, "--set", "openclaw.feishu.appSecretKey=client-secret");
   assert.match(output, /name: FEISHU_APP_SECRET\s+valueFrom:\s+secretKeyRef:\s+name: "mosaic-feishu"\s+key: "client-secret"/);
-  assert.equal((output.match(/name: FEISHU_APP_SECRET/g) || []).length, 2);
+});
+
+test("every OpenClaw CLI container can resolve the enabled channels' credential references", () => {
+  const slackArgs = [
+    "--set", "openclaw.slack.enabled=true",
+    "--set", "openclaw.slack.existingSecret=mosaic-slack",
+    "--set", "openclaw.slack.allowedUserIds[0]=U11111111",
+  ];
+  const customKeys = [
+    "--set", "openclaw.feishu.existingSecret=feishu-credentials",
+    "--set", "openclaw.feishu.appIdKey=client-id",
+    "--set", "openclaw.feishu.appSecretKey=client-secret",
+    "--set", "openclaw.slack.existingSecret=slack-credentials",
+    "--set", "openclaw.slack.botTokenKey=bot-token",
+    "--set", "openclaw.slack.appTokenKey=app-token",
+  ];
+  const cases = [
+    [],
+    feishuArgs,
+    slackArgs,
+    [...feishuArgs, ...slackArgs],
+    [...feishuArgs, ...slackArgs, ...braveArgs, ...customKeys],
+  ];
+  const manifests = cases.map(args => render(...args, "--show-only", "templates/openclaw.yaml"));
+  const specs = JSON.parse(execFileSync("uv", ["run", "--project", "docs", "--locked", "python", "-c", `
+import json, sys, yaml
+print(json.dumps([
+    next(doc for doc in yaml.safe_load_all(manifest) if doc.get("kind") == "Deployment")["spec"]["template"]["spec"]
+    for manifest in json.load(sys.stdin)
+]))
+`], { cwd: join(chart, "../.."), input: JSON.stringify(manifests), encoding: "utf8" }));
+
+  for (const [index, args] of cases.entries()) {
+    const config = openclawConfig(...args);
+    const references = [...new Set([...JSON.stringify(config.channels || {}).matchAll(/\$\{([A-Z_]+)\}/g)]
+      .map(match => match[1]))].sort();
+    const custom = index === cases.length - 1;
+    const expected = {
+      FEISHU_APP_ID: { name: custom ? "feishu-credentials" : "mosaic-feishu", key: custom ? "client-id" : "FEISHU_APP_ID" },
+      FEISHU_APP_SECRET: { name: custom ? "feishu-credentials" : "mosaic-feishu", key: custom ? "client-secret" : "FEISHU_APP_SECRET" },
+      SLACK_APP_TOKEN: { name: custom ? "slack-credentials" : "mosaic-slack", key: custom ? "app-token" : "SLACK_APP_TOKEN" },
+      SLACK_BOT_TOKEN: { name: custom ? "slack-credentials" : "mosaic-slack", key: custom ? "bot-token" : "SLACK_BOT_TOKEN" },
+    };
+    const spec = specs[index];
+    const cliContainers = [...spec.initContainers, ...spec.containers]
+      .filter(container => container.command.join(" ").includes("/app/dist/index.js"));
+    assert.ok(cliContainers.some(container => container.name === "init-openshell-plugin"));
+    assert.ok(cliContainers.some(container => container.name === "gateway"));
+    if (custom) assert.ok(cliContainers.some(container => container.name === "init-web-search-plugin"));
+    for (const container of cliContainers) {
+      const credentials = (container.env || []).filter(env => env.name in expected);
+      assert.deepEqual(credentials.map(env => env.name).sort(), references, `${index}: ${container.name}`);
+      for (const env of credentials) {
+        assert.equal(env.value, undefined);
+        assert.deepEqual(env.valueFrom, { secretKeyRef: expected[env.name] }, `${index}: ${container.name}/${env.name}`);
+      }
+    }
+    if (index === 0) assert.equal(spec.initContainers.find(container => container.name === "init-openshell-plugin").env, undefined);
+  }
 });
 
 test("Feishu rejects incomplete configuration and wildcard access", () => {

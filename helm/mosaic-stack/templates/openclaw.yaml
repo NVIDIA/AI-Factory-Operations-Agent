@@ -6,6 +6,7 @@
 {{- $kubernetesClusters := include "mosaic-stack.kubernetesClusters" . | fromJson }}
 {{- $uiAuth := .Values.mosaicUi.auth | default dict }}
 {{- $uiAuthSecret := $uiAuth.existingSecret | default ($uiAuth.name | default "mosaic-ui-auth") }}
+{{- $channelEnv := include "mosaic-stack.openclawChannelEnv" . | trim }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -319,13 +320,7 @@ spec:
           env:
             - name: HOME
               value: /home/node
-            {{- range $env, $key := dict "FEISHU_APP_ID" .Values.openclaw.feishu.appIdKey "FEISHU_APP_SECRET" .Values.openclaw.feishu.appSecretKey }}
-            - name: {{ $env }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.openclaw.feishu.existingSecret | quote }}
-                  key: {{ $key | quote }}
-            {{- end }}
+            {{- $channelEnv | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -350,6 +345,7 @@ spec:
           env:
             - name: HOME
               value: /home/node
+            {{- $channelEnv | nindent 12 }}
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -379,6 +375,9 @@ spec:
           env:
             - name: HOME
               value: /home/node
+            {{- with $channelEnv }}
+            {{- . | nindent 12 }}
+            {{- end }}
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -525,6 +524,10 @@ spec:
                 auth_mode: {{ ternary "\"plaintext\"" "\"mtls\"" .Values.openshell.server.disableTls }}
               }, null, 2));
               EOF
+          {{- with $channelEnv }}
+          env:
+            {{- . | nindent 12 }}
+          {{- end }}
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -594,26 +597,8 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/llm-ca/ca.crt
             {{- end }}
-            {{- if .Values.openclaw.feishu.enabled }}
-            {{- range $env, $key := dict "FEISHU_APP_ID" .Values.openclaw.feishu.appIdKey "FEISHU_APP_SECRET" .Values.openclaw.feishu.appSecretKey }}
-            - name: {{ $env }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $.Values.openclaw.feishu.existingSecret | quote }}
-                  key: {{ $key | quote }}
-            {{- end }}
-            {{- end }}
-            {{- if .Values.openclaw.slack.enabled }}
-            - name: SLACK_BOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.openclaw.slack.existingSecret | quote }}
-                  key: {{ .Values.openclaw.slack.botTokenKey | quote }}
-            - name: SLACK_APP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.openclaw.slack.existingSecret | quote }}
-                  key: {{ .Values.openclaw.slack.appTokenKey | quote }}
+            {{- with $channelEnv }}
+            {{- . | nindent 12 }}
             {{- end }}
             {{- if and .Values.modules.webSearch.enabled (eq .Values.modules.webSearch.provider "brave") }}
             - name: WEB_SEARCH_KEY

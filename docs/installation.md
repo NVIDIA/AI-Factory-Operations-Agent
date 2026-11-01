@@ -362,7 +362,12 @@ an allowed group and an allowed sender, plus an explicit bot mention. DMs are
 isolated by channel and sender; group sessions are isolated by group and sender.
 When Slack is enabled too, its existing configuration and DM scope are preserved.
 The optional `appIdKey` and `appSecretKey` values select alternate Secret keys.
-Secrets are passed to both the installer and Gateway through `secretKeyRef`.
+All enabled Feishu and Slack credentials are passed through `secretKeyRef` to
+the Gateway and each init container that runs the OpenClaw CLI (Feishu, Slack,
+Brave web search, and OpenShell plugin installers, when present). These commands
+read the same `openclaw.json`, so they need the environment variables referenced
+by every enabled channel, including when both channels are enabled. The chart
+does not copy the credential values into the seed ConfigMap.
 
 The integration is for messaging: Feishu document, drive, wiki, permissions,
 spreadsheet, and workplace tools are disabled. The existing conversation access
