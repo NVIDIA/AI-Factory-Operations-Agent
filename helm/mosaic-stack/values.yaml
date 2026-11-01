@@ -264,6 +264,8 @@ mosaicUi:
     machineToken: ""
 openclaw:
   enabled: true
+  # Optional display name and channel identity for the default agent; empty preserves the seed defaults.
+  agentDisplayName: ""
   # Additional gateway environment variables, including Secret references for providers.
   extraEnv: []
   # OpenClaw provider definitions keyed by provider ID; llm is reserved for the primary provider.

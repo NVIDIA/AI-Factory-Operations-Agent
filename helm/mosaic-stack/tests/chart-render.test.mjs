@@ -384,6 +384,39 @@ test("generates a bearer credential with a chart-managed Research Agent Secret",
   assert.match(output, /name: iraop-secrets[\s\S]*IRAOP_API_KEY: "[A-Za-z0-9]{48}"/);
 });
 
+test("agent display name defaults preserve the existing agent identity", () => {
+  const baseline = openclawConfig();
+  assert.deepEqual(baseline.agents.list, [{
+    id: "default",
+    name: "AI Factory Operations Agent",
+    workspace: "~/.openclaw/workspace",
+    thinkingDefault: "off",
+    reasoningDefault: "off",
+  }]);
+  assert.deepEqual(openclawConfig("--set-string", "openclaw.agentDisplayName="), baseline);
+  assert.deepEqual(openclawConfig("--set-json", "openclaw.agentDisplayName=null"), baseline);
+});
+
+test("agent display name overrides both names without changing routing or other configuration", () => {
+  const baseline = openclawConfig();
+  for (const name of ["Operations Agent", '值班 "Agent" \\ {{ .Release.Name }}\n<support>\u0001']) {
+    const config = openclawConfig("--set-json", `openclaw.agentDisplayName=${JSON.stringify(name)}`);
+    const expected = structuredClone(baseline);
+    expected.agents.list[0].name = name;
+    expected.agents.list[0].identity = { name };
+    assert.deepEqual(config, expected);
+  }
+});
+
+test("agent display name rejects non-string values", () => {
+  for (const value of [false, 0, 42, [], {}]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart,
+      "--set-json", `openclaw.agentDisplayName=${JSON.stringify(value)}`], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /openclaw\.agentDisplayName must be a string/);
+  }
+});
+
 test("additional model options preserve the primary provider and model", () => {
   const baseline = JSON.parse(configMapBlock(render("--show-only", "templates/openclaw-seed-configmap.yaml"), "openclaw.json"));
   assert.deepEqual(Object.keys(baseline.models.providers), ["llm"]);

@@ -90,7 +90,12 @@
     "list": [
       {
         "id": "default",
-        "name": "AI Factory Operations Agent",
+        "name": {{ default "AI Factory Operations Agent" .Values.openclaw.agentDisplayName | toJson }},
+        {{- if .Values.openclaw.agentDisplayName }}
+        "identity": {
+          "name": {{ .Values.openclaw.agentDisplayName | toJson }}
+        },
+        {{- end }}
         "workspace": "~/.openclaw/workspace",
         "thinkingDefault": "off",
         "reasoningDefault": "off"

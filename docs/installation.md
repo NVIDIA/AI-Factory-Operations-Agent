@@ -260,6 +260,36 @@ kubectl -n mosaic get secret mosaic-ui-auth -o jsonpath='{.data.password}' | bas
 
 Open `http://localhost:3000` and sign in with the username and password above.
 
+### Agent display name
+
+Set `openclaw.agentDisplayName` to customize the default agent's display name and
+OpenClaw identity:
+
+```yaml
+openclaw:
+  agentDisplayName: "Operations Agent"
+```
+
+For an existing release, apply the setting while preserving its site values:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set-string openclaw.agentDisplayName="Operations Agent" \
+  --wait \
+  --timeout 12m
+```
+
+The default is empty: the agent keeps the seed name `AI Factory Operations Agent`
+and no explicit identity override. A nonempty value sets both `agents.list[].name`
+and `agents.list[].identity.name`. Channels that display the agent identity can
+then show the configured name; each channel controls its message presentation.
+The internal agent ID remains `default`, preserving routing and session keys.
+The messaging platform's application or bot profile name is managed separately
+in that platform's administration console.
+
 ## Extensions
 
 All module changes below update an existing AI Factory Operations Agent release and preserve its current site configuration.
