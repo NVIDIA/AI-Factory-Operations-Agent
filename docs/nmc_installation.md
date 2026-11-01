@@ -6,11 +6,15 @@ For self-hosted inference on the separate GPU workload cluster, first follow [Se
 
 ## Install the agent
 
-Run this flow from the Base Command Manager head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
+Run this flow as a Kubernetes administrator on the Base Command Manager head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
 
 Use an NGC account invited to the `afoa-release` team. Accept the invitation while signed in with that account, then create a personal API key with the Private Registry service in [NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys). Save the key when shown; NGC displays it only once. Run the installation in a login shell with `module load` available.
 
 The command selects the NMC `k8s-admin` cluster, connects AI Factory Operations Agent to the existing `kube-prometheus-stack` services, enables Slurm through Base Command Manager, and installs the AgentSandbox CRD and controller from the chart.
+
+The namespace setup below appends the agent namespace to `admin.namespaceList` in the existing NMC network-policy release. This enables ingress and egress between agent pods and pods in NMC's listed platform namespaces, across all ports and protocols. It preserves the existing namespace list and other Helm values, and creates no additional policy release. This platform-admin option is broader than DNS-only access; site-specific policies can instead provide the required connections.
+
+For this policy update, set `NMC_POLICY_CHART` to the local `nmc-network-policies` chart archive for the **same version already installed**, using your existing NMC bundle or chart artifact. See the [NMC network-policy installation guide](https://docs.nvidia.com/mission-control/docs/nmc-software-installation-guide/2.3.1/nmc-kube-security-guide.html#deploying-network-policies-with-helm-nmc-network-policies). The example uses release `net-pol` in namespace `default`; set `NMC_POLICY_RELEASE` and `NMC_POLICY_NAMESPACE` if your installation uses other names. The command requires `jq` and an existing NMC policy release. Leave `NMC_POLICY_CHART` unset on clusters without that release or where site-managed policies already provide the required access.
 
 ```bash
 set -euo pipefail
@@ -21,6 +25,8 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
 MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+NMC_POLICY_RELEASE=${NMC_POLICY_RELEASE:-net-pol}
+NMC_POLICY_NAMESPACE=${NMC_POLICY_NAMESPACE:-default}
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 CLUSTER_MANAGER_HEAD_HOST=${CLUSTER_MANAGER_HEAD_HOST:-$(hostname -s)}
 CLUSTER_MANAGER_SSH_KEY_PATH=${CLUSTER_MANAGER_SSH_KEY_PATH:-/root/.ssh/id_ecdsa}
@@ -36,6 +42,20 @@ printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
   --password-stdin
 
 kubectl create namespace "$MOSAIC_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+if [[ -n ${NMC_POLICY_CHART:-} ]]; then
+  test -r "$NMC_POLICY_CHART"
+  command -v jq >/dev/null
+  NMC_NAMESPACE_LIST=$(helm get values "$NMC_POLICY_RELEASE" \
+    --namespace "$NMC_POLICY_NAMESPACE" --all -o json | \
+    jq -ce --arg namespace "$MOSAIC_NAMESPACE" \
+      '.admin.namespaceList | arrays | . + [$namespace] | unique')
+  helm upgrade "$NMC_POLICY_RELEASE" "$NMC_POLICY_CHART" \
+    --namespace "$NMC_POLICY_NAMESPACE" \
+    --reuse-values \
+    --set-json "admin.namespaceList=$NMC_NAMESPACE_LIST" \
+    --wait
+fi
+
 kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -83,6 +103,41 @@ The command is a complete declaration and can be rerun unchanged. The SSH privat
 Web search is enabled by default and uses DuckDuckGo without an API key, so the admin cluster must allow HTTPS egress from the `openclaw` pod to `duckduckgo.com`. On air-gapped NMC installations, add `--set modules.webSearch.enabled=false` to the command above. To use Brave Search or turn web search off later, see [Web search](installation.md#web-search).
 
 Before following the shared upgrade workflow in a new shell, run `module load kubernetes/k8s-admin` to select the NMC admin cluster.
+
+<details>
+<summary>Troubleshoot DNS or a Helm startup timeout</summary>
+
+A successful lookup on the head node does not verify pod DNS. Agent pods need egress to CoreDNS, CoreDNS needs ingress from the agent namespace, and CoreDNS must reach its upstream DNS servers. HTTPS connectivity to the inference endpoint and startup download hosts is required separately.
+
+For a customized cluster where DNS remains unavailable, inspect its DNS configuration:
+
+```bash
+module load kubernetes/k8s-admin
+kubectl -n kube-system get pods -l k8s-app=kube-dns --show-labels
+kubectl -n kube-system get service kube-dns
+kubectl -n kube-system get endpointslices -l kubernetes.io/service-name=kube-dns
+```
+
+A rule selecting `app.kubernetes.io/name=coredns` does not match pods labeled only `k8s-app=kube-dns`. Confirm that the platform namespace allowlist includes the agent namespace. Have the platform administrator resolve any custom-policy or CoreDNS upstream-connectivity issues through the existing policy-management workflow.
+
+If installation times out, check DNS from the running UI pod. If the UI is unavailable, use a diagnostic pod in the same namespace:
+
+```bash
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 kubernetes.default.svc.cluster.local
+kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 dl.k8s.io
+```
+
+Both commands must return addresses. For `context deadline exceeded`, inspect the pods and failing container before retrying. In chart versions that download kubectl during startup, `curl: (6) Could not resolve host: dl.k8s.io` in `install-kubectl` indicates DNS failure:
+
+```bash
+kubectl -n "$MOSAIC_NAMESPACE" get pods
+kubectl -n "$MOSAIC_NAMESPACE" logs deployment/openclaw -c install-kubectl --tail=30
+```
+
+After correcting DNS, the init container retries automatically. Verify that it completes and the OpenClaw deployment becomes available. This failure does not require changing the CoreDNS image or Corefile when CoreDNS already resolves names successfully.
+
+</details>
 
 ## Self-hosted inference
 

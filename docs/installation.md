@@ -175,6 +175,64 @@ helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
+### Configure additional model options
+
+The chart configures the primary provider as `llm` from the selected inference
+path above. To make more models available to OpenClaw, add provider definitions
+under `openclaw.additionalModelProviders`. Each provider specifies an endpoint
+and a list of model IDs. Models on the same endpoint share one provider; use
+separate providers for different endpoints or credentials. The provider ID
+`llm` is reserved for the primary provider.
+
+Create `secondary-model-credentials` in the release namespace through your
+normal Secret provisioning process, and store the API credential there.
+Keep the credential out of Helm values. The example below contains only the
+Secret name, the name of its credential field, and an environment-variable
+reference.
+
+Save these settings in an additional values file:
+
+```yaml
+openclaw:
+  extraEnv:
+    - name: SECONDARY_MODEL_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: secondary-model-credentials
+          key: apiKey # Name of the field inside the existing Secret.
+  additionalModelProviders:
+    secondary:
+      baseUrl: https://inference.example.com/v1
+      apiKey: ${SECONDARY_MODEL_API_KEY} # Loaded from the Secret at runtime.
+      api: openai-completions
+      models:
+        - id: secondary-model
+          name: Secondary model
+          reasoning: false
+          input: [text]
+          contextWindow: 131072
+          maxTokens: 8192
+```
+
+`extraEnv` loads the Secret field named `apiKey` into the gateway environment
+as `SECONDARY_MODEL_API_KEY`. OpenClaw resolves `${SECONDARY_MODEL_API_KEY}`
+when it starts. For a private cluster endpoint, set
+`request.allowPrivateNetwork: true` on that provider. Each configured endpoint
+must already serve the listed model IDs; the chart does not deploy additional
+inference servers for these definitions.
+
+Include the values file when installing or upgrading the release, along with
+your existing site values. Provider definitions are seeded into OpenClaw's
+configuration on startup. Adding or changing endpoints, models, or Secret
+references requires a Helm upgrade. These settings preserve the configured
+primary model and existing provider credentials.
+
+In frontend builds with a conversation model selector, these definitions become
+options such as `secondary/secondary-model`. Selecting an already configured
+model stores a per-conversation override for subsequent messages without a Helm
+upgrade. Other conversations keep their selections. The Helm fields supply
+configuration; they do not add the frontend selector themselves.
+
 ### 3. Add Extensions
 
 The minimal installation includes the UI, headless interfaces, OpenClaw, OpenShell, and key-free [web search](#web-search). Configure the modules needed for your cluster using the [Extensions](#extensions) instructions, then continue to [Usage](#usage).
@@ -532,6 +590,65 @@ helm upgrade mosaic "$MOSAIC_CHART" \
 ```
 
 The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+### Read-only Redfish
+
+Redfish lets the agent read a node's BMC when the node is down or unreachable in-band: power state,
+hardware health, temperatures, fans, power supplies, BMC event logs, and firmware inventory. The
+agent passes only a Base Command Manager hostname. The Base Command Manager adapter looks up the
+BMC address and credentials through CMSH, the same lookup the Hardware Agent uses, and never returns
+them to the model.
+
+Prerequisites:
+
+- The [Base Command Manager extension](#base-command-manager) is configured in `ssh-adapter` mode.
+- The adapter's SSH identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
+- The head node can reach the BMC network over HTTPS and has `curl`. Check one BMC from the head node:
+
+  ```bash
+  curl -sk https://<bmc-address>/redfish/v1 | head -c 300; echo
+  ```
+
+Enable it:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel \
+  -n mosaic \
+  --reuse-values \
+  --set modules.bcm.redfish.enabled=true \
+  --wait \
+  --timeout 12m
+```
+
+By default each request runs `curl` on the head node over the adapter's existing SSH session
+(`modules.bcm.redfish.viaHeadNode=true`), because the head node is routed to the BMC network. The
+BMC credential reaches `curl` on standard input, so it does not appear in process listings. Set
+`viaHeadNode=false` only when the adapter pod itself can reach the BMCs. BMCs usually present
+self-signed certificates, so `modules.bcm.redfish.verifyTls` defaults to `false`.
+`modules.bcm.redfish.timeoutSeconds` (default `60`) bounds each request; some DGX BMCs take about
+30 seconds to return the expanded firmware inventory.
+
+The adapter enforces the following allowlist before it looks up any credential. Only `GET` is
+used, and the only query parameters accepted are `$top`, `$skip`, and `$expand=.` limited to one
+level, which is refused on the service root:
+
+| Resource | Paths under `/redfish/v1` |
+| --- | --- |
+| Service root and collections | `/`, `Systems`, `Chassis`, `Managers` |
+| Systems | `Systems/{id}` and its `Processors`, `Memory`, `Storage`, `EthernetInterfaces`, and `LogServices/{id}/Entries` |
+| Chassis | `Chassis/{id}` and its `Thermal`, `ThermalSubsystem`, `Power`, `PowerSubsystem`, and `Sensors` |
+| Managers | `Managers/{id}` and its `EthernetInterfaces` and `LogServices/{id}/Entries` |
+| Firmware and tasks | `UpdateService/FirmwareInventory`, `TaskService/Tasks` |
+
+Everything else is refused, including any path containing `Actions`, and `AccountService`,
+`SessionService`, `CertificateService`, `EventService`, `SecureBoot`, `Bios/Settings`, and
+`VirtualMedia`. Paths with `..`, `//`, `%`, or other query parameters are also refused. The adapter
+also checks every resource embedded in a response, such as `$expand` results and continuation pages,
+against the same allowlist. It reduces any embedded resource outside it to a bare link, so a BMC that
+expands more than requested cannot return denied content. Fields named like passwords, tokens, or
+secrets are redacted from responses. Resets and other BMC actions are not
+available in any session mode.
 
 ### Research
 

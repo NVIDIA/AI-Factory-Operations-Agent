@@ -35,6 +35,10 @@ node as `root`. It uses that identity to create or update the dedicated
 `aichatbotuser` CMSH account with the `readonly` profile. Do not create that
 account manually.
 
+For Hardware Agent BMC lookups, the adapter reads the device's BMC address and
+credentials. Any unset username or password is resolved from that device's category;
+device-specific values take precedence. Credentials stay within the backend.
+
 ## 2. Create The Kind Cluster
 
 ```bash
@@ -280,3 +284,5 @@ kubectl -n mosaic get secret mosaic-ui-auth \
 
 Open `http://127.0.0.1:3210` on the workstation. Both forwarding processes
 must remain running.
+
+For optional BMC inventory and monitoring, follow the [Read-only Redfish installation](installation.md#read-only-redfish).

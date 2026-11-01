@@ -1,3 +1,6 @@
+{{- if hasKey .Values.openclaw.additionalModelProviders "llm" -}}
+{{- fail "openclaw.additionalModelProviders: llm is reserved for the primary inference provider" -}}
+{{- end -}}
 {{- $managedMcpServers := dict -}}
 {{- range $name, $config := .Values.managedMcpServers.servers -}}
 {{- if $config.enabled -}}
@@ -87,7 +90,7 @@
     "list": [
       {
         "id": "default",
-        "name": "OpenClaw Assistant",
+        "name": "AI Factory Operations Agent",
         "workspace": "~/.openclaw/workspace",
         "thinkingDefault": "off",
         "reasoningDefault": "off"
@@ -206,6 +209,9 @@
   {{- end }}
   "models": {
     "providers": {
+      {{- range $id, $provider := .Values.openclaw.additionalModelProviders }}
+      {{ $id | quote }}: {{ $provider | toJson }},
+      {{- end }}
       "llm": {
         "baseUrl": "${OPENCLAW_VLLM_BASE_URL}",
         "apiKey": "${VLLM_API_KEY}",
@@ -353,7 +359,8 @@
           "editEnabled": {{ and .Values.modules.edit.enabled .Values.modules.edit.bcm.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }},
           "hitl": {{ .Values.modules.edit.hitl }},
           "approvalTimeoutMs": {{ .Values.modules.edit.approvalTimeoutMs }},
-          "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }}
+          "slurmEnabled": {{ eq (include "mosaic-stack.slurmBcmEnabled" .) "true" }},
+          "redfishEnabled": {{ and .Values.modules.bcm.redfish.enabled (eq (include "mosaic-stack.bcmEnabled" .) "true") }}
         }
       },
       "remote-ssh": {

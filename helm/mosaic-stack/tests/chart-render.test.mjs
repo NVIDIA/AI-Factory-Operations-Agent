@@ -384,6 +384,51 @@ test("generates a bearer credential with a chart-managed Research Agent Secret",
   assert.match(output, /name: iraop-secrets[\s\S]*IRAOP_API_KEY: "[A-Za-z0-9]{48}"/);
 });
 
+test("additional model options preserve the primary provider and model", () => {
+  const baseline = JSON.parse(configMapBlock(render("--show-only", "templates/openclaw-seed-configmap.yaml"), "openclaw.json"));
+  assert.deepEqual(Object.keys(baseline.models.providers), ["llm"]);
+  const providers = {
+    secondary: {
+      baseUrl: "https://inference.example.com/v1",
+      apiKey: "${SECONDARY_MODEL_API_KEY}",
+      api: "openai-completions",
+      models: [
+        { id: "small", name: "Small model", contextWindow: 32768 },
+        { id: "org/large", name: 'Large "model"', contextWindow: 131072 },
+      ],
+    },
+    local: {
+      baseUrl: "http://inference.example.com:8000/v1",
+      api: "openai-completions",
+      request: { allowPrivateNetwork: true },
+      models: [{ id: "local-model", contextWindow: 65536 }],
+    },
+  };
+  const output = render("--show-only", "templates/openclaw-seed-configmap.yaml",
+    "--set-json", `openclaw.additionalModelProviders=${JSON.stringify(providers)}`);
+  const config = JSON.parse(configMapBlock(output, "openclaw.json"));
+  assert.deepEqual(config.models.providers, { ...providers, llm: baseline.models.providers.llm });
+  assert.deepEqual(config.agents.defaults.model, baseline.agents.defaults.model);
+});
+
+test("additional provider credentials use Secret references in the gateway", () => {
+  const env = [{ name: "SECONDARY_MODEL_API_KEY", valueFrom: {
+    secretKeyRef: { name: "secondary-model-credentials", key: "apiKey" },
+  } }];
+  const output = render("--show-only", "templates/openclaw.yaml",
+    "--set-json", `openclaw.extraEnv=${JSON.stringify(env)}`);
+  assert.match(output, /name: SECONDARY_MODEL_API_KEY\s+valueFrom:\s+secretKeyRef:\s+key: apiKey\s+name: secondary-model-credentials/);
+  assert.match(output, /name: VLLM_API_KEY/);
+  assert.match(output, /name: OPENCLAW_GATEWAY_TOKEN/);
+});
+
+test("additional providers cannot shadow the primary provider ID", () => {
+  const result = spawnSync("helm", ["template", "mosaic", chart,
+    "--set-json", 'openclaw.additionalModelProviders={"llm":{"models":[]}}'], { encoding: "utf8" });
+  assert.notEqual(result.status, 0);
+  assert.ok(result.stderr.includes("llm is reserved for the primary inference provider"));
+});
+
 test("uses one no-reasoning request contract for external endpoints", () => {
   const output = render(
     "--set", "llm.mode=external",
@@ -997,6 +1042,44 @@ test("renders an authenticated BCM admin path only for BCM edit mode", () => {
   assert.match(output, /"editEnabled": true/);
   assert.match(output, /bcm_execute_cmsh_admin/);
   assert.doesNotMatch(output, /"authToken": "[A-Za-z0-9]{48}"/);
+});
+
+const bcmAdapterArgs = [
+  "--set", "bcmMcp.enabled=true",
+  "--set", "bcmMcp.mode=ssh-adapter",
+  "--set", "bcmMcp.headHost=bcm-head",
+  "--set", "bcmMcp.hostSshKeySecretName=bcm-host-ssh",
+];
+
+test("renders read-only Redfish only when enabled", () => {
+  const disabled = render(...bcmAdapterArgs);
+  assert.doesNotMatch(disabled, /name: MOSAIC_BCM_REDFISH_/);
+  assert.match(disabled, /"redfishEnabled": false/);
+
+  const enabled = render(...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true");
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_ENABLED\s+value: "true"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_VERIFY_TLS\s+value: "false"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_TIMEOUT\s+value: "60"/);
+  assert.match(enabled, /name: MOSAIC_BCM_REDFISH_VIA_HEAD_NODE\s+value: "true"/);
+  assert.match(enabled, /"redfishEnabled": true/);
+  assert.doesNotMatch(enabled, /name: MOSAIC_BCM_REDFISH_(?:USER|PASS|IP)/);
+
+  const direct = render(...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true",
+    "--set", "modules.bcm.redfish.viaHeadNode=false", "--set", "modules.bcm.redfish.verifyTls=true");
+  assert.match(direct, /name: MOSAIC_BCM_REDFISH_VERIFY_TLS\s+value: "true"/);
+  assert.match(direct, /name: MOSAIC_BCM_REDFISH_VIA_HEAD_NODE\s+value: "false"/);
+});
+
+test("rejects Redfish without the BCM SSH adapter", () => {
+  for (const [args, expected] of [
+    [["--set", "modules.bcm.redfish.enabled=true"], /modules\.bcm\.redfish\.enabled requires/],
+    [["--set", "modules.bcm.redfish.enabled=true", "--set", "bcmMcp.enabled=true"], /requires|ssh-adapter/],
+    [[...bcmAdapterArgs, "--set", "modules.bcm.redfish.enabled=true", "--set", "modules.bcm.redfish.timeoutSeconds=0"], /timeoutSeconds must be between 1 and 300/],
+  ]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, "--namespace", "mosaic-test", ...args], { encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, expected);
+  }
 });
 
 test("keeps the managed BCM adapter read-only when edit mode is disabled", () => {

@@ -542,6 +542,9 @@ spec:
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
           command: ["node", "/app/dist/index.js", "gateway", "run"]
           env:
+            {{- with .Values.openclaw.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
             - name: HOME
               value: /home/node
             - name: OPENCLAW_CONFIG_DIR
