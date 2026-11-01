@@ -34,6 +34,28 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | 
 {{- end -}}
 {{- end -}}
 
+{{/* OpenClaw CLI installers read the same channel configuration as the gateway. */}}
+{{- define "mosaic-stack.openclawChannelEnv" -}}
+{{- if .Values.openclaw.feishu.enabled }}
+{{- range $env, $key := dict "FEISHU_APP_ID" .Values.openclaw.feishu.appIdKey "FEISHU_APP_SECRET" .Values.openclaw.feishu.appSecretKey }}
+- name: {{ $env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $.Values.openclaw.feishu.existingSecret | quote }}
+      key: {{ $key | quote }}
+{{- end }}
+{{- end }}
+{{- if .Values.openclaw.slack.enabled }}
+{{- range $env, $key := dict "SLACK_BOT_TOKEN" .Values.openclaw.slack.botTokenKey "SLACK_APP_TOKEN" .Values.openclaw.slack.appTokenKey }}
+- name: {{ $env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $.Values.openclaw.slack.existingSecret | quote }}
+      key: {{ $key | quote }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
 {{- define "mosaic-stack.pullSecrets" -}}
 {{- $secrets := list -}}
 {{- $names := dict -}}
