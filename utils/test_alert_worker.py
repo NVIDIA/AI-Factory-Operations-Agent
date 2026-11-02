@@ -25,7 +25,7 @@ def alert(**changes):
 
 def config(root):
     return {"alertmanager_url": "http://127.0.0.1:9093", "mosaic_url": "http://127.0.0.1:3000",
-        "match_labels": {"mosaic_test": "true"}, "research_collections": ["test-docs"], "state_dir": root,
+        "match_labels": {"mosaic_test": "true"}, "research_collections": ["test-docs"], "state_dir": root, "investigation_mode": "staged",
         "delivery": {"kubectl": "/usr/bin/kubectl", "context": "kind-test", "namespace": "mosaic",
             "deployment": "openclaw", "container": "gateway", "channel": "feishu", "target": "chat:oc_test"}}
 
@@ -155,6 +155,96 @@ class WorkerTests(unittest.TestCase):
         self.assertTrue(worker.matches(alert(), {"mosaic_test": "true"}))
         self.assertFalse(worker.matches(alert(), {"mosaic_test": "false"}))
         self.assertFalse(worker.eligible(alert(status={"state": "suppressed", "inhibitedBy": ["another"]})))
+
+    def test_agent_is_default_without_mandatory_research_or_test_label_filters(self):
+        cfg = config(self.temp.name)
+        cfg.pop("investigation_mode")
+        cfg.pop("research_collections")
+        cfg["match_labels"] = {}
+        self.assertEqual(worker.validate_config(cfg), cfg)
+        self.assertTrue(worker.matches(alert(labels={"alertname": "GpuFault", "node": "node-1"}), cfg["match_labels"]))
+        for mode in ("unknown", {}, True):
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                worker.validate_config({**cfg, "investigation_mode": mode})
+
+    def test_agent_plans_from_one_prompt_without_staged_targets_or_research(self):
+        key = self.queue()
+        cfg = config(self.temp.name)
+        cfg.update(investigation_mode="agent", investigation_context="Registered cluster alias: lab.",
+            collection_context="ONLY_OLD_TEST_CONTAINERS", research_question="OLD_FIXED_XID_QUESTION")
+        api = Api()
+        delivery = Delivery()
+        worker.Worker(cfg, "token", store=self.store, api=api, delivery=delivery).process(key)
+        self.assertEqual(self.store.get(key)["state"], "sent")
+        prompts = [b for p, b, _ in api.calls if p == "/api/headless/chat"]
+        self.assertEqual(len(prompts), 1)
+        self.assertEqual(prompts[0]["accessMode"], "view")
+        self.assertIn("Registered cluster alias: lab.", prompts[0]["prompt"])
+        self.assertNotIn("ONLY_OLD_TEST_CONTAINERS", prompts[0]["prompt"])
+        self.assertNotIn("OLD_FIXED_XID_QUESTION", prompts[0]["prompt"])
+        self.assertFalse(any(p == "/api/openclaw/tools/call" for p, _, _ in api.calls))
+        execution = json.loads((self.store.directory(key) / "investigation-execution.json").read_text())
+        self.assertEqual(execution["toolResultCount"], 1)
+        self.assertFalse(execution["workerInvokedResearchTool"])
+        self.assertIn("完整模型报告。" * 4000, delivery.messages[0])
+        with self.store.connect() as db:
+            states = [r[0] for r in db.execute("select state from events where incident_id=? order by sequence", (key,))]
+        self.assertEqual(states, ["investigating", "ready", "sending", "sent"])
+
+    def test_agent_selected_research_and_failed_diagnostics_are_preserved_without_operator_calls(self):
+        class PlanningApi(Api):
+            def request(self, path, body=None, **kwargs):
+                response = super().request(path, body, **kwargs)
+                if path.startswith("/api/openclaw/chat?"):
+                    messages = json.loads(response["history"]["stdout"])["messages"]
+                    requests = {"role": "assistant", "content": [
+                        {"type": "toolCall", "id": "diagnostic", "name": "observability_query", "arguments": {"query": "gpu_error{node=\"node-1\"}"}},
+                        {"type": "toolCall", "id": "research", "name": "iraop_query", "arguments": {"question": "Agent-chosen incident question"}}]}
+                    results = [
+                        {"role": "toolResult", "toolCallId": "diagnostic", "toolName": "observability_query", "isError": True, "content": "Metric endpoint unavailable"},
+                        {"role": "toolResult", "toolCallId": "research", "toolName": "iraop_query", "isError": False, "content": "Actual document procedure"}]
+                    response["history"]["stdout"] = json.dumps([messages[0], requests, *results, messages[-1]])
+                    response["history"]["stdout"] = json.dumps({"messages": json.loads(response["history"]["stdout"])})
+                return response
+        key = self.queue()
+        cfg = config(self.temp.name)
+        cfg["investigation_mode"] = "agent"
+        api = PlanningApi()
+        worker.Worker(cfg, "token", store=self.store, api=api, delivery=Delivery()).process(key)
+        self.assertEqual(self.store.get(key)["state"], "sent")
+        activity = json.loads((self.store.directory(key) / "investigation-tool-activity.json").read_text())
+        self.assertEqual(activity["toolNamesInResultOrder"], ["observability_query", "iraop_query"])
+        self.assertEqual(activity["errorCount"], 1)
+        self.assertEqual(activity["toolRequestRecords"][0]["record"]["content"][1]["arguments"],
+                         {"question": "Agent-chosen incident question"})
+        self.assertFalse(any(p == "/api/openclaw/tools/call" for p, _, _ in api.calls))
+
+    def test_agent_report_with_missing_evidence_is_delivered_and_zero_tool_use_is_explicit(self):
+        class NoToolsApi(Api):
+            def request(self, path, body=None, **kwargs):
+                result = super().request(path, body, **kwargs)
+                if path.startswith("/api/openclaw/chat?"):
+                    native = json.loads(result["history"]["stdout"])
+                    native["messages"] = [m for m in native["messages"] if m["role"] != "toolResult"]
+                    result["history"]["stdout"] = json.dumps(native)
+                return result
+        key = self.queue()
+        cfg = config(self.temp.name)
+        cfg["investigation_mode"] = "agent"
+        worker.Worker(cfg, "token", store=self.store, api=NoToolsApi(), delivery=Delivery()).process(key)
+        self.assertEqual(self.store.get(key)["state"], "sent")
+        execution = json.loads((self.store.directory(key) / "investigation-execution.json").read_text())
+        self.assertEqual(execution["toolResultCount"], 0)
+
+    def test_agent_investigation_restart_does_not_submit_a_second_model_run(self):
+        key = self.queue()
+        self.store.change(key, "investigating")
+        cfg = config(self.temp.name)
+        cfg["investigation_mode"] = "agent"
+        api = Api()
+        worker.Worker(cfg, "token", store=self.store, api=api, delivery=Delivery()).process(key)
+        self.assertEqual(self.store.get(key)["state"], "needs_attention")
+        self.assertFalse(any(p == "/api/headless/chat" for p, _, _ in api.calls))
 
     def test_real_pipeline_order_session_policy_research_and_complete_report(self):
         key = self.queue()
