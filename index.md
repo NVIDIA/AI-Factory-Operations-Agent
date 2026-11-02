@@ -46,6 +46,7 @@ Use cases <docs/use_cases>
 Slurm root cause analysis <docs/slurm_rca>
 Loki query reference <docs/loki>
 Headless integration <docs/skills/ai-factory-operations-agent-headless/SKILL>
+Background alert investigation <docs/background_alert_investigation>
 ```
 
 ```{toctree}

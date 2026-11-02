@@ -18,6 +18,14 @@ For a checksum-verified mirrored or source-built sandbox backend package, config
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
+After installing the required modules and configuring native messaging, an
+authorized operator can separately install the
+[persistent background alert worker](background_alert_investigation.md).
+Its host services, explicit alert filters, knowledge collections and fixed
+recipient are configured in that guide; this builder leaves the site's
+background-processing policy unchanged.
+
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```
