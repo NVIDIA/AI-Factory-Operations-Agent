@@ -211,39 +211,22 @@ The first download and GPU kernel compilation can take more than 30 minutes. Wai
 
 ### 3. Verify inference
 
-Before installing the agent, confirm that the inference server can discover its model and generate a response. Run this while `k8s-user` is selected. The check uses the server's existing API key inside its pod and does not print it:
+Before installing the agent, test the HTTPS endpoint using the inference API key selected above; replace the example hostname and model if customized:
 
 ```bash
-module load kubernetes/k8s-user
-kubectl -n afoa-inference rollout status statefulset/afoa-inference --timeout=2h
-kubectl -n afoa-inference exec -i afoa-inference-0 -c vllm -- python3 - <<'PYTHON'
-import json
-import os
-from urllib.request import Request, urlopen
-
-base = "http://127.0.0.1:8000/v1"
-headers = {"Authorization": "Bearer " + os.environ["VLLM_API_KEY"],
-           "Content-Type": "application/json"}
-def request(path, payload=None):
-    data = None if payload is None else json.dumps(payload).encode()
-    with urlopen(Request(base + path, data=data, headers=headers), timeout=120) as response:
-        print(path + ": HTTP " + str(response.status))
-        return json.load(response)
-
-models = request("/models")["data"]
-assert models, "No model is served"
-result = request("/chat/completions", {
-    "model": models[0]["id"],
+curl --fail-with-body --max-time 120 \
+  "https://inference.example.com/v1/chat/completions" \
+  -H "Authorization: Bearer $EXTERNAL_LLM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nemotron-3.5-super-vl",
     "messages": [{"role": "user", "content": "Reply with ready."}],
     "max_tokens": 128,
-    "chat_template_kwargs": {"enable_thinking": False},
-})
-assert result["choices"][0]["message"]["content"], "No completion text returned"
-print("Inference ready")
-PYTHON
+    "chat_template_kwargs": {"enable_thinking": false}
+  }'
 ```
 
-Success is `/models: HTTP 200`, `/chat/completions: HTTP 200`, and `Inference ready`. This verifies the loaded model and authentication inside the inference pod. The cross-cluster check below separately verifies the ingress route, DNS and TLS from the agent pod. A failed request exits with an error; inspect [startup and connectivity checks below](#self-hosted-inference) before continuing.
+Confirm the response contains generated text in `choices[0].message.content`. This checks inference, authentication, DNS, TLS and ingress from the head node; the check below separately verifies access from the agent pod. If the request fails, inspect the startup and connectivity checks below before continuing.
 
 ### 4. Connect the agent
 
