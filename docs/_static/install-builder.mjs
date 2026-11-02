@@ -7,6 +7,7 @@ export const modules = {
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
   webSearch: 'Web search (DuckDuckGo)',
+  alertAutomation: 'Automatic alert investigation',
 };
 const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
@@ -26,12 +27,16 @@ const fields = {
   evidenceRoot: ['Slurm evidence directory on the collector node', '', '/slurm'],
   evidenceNode: ['Slurm collector node hostname', '', 'slurm-login-node'],
   corpus: ['Research corpus directory on the node', '', '/cm/shared/iraop-corpus'],
+  alertChannel: ['Native messaging channel', '', 'feishu, slack, msteams, ...'],
+  alertTarget: ['Report recipient target', '', 'Native channel target'],
+  alertSession: ['Verified recipient conversation', '', 'agent:default:...'],
 };
 export function enabledModules(state) {
   const enabled = new Set(state.modules || []);
   if (enabled.has('diagnostics') || (enabled.has('slurm') && state.slurmBackend !== 'vanilla')) enabled.add('bcm');
   if (['terminal', 'edit', 'clusters'].some(name => enabled.has(name))) enabled.add('kubernetes');
   if ([...observabilityServices, 'grafana'].some(name => enabled.has(name))) enabled.add('observability');
+  if (enabled.has('alertAutomation')) {enabled.add('alertmanager'); enabled.add('observability');}
   return enabled;
 }
 const quote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
@@ -79,6 +84,11 @@ export function buildCommand(state) {
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
+  if (enabled.has('alertAutomation')) {
+    set('modules.alertAutomation.delivery.channel', value('alertChannel'), true);
+    set('modules.alertAutomation.delivery.target', value('alertTarget'), true);
+    set('modules.alertAutomation.delivery.sessionKey', value('alertSession'), true);
+  }
   if (state.sandboxInstalled) set('agentSandbox.install', false);
   let target = quote(chart);
   let prefix = '';
@@ -155,6 +165,7 @@ if (root) {
       if (enabled.has('bcm')) keys.push('bcmHead', 'bcmSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
+      if (enabled.has('alertAutomation')) keys.push('alertChannel', 'alertTarget', 'alertSession');
       for (const key of keys) {
         if (key === 'grafanaType') {
           settingsBody.append(select(key, fields[key][0], [['prometheus', 'Prometheus'], ['victoriametrics-metrics-datasource', 'VictoriaMetrics (native plugin)']]));
@@ -178,6 +189,7 @@ if (root) {
     if (enabled.has('bcm') && state.redfish) notes.push('Redfish reads node BMCs through the BCM head using credentials stored in BCM. Resets and configuration changes are unavailable. BMC TLS certificate verification is off by default; see the Redfish installation guide to configure it.');
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
     if (enabled.has('webSearch')) notes.push('Web search uses DuckDuckGo without an API key; the OpenClaw pod needs HTTPS egress to duckduckgo.com. Clear it for air-gapped installations.');
+    if (enabled.has('alertAutomation')) notes.push('Configure the native messaging application first and use its verified recipient conversation. Automatic investigation uses View permissions. The generated settings use polling; see the plugin guide for alert filters, webhook intake and authentication.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';
     if (catalog) renderSizing(sizing, catalog, state, enabled);

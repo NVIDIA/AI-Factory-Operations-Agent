@@ -218,6 +218,9 @@
   "plugins": {
     "allow": [
       "automation-guard",
+      {{- if .Values.modules.alertAutomation.enabled }}
+      "alert-automation",
+      {{- end }}
       "bcm",
       "hardware-agent",
       "grafana",
@@ -232,6 +235,43 @@
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
     "entries": {
+      {{- if .Values.modules.alertAutomation.enabled }}
+      "alert-automation": {
+        "enabled": true,
+        "hooks": { "allowConversationAccess": true, "allowPromptInjection": true },
+        "config": {
+          "sourceMode": {{ .Values.modules.alertAutomation.sourceMode | quote }},
+          "alertmanagerUrl": {{ default .Values.observability.alertmanagerUrl .Values.modules.alertAutomation.alertmanagerUrl | quote }},
+          "matchLabels": {{ .Values.modules.alertAutomation.matchLabels | toJson }},
+          "includeExisting": {{ .Values.modules.alertAutomation.includeExisting }},
+          "pollSeconds": {{ .Values.modules.alertAutomation.pollSeconds }},
+          "timeoutSeconds": {{ .Values.modules.alertAutomation.timeoutSeconds }},
+          "maxPending": {{ .Values.modules.alertAutomation.maxPending }},
+          "agentId": {{ .Values.modules.alertAutomation.agentId | quote }},
+          "stateDirectory": {{ .Values.modules.alertAutomation.stateDirectory | quote }},
+          "messagePrefix": {{ .Values.modules.alertAutomation.messagePrefix | quote }},
+          "reportLanguage": {{ .Values.modules.alertAutomation.reportLanguage | quote }},
+          "investigationContext": {{ .Values.modules.alertAutomation.investigationContext | quote }},
+          "redactValues": {{ .Values.modules.alertAutomation.redactValues | toJson }},
+          "delivery": {
+            "channel": {{ required "modules.alertAutomation.delivery.channel is required" .Values.modules.alertAutomation.delivery.channel | quote }},
+            "target": {{ required "modules.alertAutomation.delivery.target is required" .Values.modules.alertAutomation.delivery.target | quote }},
+            "sessionKey": {{ required "modules.alertAutomation.delivery.sessionKey is required" .Values.modules.alertAutomation.delivery.sessionKey | quote }}
+            {{- with .Values.modules.alertAutomation.delivery.accountId }},
+            "accountId": {{ . | quote }}
+            {{- end }}
+          },
+          "webhook": {
+            "path": {{ .Values.modules.alertAutomation.webhook.path | quote }},
+            "tokenEnv": "MOSAIC_ALERT_WEBHOOK_TOKEN",
+            "maxBodyBytes": {{ .Values.modules.alertAutomation.webhook.maxBodyBytes }}
+          }
+          {{- if .Values.modules.ui.enabled }},
+          "mosaicUrl": {{ printf "http://mosaic-ui.%s.svc.cluster.local:3000" .Release.Namespace | quote }}
+          {{- end }}
+        }
+      },
+      {{- end }}
       "automation-guard": {
         "enabled": true,
         "hooks": {

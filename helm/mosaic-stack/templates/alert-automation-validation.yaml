@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.modules.alertAutomation.enabled -}}
+{{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
+{{- fail "modules.alertAutomation.enabled requires OpenClaw execution" -}}
+{{- end -}}
+{{- if not (has .Values.modules.alertAutomation.sourceMode (list "poll" "webhook" "both")) -}}
+{{- fail "modules.alertAutomation.sourceMode must be poll, webhook, or both" -}}
+{{- end -}}
+{{- if and (ne .Values.modules.alertAutomation.sourceMode "poll") (not .Values.modules.alertAutomation.webhook.existingSecret) -}}
+{{- fail "modules.alertAutomation.webhook.existingSecret is required for webhook/both" -}}
+{{- end -}}
+{{- end -}}
