@@ -508,7 +508,8 @@ delivery disabled. A fresh alert then exercised the persistent service itself:
 | Native platform receipt | `om_x100b61b14468f570dd6b4d1203771ad`; readback confirmed the expected p2p conversation |
 | Worker completed | `2026-11-02T08:58:19Z`; no manual collection, Research, context insertion or report sending during acceptance |
 | Restart while firing | Same incident ID, message ID, every event row and all incident evidence hashes; worker active |
-| Ordinary human follow-up | Awaiting a real recipient message; automatic handoff output is not counted as this acceptance |
+| Ordinary human follow-up | Real unquoted DM `om_x100b61b10605d080cf1d0f49f92aac4`: “你能用几句话总结一下刚才的报告吗？”; no copied report or Run ID |
+| Contextual model answer | Qwen record `5eeb1905` summarized the isolated DCGM injection, hardware comparisons and the report's conclusion; native reply `om_x100b61b107bb6cbcdf14d7179173091` was recorded in the same p2p conversation |
 
 The receipt-only handoff's model output was retained in full. It was not
 published or used to rewrite the report. The original model report remains
