@@ -58,7 +58,7 @@ def render_footprint(state):
     command = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", script, json.dumps(state)], cwd=ROOT, text=True))
     shell = 'trap \'[ -z "${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"\' EXIT; helm() { if [ "$1" = pull ]; then ln -s "$CHART" "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf \'%s\\0\' "$@"; fi; }; '
     arguments = subprocess.check_output(["bash", "-c", shell + command], env={**os.environ, "CHART": str(CHART)}, text=True).split("\0")[4:-1]
-    rendered = ["template", "mosaic", str(CHART)]
+    rendered = ["template", "aifoa", str(CHART)]
     arguments = iter(arguments)
     for argument in arguments:
         if argument in {"--atomic", "--wait", "--devel"}:
@@ -79,7 +79,7 @@ def render_footprint(state):
         kind = document.get("kind")
         spec = document.get("spec", {})
         name = document["metadata"]["name"]
-        key = f"{kind}/{document['metadata'].get('namespace', 'mosaic')}/{name}"
+        key = f"{kind}/{document['metadata'].get('namespace', 'aifoa')}/{name}"
         if kind == "PersistentVolumeClaim":
             components[key] = {"name": name, "kind": kind, "storage": spec["resources"]["requests"]["storage"], "count": 1}
         elif kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "Sandbox"}:

@@ -14,6 +14,7 @@ function argumentsFor(state) {
   const result = spawnSync('bash', ['-c', shell], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   const args = result.stdout.split('\0');
+  assert.deepEqual(args.slice(0, 3), ['upgrade', '--install', 'aifoa']);
   args.pop();
   const workdir = args.pop();
   return args.slice(4).map(arg => workdir ? arg.replace(`${workdir}/mosaic-stack`, chart) : arg);
@@ -34,7 +35,7 @@ for (const state of [
     if (['--timeout','--version'].includes(args[i])) {i++; continue;}
     renderArgs.push(args[i]);
   }
-  const result = spawnSync('helm', ['template','mosaic',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
+  const result = spawnSync('helm', ['template','aifoa',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
   assert.equal(result.status,0,result.stderr);
 });
 test('dependencies are derived without changing requested modules', () => {
@@ -169,4 +170,11 @@ for (const grafanaType of [undefined, 'victoriametrics-metrics-datasource']) tes
   const args = argumentsFor({...example, modules:['grafana'], grafanaType, grafanaUid:'metrics'});
   assert.ok(args.includes(`observability.grafanaDatasourceType=${grafanaType || 'prometheus'}`));
   assert.ok(args.includes('observability.grafanaDatasourceUid=metrics'));
+});
+
+test('namespace selection defaults to aifoa and preserves custom installations', () => {
+  for (const namespace of [undefined, 'existing-agent']) {
+    const args = argumentsFor({...example, modules:[], namespace});
+    assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
+  }
 });

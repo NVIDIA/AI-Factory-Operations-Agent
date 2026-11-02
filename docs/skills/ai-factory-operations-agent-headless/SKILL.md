@@ -26,11 +26,11 @@ curl -fsS "${MOSAIC_URL:-http://127.0.0.1:3000}/api/openclaw/commands" \
 For a Kubernetes deployment, port-forward the UI service and set `MOSAIC_URL`:
 
 ```bash
-kubectl -n mosaic port-forward svc/mosaic-ui 3000:3000
+kubectl -n aifoa port-forward svc/mosaic-ui 3000:3000
 export MOSAIC_URL=http://127.0.0.1:3000
 ```
 
-Use the target namespace instead of `mosaic` if the operator installed the service elsewhere.
+Use the target namespace instead of `aifoa` if the operator installed the service elsewhere.
 
 ## Invoke By CLI
 
@@ -132,9 +132,9 @@ Install from the packaged Helm chart:
 
 ```bash
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
+helm upgrade --install aifoa oci://nvcr.io/0948643769302270/mosaic-stack \
   --devel \
-  -n mosaic \
+  -n aifoa \
   --create-namespace \
   --wait \
   --timeout 12m
@@ -143,8 +143,8 @@ helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
 For source-based development, deploy the tracked chart from the repository:
 
 ```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
-  -n mosaic \
+helm upgrade --install aifoa ./helm/mosaic-stack \
+  -n aifoa \
   --create-namespace \
   --reset-values \
   --wait \
@@ -156,8 +156,8 @@ Before deploying, set image repositories/tags and LLM mode for the target cluste
 After install, verify readiness:
 
 ```bash
-kubectl -n mosaic rollout status deploy/mosaic-ui --timeout=5m
-kubectl -n mosaic get pods
+kubectl -n aifoa rollout status deploy/mosaic-ui --timeout=5m
+kubectl -n aifoa get pods
 ```
 
 Then port-forward `svc/mosaic-ui`, set `MOSAIC_URL`, and call the service headlessly.
