@@ -4,12 +4,12 @@ Select your inference path and modules to generate an installation command. Comp
 
 CPU, RAM, GPUs and disk update automatically with your selections. Values come from this documentation version’s rendered Helm manifests. Different chart versions or site overrides can change the requirements.
 
-After installing the required modules and configuring native messaging, an
-authorized operator can separately install the
-[persistent background alert worker](background_alert_investigation.md).
-Its host services, explicit alert filters, knowledge collections and fixed
-recipient are configured in that guide; this builder leaves the site's
-background-processing policy unchanged.
+Select **Automatic alert investigation** to install the
+[native alert automation plugin](alert_automation_plugin.md). Configure the
+native messaging application first, then supply its channel, fixed report target
+and verified recipient conversation. The generated settings use Alertmanager
+polling. The plugin guide covers source filters, webhook intake, credentials and
+migration from the retained deployment-host worker.
 
 Select Base Command Manager to expose the optional **Read-only Redfish** checkbox inside its module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 

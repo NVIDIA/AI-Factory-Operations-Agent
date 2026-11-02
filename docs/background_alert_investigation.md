@@ -3,6 +3,11 @@
 
 # Background alert investigation and native Feishu delivery
 
+For installation-managed native automation and configurable messaging channels,
+see the [native alert automation plugin](alert_automation_plugin.md). This page
+retains the deployment-host worker, staged workflow and dated verification
+records for reproducibility and explicit migration.
+
 `utils/mosaic-alert-worker.py` runs on the deployment host as a persistent user
 service. It polls an existing Alertmanager, imports alerts into MOSAIC, and gives
 the alert and investigation goal to the Agent through the headless API. The

@@ -1,0 +1,13 @@
+{
+  "name": "@mosaic/alert-automation-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Native background Alertmanager investigations and generic OpenClaw channel delivery",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

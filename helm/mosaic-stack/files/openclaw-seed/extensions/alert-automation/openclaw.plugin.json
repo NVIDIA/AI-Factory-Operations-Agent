@@ -1,0 +1,115 @@
+{
+  "id": "alert-automation",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["delivery"],
+    "properties": {
+      "sourceMode": {
+        "type": "string",
+        "enum": ["poll", "webhook", "both"]
+      },
+      "alertmanagerUrl": {
+        "type": "string"
+      },
+      "matchLabels": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "includeExisting": {
+        "type": "boolean"
+      },
+      "pollSeconds": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 3600
+      },
+      "timeoutSeconds": {
+        "type": "integer",
+        "minimum": 30,
+        "maximum": 3600
+      },
+      "maxPending": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      },
+      "agentId": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_-]+$"
+      },
+      "stateDirectory": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+      },
+      "messagePrefix": {
+        "type": "string"
+      },
+      "reportLanguage": {
+        "type": "string"
+      },
+      "investigationContext": {
+        "type": "string"
+      },
+      "redactValues": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "mosaicUrl": {
+        "type": "string"
+      },
+      "alertmanagerTokenEnv": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]*$"
+      },
+      "delivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["channel", "target", "sessionKey"],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sessionKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "webhook": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "tokenEnv": {
+            "type": "string"
+          },
+          "maxBodyBytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 10485760
+          }
+        }
+      }
+    }
+  }
+}
