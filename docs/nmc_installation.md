@@ -83,7 +83,7 @@ kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-grafana-auth \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install mosaic "$MOSAIC_CHART" \
+helm upgrade --install aifoa "$MOSAIC_CHART" \
   --devel \
   -n "$MOSAIC_NAMESPACE" \
   --create-namespace \
@@ -374,11 +374,11 @@ Back up conversations, workspaces, audit logs and any other required persistent 
 module load kubernetes/k8s-admin
 : "${AGENT_NAMESPACE:?Set the existing agent namespace}"
 helm list -A
-helm uninstall mosaic --namespace "$AGENT_NAMESPACE" --wait --timeout 12m
+helm uninstall aifoa --namespace "$AGENT_NAMESPACE" --wait --timeout 12m
 kubectl -n "$AGENT_NAMESPACE" get pods,pvc,secrets
 ```
 
-Use the actual release name if it differs from `mosaic`. Secrets created with kubectl, including `mosaic-external-llm`, `bcm-host-ssh-key` and `mosaic-grafana-auth`, are not Helm-owned and remain. Keep them if another workload uses them. Only for a namespace dedicated entirely to this installation, delete the namespace after confirming all remaining resources and data can be discarded:
+For existing installations, use their current release name. Secrets created with kubectl, including `mosaic-external-llm`, `bcm-host-ssh-key` and `mosaic-grafana-auth`, are not Helm-owned and remain. Keep them if another workload uses them. Only for a namespace dedicated entirely to this installation, delete the namespace after confirming all remaining resources and data can be discarded:
 
 ```bash
 kubectl delete namespace "$AGENT_NAMESPACE"

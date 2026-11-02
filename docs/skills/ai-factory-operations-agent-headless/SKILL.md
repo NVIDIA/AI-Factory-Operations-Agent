@@ -132,7 +132,7 @@ Install from the packaged Helm chart:
 
 ```bash
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
+helm upgrade --install aifoa oci://nvcr.io/0948643769302270/mosaic-stack \
   --devel \
   -n aifoa \
   --create-namespace \
@@ -143,7 +143,7 @@ helm upgrade --install mosaic oci://nvcr.io/0948643769302270/mosaic-stack \
 For source-based development, deploy the tracked chart from the repository:
 
 ```bash
-helm upgrade --install mosaic ./helm/mosaic-stack \
+helm upgrade --install aifoa ./helm/mosaic-stack \
   -n aifoa \
   --create-namespace \
   --reset-values \

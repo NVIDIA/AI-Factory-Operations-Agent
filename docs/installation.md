@@ -12,7 +12,7 @@ Optionally, use the [installation builder](installation_builder.md) to select mo
 
 ## Custom Installation
 
-New installations in these examples use namespace `aifoa`. The Helm release remains named `mosaic`. For an existing installation, use its current namespace in every command, including upgrades; changing `-n` creates or targets a different installation and does not migrate its data. Custom namespace names remain supported.
+New installations use `aifoa` for both the Helm release and namespace. For existing installations, retain their current release name and namespace in all commands; changing either targets a different installation and does not migrate its data. Custom names remain supported.
 
 ### 1. Create The Namespace And Registry Access
 
@@ -64,7 +64,7 @@ kubectl -n aifoa create secret generic mosaic-external-llm \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install mosaic "$MOSAIC_CHART" \
+helm upgrade --install aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
@@ -124,7 +124,7 @@ The chart defaults to Nemotron 3.5 Super VL NVFP4 on one compatible GPU, with 64
 To install AI Factory Operations Agent with Nemotron 3.5 Super VL running on 1 GPU in vLLM, run:
 
 ```bash
-helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
+helm upgrade --install aifoa "$MOSAIC_CHART_PATH" \
   -n aifoa \
   -f "$MOSAIC_CHART_PATH/profiles/vllm-super-1gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
@@ -157,7 +157,7 @@ The [Ultra model card](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55
 When upgrading an existing release, preserve its `llm.vllm.modelCache.size` override. Kubernetes does not allow changing the StatefulSet volume claim template in place, and the smaller Super default does not shrink an existing cache.
 
 ```bash
-helm upgrade --install mosaic "$MOSAIC_CHART_PATH" \
+helm upgrade --install aifoa "$MOSAIC_CHART_PATH" \
   -n aifoa \
   -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-4gpu.yaml" \
   --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
@@ -282,7 +282,7 @@ prefix and omit `/api/v1`. Set `PROMETHEUS_URL` to your endpoint:
 
 ```bash
 export PROMETHEUS_URL='http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090'
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -298,7 +298,7 @@ To connect Mosaic to an existing Loki service, run:
 
 ```bash
 export LOKI_URL='https://logs.example.com'
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -318,7 +318,7 @@ AI Factory Operations Agent defaults to the Alertmanager service installed by NM
 
 ```bash
 export ALERTMANAGER_URL='https://alerts.example.com/alertmanager'
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -345,7 +345,7 @@ kubectl -n aifoa create secret generic mosaic-grafana-auth \
   --from-literal=password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -372,7 +372,7 @@ For a Prometheus datasource, keep `prometheus`.
 To enable the optional browser terminal service, run:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -518,7 +518,7 @@ kubectl -n aifoa create secret generic bcm-host-ssh-key \
   --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -554,7 +554,7 @@ Prerequisites:
 Enable it:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -609,7 +609,7 @@ kubectl -n aifoa create secret generic iraop-secrets \
   --from-literal=IRAOP_API_KEY="$IRAOP_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -628,7 +628,7 @@ unset NVIDIA_API_KEY IRAOP_API_KEY
 The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -651,7 +651,7 @@ DuckDuckGo support in OpenClaw is experimental: it reads DuckDuckGo's HTML resul
 For air-gapped installations, or to keep the agent from making external requests, disable the module. The tools are then not registered at all.
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -679,7 +679,7 @@ Brave Search is an API-backed provider. It needs a paid Brave account; at the ti
 4. Select the provider:
 
    ```bash
-   helm upgrade mosaic "$MOSAIC_CHART" \
+   helm upgrade aifoa "$MOSAIC_CHART" \
      --devel \
      -n aifoa \
      --reuse-values \
@@ -701,7 +701,7 @@ Retain the working site configuration with:
 ```bash
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -782,7 +782,7 @@ To use the vanilla collector with a site-specific evidence root, run:
 
 ```bash
 export SLURM_EVIDENCE_ROOT='/shared/slurm'
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -798,7 +798,7 @@ The Slurm backend defaults to `auto`. When Base Command Manager and Slurm are bo
 After enabling the Base Command Manager extension, enable Slurm through it with:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -817,7 +817,7 @@ The local cluster is registered by default using the `openclaw` ServiceAccount. 
 Enable read-only access to the local cluster with:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -836,7 +836,7 @@ kubectl -n aifoa create secret generic production-west-kubeconfig \
 Register that Secret with AI Factory Operations Agent by running:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \
@@ -858,7 +858,7 @@ The published chart includes the pinned official OpenShell OCI dependency from `
 If the cluster already provides a compatible `agent-sandbox` installation, run:
 
 ```bash
-helm upgrade mosaic "$MOSAIC_CHART" \
+helm upgrade aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --reuse-values \

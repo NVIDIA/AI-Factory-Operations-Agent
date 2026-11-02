@@ -199,7 +199,7 @@ Base Command Manager inspection. Other cluster integrations remain disabled.
 
 ```bash
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install mosaic "$MOSAIC_CHART" \
+helm upgrade --install aifoa "$MOSAIC_CHART" \
   --devel \
   -n aifoa \
   --create-namespace \

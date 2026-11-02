@@ -90,7 +90,7 @@ export function buildCommand(state) {
     args.unshift(`-f "$MOSAIC_CHART_WORKDIR/mosaic-stack/profiles/${profile}"`);
   }
   args.push('--atomic', '--wait', `--timeout ${state.inference === 'external' ? '12m' : '30m'}`);
-  return prefix + `helm upgrade --install mosaic ${target} \\\n  ${args.join(' \\\n  ')}`;
+  return prefix + `helm upgrade --install aifoa ${target} \\\n  ${args.join(' \\\n  ')}`;
 }
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');

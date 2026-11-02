@@ -58,7 +58,7 @@ def render_footprint(state):
     command = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", script, json.dumps(state)], cwd=ROOT, text=True))
     shell = 'trap \'[ -z "${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"\' EXIT; helm() { if [ "$1" = pull ]; then ln -s "$CHART" "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf \'%s\\0\' "$@"; fi; }; '
     arguments = subprocess.check_output(["bash", "-c", shell + command], env={**os.environ, "CHART": str(CHART)}, text=True).split("\0")[4:-1]
-    rendered = ["template", "mosaic", str(CHART)]
+    rendered = ["template", "aifoa", str(CHART)]
     arguments = iter(arguments)
     for argument in arguments:
         if argument in {"--atomic", "--wait", "--devel"}:

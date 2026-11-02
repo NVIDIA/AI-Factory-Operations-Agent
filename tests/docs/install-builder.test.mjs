@@ -14,6 +14,7 @@ function argumentsFor(state) {
   const result = spawnSync('bash', ['-c', shell], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   const args = result.stdout.split('\0');
+  assert.deepEqual(args.slice(0, 3), ['upgrade', '--install', 'aifoa']);
   args.pop();
   const workdir = args.pop();
   return args.slice(4).map(arg => workdir ? arg.replace(`${workdir}/mosaic-stack`, chart) : arg);
@@ -34,7 +35,7 @@ for (const state of [
     if (['--timeout','--version'].includes(args[i])) {i++; continue;}
     renderArgs.push(args[i]);
   }
-  const result = spawnSync('helm', ['template','mosaic',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
+  const result = spawnSync('helm', ['template','aifoa',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
   assert.equal(result.status,0,result.stderr);
 });
 test('dependencies are derived without changing requested modules', () => {
