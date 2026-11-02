@@ -6,6 +6,8 @@ CPU, RAM, GPUs and disk update automatically with your selections. Values come f
 
 Select Base Command Manager to expose the optional **Read-only Redfish** checkbox inside its module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 
+Select **Shared conversation memory** only when everyone using the agent may recall its earlier conversations. See [shared conversation memory](installation.md#shared-conversation-memory) for the sharing boundary and persistence behavior.
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```

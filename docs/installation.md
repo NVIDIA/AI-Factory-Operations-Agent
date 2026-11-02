@@ -694,6 +694,41 @@ OpenClaw `2026.6.10` does not bundle the Brave provider. When `provider=brave`, 
 
 After enabling the required plugins, use the earlier port-forward to open the UI.
 
+## Shared conversation memory
+
+Memory files are persistent within the agent workspace. To also let conversations recall
+other conversations belonging to the same agent, enable shared memory:
+
+```bash
+helm upgrade mosaic "$MOSAIC_CHART" \
+  --devel -n mosaic --reuse-values \
+  --set openclaw.sharedMemory.enabled=true \
+  --wait --timeout 12m
+```
+
+This is an administrator-controlled, deployment-wide opt-in. Anyone using the same agent
+can retrieve its earlier conversations, including conversations created before enabling the
+setting. Use separate deployments or agents when users must not share conversation history.
+This does not grant access to another agent or deployment, merge conversations, or change
+View/Edit/Auto permissions. New conversations still start in View.
+
+OpenClaw indexes workspace memory and saved conversation transcripts on the existing
+`openclaw-home-pvc`. Recall uses native `memory_search` with keyword search; no embedding
+service or API key is required. Transcript updates are indexed asynchronously, so a recent
+message may take a short time to appear. Retrieved history is evidence of a past discussion,
+not current infrastructure state or authorization to repeat an earlier operation.
+
+The sandboxed agent can also use `sessions_list` and `sessions_history` to
+browse saved conversations directly, including short exchanges that a keyword
+query misses. These tools read gateway-held transcripts within the configured
+same-agent boundary; their gateway file paths are not sandbox filesystem paths.
+Memory files remain curated notes rather than a complete transcript store. A
+search miss is not proof that an earlier statement does not exist.
+
+Set `openclaw.sharedMemory.enabled=false` to stop cross-conversation transcript recall.
+Existing workspace memory remains usable, and saved conversations and index data are not
+deleted. The setting controls access, not data erasure.
+
 ## Upgrade An Existing Installation
 
 Retain the working site configuration with:

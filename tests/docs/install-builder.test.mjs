@@ -24,7 +24,7 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
-  {modules:['bcm'],redfish:true},
+  {modules:['bcm'],redfish:true}, {modules:[],sharedMemory:true},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -176,5 +176,13 @@ test('namespace selection defaults to aifoa and preserves custom installations',
   for (const namespace of [undefined, 'existing-agent']) {
     const args = argumentsFor({...example, modules:[], namespace});
     assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
+  }
+});
+
+test('shared memory is an independent opt-in setting', () => {
+  for (const enabled of [false, true]) {
+    const args = argumentsFor({...example, modules:[], sharedMemory:enabled});
+    assert.ok(args.includes(`openclaw.sharedMemory.enabled=${enabled}`));
+    assert.deepEqual([...enabledModules({modules:[], sharedMemory:enabled})], []);
   }
 });

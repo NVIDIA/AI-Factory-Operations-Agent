@@ -270,6 +270,9 @@ openclaw:
   additionalModelProviders: {}
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
+  # Share searchable memory and conversation history within this agent/deployment.
+  sharedMemory:
+    enabled: false
   gatewayProtocol: 4
   slack:
     enabled: false

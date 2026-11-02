@@ -39,7 +39,7 @@ data:
   IDENTITY.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/IDENTITY.md" | indent 4 }}
   SOUL.md: |-
-{{ .Files.Get "files/openclaw-seed/workspace/SOUL.md" | indent 4 }}
+{{ tpl (.Files.Get "files/openclaw-seed/workspace/SOUL.md") . | indent 4 }}
   TOOLS.md: |-
 {{ .Files.Get "files/openclaw-seed/workspace/TOOLS.md" | indent 4 }}
   USER.md: |-

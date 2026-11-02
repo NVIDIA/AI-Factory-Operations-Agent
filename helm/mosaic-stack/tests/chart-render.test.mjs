@@ -98,6 +98,29 @@ test("preserves memory maintenance with embedding-free indexed recall", () => {
   assert.match(seed, /Use connected operational systems as the source of truth/);
 });
 
+test("shared memory opts into transcript recall within the agent without changing sandbox isolation", () => {
+  for (const enabled of [false, true]) {
+    const config = JSON.parse(configMapBlock(render("--set", `openclaw.sharedMemory.enabled=${enabled}`,
+      "--show-only", "templates/openclaw-seed-configmap.yaml"), "openclaw.json"));
+    const defaults = config.agents.defaults;
+    assert.equal(defaults.memorySearch.provider, "none");
+    assert.equal(defaults.sandbox.mode, "all");
+    assert.equal(defaults.sandbox.scope, "session");
+    if (enabled) {
+      assert.deepEqual(defaults.memorySearch.sources, ["memory", "sessions"]);
+      assert.equal(defaults.memorySearch.experimental.sessionMemory, true);
+      const seed = render("--set", "openclaw.sharedMemory.enabled=true", "--show-only", "templates/openclaw-seed-configmap.yaml");
+      assert.ok(defaults.bootstrapMaxChars > configMapBlock(seed, "AGENTS.md").length);
+      assert.equal(defaults.sandbox.sessionToolsVisibility, "all");
+      assert.equal(config.tools.sessions.visibility, "agent");
+    } else {
+      assert.equal(defaults.memorySearch.experimental?.sessionMemory, undefined);
+      assert.equal(config.tools.sessions, undefined);
+      assert.equal(defaults.sandbox.sessionToolsVisibility, undefined);
+    }
+  }
+});
+
 test("native memory indexes Markdown and preserves appended notes across restarts", {
   skip: !process.env.OPENCLAW_RUNTIME_ROOT,
 }, () => {

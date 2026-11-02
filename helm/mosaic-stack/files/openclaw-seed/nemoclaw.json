@@ -52,10 +52,15 @@
   },
   "agents": {
     "defaults": {
-      {{- if .Values.openclaw.bootstrapSkills }}
+      {{- if or .Values.openclaw.bootstrapSkills .Values.openclaw.sharedMemory.enabled }}
       "bootstrapMaxChars": {{ add 1024 (len (tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") .)) }},
       {{- end }}
       "memorySearch": {
+        {{- if .Values.openclaw.sharedMemory.enabled }}
+        "sources": ["memory", "sessions"],
+        "experimental": { "sessionMemory": true },
+        "sync": { "sessions": { "deltaMessages": 1 } },
+        {{- end }}
         "provider": "none",
         "store": {
           "vector": {
@@ -81,6 +86,9 @@
       "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
       {{- end }}
       "sandbox": {
+        {{- if .Values.openclaw.sharedMemory.enabled }}
+        "sessionToolsVisibility": "all",
+        {{- end }}
         "mode": "all",
         "backend": "openshell",
         "scope": "session",
@@ -115,6 +123,9 @@
   },
   {{- end }}
   "tools": {
+    {{- if .Values.openclaw.sharedMemory.enabled }}
+    "sessions": { "visibility": "agent" },
+    {{- end }}
     "alsoAllow": [
       "group:plugins"{{- if .Values.modules.webSearch.enabled }},
       "group:web"{{- end }}

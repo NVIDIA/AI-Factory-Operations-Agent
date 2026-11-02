@@ -48,6 +48,7 @@ export function buildCommand(state) {
   }
   for (const name of ['ui', 'execution', 'observability', ...Object.keys(modules).filter(name => !observabilityServices.includes(name))]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
   set('modules.bcm.redfish.enabled', enabled.has('bcm') && !!state.redfish);
+  set('openclaw.sharedMemory.enabled', !!state.sharedMemory);
   for (const service of ['prometheus', 'alertmanager']) {
     set(`observability.${service}Url`, enabled.has(service) ? value(`${service}Url`) : '', true);
   }
@@ -108,6 +109,8 @@ if (root) {
   const optionBody = document.createElement('div'); optionBody.className = 'builder-settings'; options.append(optionBody);
   optionBody.append(select('inference', 'Inference', [['external', 'Existing endpoint'], ['super', 'On-prem: Nemotron 3.5 Super VL (1 GPU)'], ['ultra', 'On-prem: Nemotron Ultra (4 Blackwell GPUs)']]),
     select('channel', 'Chart channel', [['devel', 'Latest development'], ['stable', 'Latest stable']]));
+  const memoryLabel = document.createElement('label'); const memoryInput = document.createElement('input'); memoryInput.type = 'checkbox'; memoryInput.name = 'sharedMemory';
+  memoryInput.addEventListener('change', () => {state.sharedMemory = memoryInput.checked; update(false);}); memoryLabel.append(memoryInput, document.createTextNode('Shared conversation memory')); optionBody.append(memoryLabel);
   form.append(options);
   const moduleGroup = document.createElement('fieldset'); moduleGroup.innerHTML = '<legend>Modules</legend><p>UI and execution are always enabled. Required dependencies are selected automatically.</p>';
   const buttons = document.createElement('div'); buttons.className = 'builder-modules';
@@ -177,6 +180,7 @@ if (root) {
     if (enabled.has('bcm')) notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
     if (enabled.has('bcm') && state.redfish) notes.push('Redfish reads node BMCs through the BCM head using credentials stored in BCM. Resets and configuration changes are unavailable. BMC TLS certificate verification is off by default; see the Redfish installation guide to configure it.');
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
+    if (state.sharedMemory) notes.push('Shared memory lets everyone using the same agent recall its earlier conversations. Use separate deployments or agents for separate memory.');
     if (enabled.has('webSearch')) notes.push('Web search uses DuckDuckGo without an API key; the OpenClaw pod needs HTTPS egress to duckduckgo.com. Clear it for air-gapped installations.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' '); code.textContent = buildCommand(state); status.textContent = '';
