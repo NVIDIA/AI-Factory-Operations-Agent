@@ -100,6 +100,16 @@ class WorkerTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 worker.validate_config(item)
 
+    def test_context_binding_requires_an_explicit_native_conversation(self):
+        for key in ("", True, "current", "agent:default:main", "agent:default:feishu:direct:ou_test\n",
+                    "agent:default:feishu:group:oc_other"):
+            cfg = config(self.temp.name)
+            cfg["delivery"]["session_key"] = key
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                worker.validate_config(cfg)
+        cfg["delivery"]["session_key"] = "agent:default:feishu:direct:ou_verified"
+        self.assertEqual(worker.validate_config(cfg), cfg)
+
     def test_first_poll_ignores_existing_alerts_by_default(self):
         self.store.ingest([alert()])
         self.assertEqual(self.store.rows()[0]["state"], "ignored_existing")
@@ -272,6 +282,113 @@ class WorkerTests(unittest.TestCase):
         response = subprocess.CompletedProcess([], 0, stdout=b'{"ok":true}', stderr=b'')
         with patch.object(worker.subprocess, "run", return_value=response), self.assertRaises(RuntimeError):
             sink.send("message", Path(self.temp.name) / "native")
+
+    def test_gateway_hands_full_report_to_real_agent_input_before_unchanged_delivery(self):
+        cfg = config(self.temp.name)["delivery"]
+        cfg["session_key"] = "agent:default:feishu:direct:ou_verified"
+        text = '完整报告\n230=95 / 311=1 / 313=1\n$(touch /tmp/never-executed)\n' * 500
+        transferred = {}
+        def transport(args, **kwargs):
+            method = args[args.index("call") + 1]
+            params = json.loads(args[args.index("--params") + 1])
+            if method == "agent":
+                transferred.update(params)
+                response = {"status": "ok", "runId": "handoff-run"}
+            elif method == "chat.history":
+                self.assertGreaterEqual(params["maxChars"], len(transferred["message"]))
+                response = {"sessionKey": cfg["session_key"], "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": transferred["message"]}],
+                     "__openclaw": {"id": "context-message"}}]}
+            elif method == "send":
+                self.assertEqual(params["message"], text)
+                response = {"messageId": "om_native"}
+            else:
+                self.fail(method)
+            return subprocess.CompletedProcess([], 0, json.dumps(response).encode(), b'')
+        with patch.object(worker.subprocess, "run", side_effect=transport) as run:
+            receipt = worker.NativeDelivery(cfg).send(text, Path(self.temp.name) / "native")
+        self.assertEqual(receipt["message_id"], "om_native")
+        self.assertEqual(receipt["context_message_id"], "context-message")
+        self.assertIn(text, transferred["message"])
+        self.assertFalse(transferred["deliver"])
+        self.assertTrue(transferred["disableMessageTool"])
+        self.assertIn("--expect-final", run.call_args_list[0].args[0])
+        self.assertEqual([c.args[0][c.args[0].index("call") + 1] for c in run.call_args_list],
+                         ["agent", "chat.history", "send"])
+        args = run.call_args_list[2].args[0]
+        params = json.loads(args[args.index("--params") + 1])
+        self.assertEqual(params["message"], text)
+        self.assertEqual(params["sessionKey"], cfg["session_key"])
+        self.assertEqual(params["to"], cfg["target"])
+        self.assertIn("send", args)
+        self.assertNotIn("shell", run.call_args_list[0].kwargs)
+        proof = json.loads((Path(self.temp.name) / "native.context-verification.json").read_text())
+        self.assertTrue(proof["completeReportMatches"])
+
+    def test_transcript_only_mirrors_or_incomplete_context_prevent_external_publication(self):
+        for history in ({"sessionKey": "agent:default:feishu:direct:ou_other", "messages": []},
+                {"sessionKey": "agent:default:feishu:direct:ou_verified", "messages": [
+                    {"role": "assistant", "provider": "openclaw", "model": "delivery-mirror", "content": "complete report"}]},
+                {"sessionKey": "agent:default:feishu:direct:ou_verified", "messages": [
+                    {"role": "user", "content": "truncated report"}]}):
+            with self.subTest(history=history):
+                cfg = config(self.temp.name)["delivery"]
+                cfg["session_key"] = "agent:default:feishu:direct:ou_verified"
+                outputs = [subprocess.CompletedProcess([], 0, b'{"status":"ok"}', b''),
+                           subprocess.CompletedProcess([], 0, json.dumps(history).encode(), b'')]
+                with patch.object(worker.subprocess, "run", side_effect=outputs) as run:
+                    with self.assertRaises(RuntimeError):
+                        worker.NativeDelivery(cfg).send("complete report", Path(self.temp.name) / "native")
+                    self.assertEqual(run.call_count, 2)
+                    self.assertNotIn("send", [c.args[0][c.args[0].index("call") + 1] for c in run.call_args_list])
+
+    def test_gateway_send_error_never_falls_back_to_an_untracked_second_send(self):
+        cfg = config(self.temp.name)["delivery"]
+        cfg["session_key"] = "agent:default:feishu:direct:ou_verified"
+        for response in (subprocess.CompletedProcess([], 1, b'', b'timeout'),
+                         subprocess.CompletedProcess([], 0, b'{"ok":true}', b'')):
+            with self.subTest(response=response), patch.object(worker.subprocess, "run", return_value=response) as run:
+                with self.assertRaises(RuntimeError):
+                    worker.NativeDelivery(cfg).send("complete report", Path(self.temp.name) / "native")
+                self.assertEqual(run.call_count, 1)
+
+    def test_context_failure_quarantines_incident_across_restart(self):
+        key = self.queue()
+        cfg = config(self.temp.name)
+        cfg["delivery"]["session_key"] = "agent:default:feishu:direct:ou_verified"
+        history = {"sessionKey": cfg["delivery"]["session_key"], "messages": []}
+        outputs = [subprocess.CompletedProcess([], 0, b'{"status":"ok"}', b''),
+                   subprocess.CompletedProcess([], 0, json.dumps(history).encode(), b'')]
+        with patch.object(worker.subprocess, "run", side_effect=outputs):
+            worker.Worker(cfg, "token", store=self.store, api=Api(), monitor=Api()).process(key)
+        self.assertEqual(self.store.get(key)["state"], "delivery_unknown")
+        self.assertTrue((self.store.directory(key) / "native-delivery.context-handoff.response.json").exists())
+        self.assertFalse((self.store.directory(key) / "native-delivery.gateway-receipt.json").exists())
+        with patch.object(worker.subprocess, "run") as run:
+            worker.Worker(cfg, "token", store=self.store, api=Api(), monitor=Api()).process(key)
+            run.assert_not_called()
+
+    def test_send_failure_after_real_context_is_not_retried_or_fallen_back(self):
+        cfg = config(self.temp.name)["delivery"]
+        cfg["session_key"] = "agent:default:feishu:direct:ou_verified"
+        context = {}
+        def transport(args, **kwargs):
+            method = args[args.index("call") + 1]
+            params = json.loads(args[args.index("--params") + 1])
+            if method == "agent":
+                context.update(params)
+                result = {"status": "ok"}
+            elif method == "chat.history":
+                result = {"sessionKey": cfg["session_key"], "messages": [{"role": "user", "content": context["message"]}]}
+            else:
+                self.assertEqual(method, "send")
+                return subprocess.CompletedProcess([], 1, b'', b'timeout after possible delivery')
+            return subprocess.CompletedProcess([], 0, json.dumps(result).encode(), b'')
+        with patch.object(worker.subprocess, "run", side_effect=transport) as run:
+            with self.assertRaises(RuntimeError):
+                worker.NativeDelivery(cfg).send("complete report", Path(self.temp.name) / "native")
+            self.assertEqual(run.call_count, 3)
+        self.assertTrue((Path(self.temp.name) / "native.context-verification.json").exists())
 
     def test_research_requires_a_real_filename_and_positive_page(self):
         for source in ({"filename": {}, "page": 1}, {"filename": "test.pdf", "page": 0}, {"filename": "test.pdf", "page": True}, {"filename": "test.pdf", "page": "unknown"}):
