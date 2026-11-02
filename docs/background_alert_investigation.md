@@ -4,13 +4,17 @@
 # Background alert investigation and native Feishu delivery
 
 `utils/mosaic-alert-worker.py` runs on the deployment host as a persistent user
-service. It polls an existing Alertmanager, imports selected alerts into MOSAIC,
-collects actual diagnostic tool evidence through the headless API, calls IRAOP,
-requests a complete report, and publishes through the configured OpenClaw native
-Feishu channel. An open browser is not required.
+service. It polls an existing Alertmanager, imports alerts into MOSAIC, and gives
+the alert and investigation goal to the Agent through the headless API. The
+Agent chooses its diagnostic tools, sequence, knowledge queries and conclusion
+in its normal tool loop. The worker preserves the complete results and report,
+then publishes through the configured OpenClaw native Feishu channel. An open
+browser is not required.
 
-The operator explicitly selects both the alert labels and the destination
-conversation: an approved group or a verified bot-to-user direct message.
+The operator selects the Alertmanager source, an optional label filter, and the
+destination conversation: an approved group or verified bot-to-user DM. In
+Agent mode an empty `match_labels` object accepts all alerts from that source;
+neither `mosaic_test` nor `background_validation` is required.
 The default first poll records already-active alerts without investigating them.
 New alerts are keyed by fingerprint **and** start time in a persistent SQLite
 database. Restarting a completed worker does not send the same report again.
@@ -18,12 +22,13 @@ database. Restarting a completed worker does not send the same report again.
 ## Processing and permissions
 
 ```text
-Existing Alertmanager, explicitly selected labels
+Existing Alertmanager, optional literal label filter
     -> persistent worker + SQLite incident ledger
     -> MOSAIC alert API
-    -> headless API, View: actual logs / state / metrics
-    -> actual iraop_query, explicit knowledge collections
-    -> same read-only session: complete report
+    -> one headless goal, View: native Agent investigation loop
+       -> Agent chooses evidence, tools, order and follow-up queries
+       -> Agent decides whether IRAOP is useful and builds its own question
+    -> same read-only Agent session: complete report
     -> configured recipient Agent conversation: real full-report input
     -> verify complete input; external delivery disabled for this handoff
     -> separate fixed native CLI publisher
@@ -31,6 +36,29 @@ Existing Alertmanager, explicitly selected labels
 
 Every stage -> complete private requests, responses and evidence
 ```
+
+### Agent-led and staged investigation
+
+`investigation_mode: "agent"` is the default. The worker submits one investigation
+goal and waits for the real native run to finish. There is no fixed container
+list, mandatory research call, canned research question or predetermined
+diagnosis. Optional `investigation_context` supplies deployment facts. The
+staged-mode `collection_context`, `research_question` and `research_collections`
+fields do not prescribe the Agent-mode workflow.
+
+The Agent can discover knowledge collections through its installed tools and
+choose to consult IRAOP when useful. Its actual calls, arguments, failures and
+complete results are retained. A report explaining missing access or evidence
+is still delivered, with the actual tool/error counts recorded separately;
+delivery is not a claim that sufficient evidence was collected or the diagnosis
+is correct. The worker does not fill gaps by invoking operator-selected tools.
+
+`investigation_mode: "staged"` retains the earlier deterministic workflow for
+reproducing the dated experiments: collection, a worker-issued IRAOP query, and
+same-session synthesis. That mode requires a nonempty label filter and explicit
+`research_collections`, and uses optional `collection_context`/`research_question`.
+Original experiments, failed runs and complete reports remain historical
+evidence; switching modes does not rewrite or replay them.
 
 Every investigation uses
 `agent:default:mosaic-automation-alert-<incident-id>`. This matches the existing
@@ -68,8 +96,9 @@ do not enable Edit/Auto or relax tool policy to make a notification work.
 | Deployment host login | A dedicated, authorized account with Python 3.11+ and a user systemd manager |
 | Existing MOSAIC deployment | Working headless API and the existing UI machine token |
 | Alertmanager URL | Read access to `/api/v2/alerts`; optional bearer token supported through `ALERTMANAGER_BEARER_TOKEN` |
-| Explicit label filter | Select the intended alert population; initially use dedicated test labels |
-| IRAOP | Working `iraop_query`, approved indexed documents and explicit collection names |
+| Alert selection | Optional literal label filter; `{}` accepts all alerts from the configured source in Agent mode |
+| Diagnostic tools | Existing registered targets and permitted read-only access to metrics, workloads and logs; the Agent chooses among tools it can actually use |
+| IRAOP | Optional for Agent-led investigation; useful research requires working knowledge tools and approved documents. Staged mode requires it |
 | Existing native Feishu channel | Published application, loaded plugin, authorized recipient conversation and working native send |
 | Publisher Gateway device | Approved `operator.write` for native `send`; `operator.read` for history verification. This is deployment authorization, not an investigation access-mode change |
 | Kubernetes context | The host account can port-forward the UI and invoke the selected gateway's native CLI |
@@ -124,7 +153,6 @@ export MOSAIC_KUBECTL="$(command -v kubectl)"
 export ALERTMANAGER_URL=https://alerts.example.com
 export FEISHU_CHAT_ID=oc_REPLACE_WITH_APPROVED_CHAT
 export FEISHU_SESSION_KEY=agent:default:feishu:direct:ou_REPLACE_WITH_VERIFIED_USER
-export RESEARCH_COLLECTION=approved-operations-runbooks
 
 install -d -m 0700 "$HOME/.local/share/mosaic-alert-worker"
 install -d -m 0700 "$HOME/.config/mosaic-alert-worker"
@@ -152,7 +180,6 @@ config = json.loads(Path("docs/examples/alert-investigator/config.example.json")
 config.update(
     alertmanager_url=os.environ["ALERTMANAGER_URL"],
     state_dir=str(home / ".local/state/mosaic-alert-worker"),
-    research_collections=[os.environ["RESEARCH_COLLECTION"]],
 )
 config["delivery"].update(
     kubectl=os.environ["MOSAIC_KUBECTL"],
@@ -184,10 +211,18 @@ PY
 The complete configuration shape is in
 [config.example.json](examples/alert-investigator/config.example.json).
 `match_labels` contains literal equality checks, not regular expressions. The
-example initially selects only alerts with both `mosaic_test=true` and
-`background_validation=true`. Start the service before creating the new test
-alert. Set `include_existing=true` only when intentionally processing selected
-alerts already firing at startup.
+Agent-mode example uses `{}` for all alerts from the configured Alertmanager.
+Use a site label such as `{"cluster": "registered-cluster"}` when selecting a
+subset; test-only labels are not a software requirement. The first poll records
+already-active alerts as a baseline. Set `include_existing=true` when
+intentionally investigating existing alerts as well.
+
+When changing the alert source or broadening the filter, choose the baseline
+behavior deliberately. The existing ledger's initialization marker is already
+set; changing a filter does not automatically rebaseline. A new separately
+named state directory starts a fresh baseline while preserving the original
+ledger and evidence in place. Do not clear or edit old records to manufacture a
+new investigation.
 
 ### Deliver reports to a direct message
 
@@ -293,7 +328,7 @@ route rather than guessing it. The current worker accepts simple native
 `direct:ou_...` and `group:oc_...` conversation keys. See
 [OpenClaw channel routing](https://docs.openclaw.ai/channels/channel-routing).
 
-An optional `collection_context` provides trusted site-specific collection
+In staged mode, optional `collection_context` provides trusted site-specific collection
 scope, such as registered cluster aliases and the intended workload/log fields.
 An optional `research_question` controls the documentation-only question. It
 should ask for a general procedure and filename/page references, while keeping
@@ -353,9 +388,13 @@ For one incident, inspect its complete private files under
 | --- | --- |
 | `alert.json` | Complete selected Alertmanager alert |
 | `mosaic-import.*` and `mosaic-import-confirmed.json` | MOSAIC upsert request, response and acknowledgement |
-| `collection.*` | First headless request and response |
+| `investigation.*` | Single Agent-mode goal and complete headless response |
+| `investigation-history.*` | Complete native Agent history, including its chosen tool sequence |
+| `investigation-tool-activity.json` | Every original tool-request record and result, including failures and source record numbers |
+| `investigation-execution.json` | Mode, actual result/error counts, ordered tool names and absence of worker-issued research |
+| `collection.*` | Staged-mode first headless request and response |
 | `collection-history.*` | Native Gateway history with actual diagnostic calls/results |
-| `collection-tool-results.json` | Every collected native tool result; at least one successful diagnostic tool is required |
+| `collection-tool-results.json` | Every native tool result; staged mode requires at least one successful diagnostic result, Agent mode records actual results including zero-tool or failed-evidence reports |
 | `research.*` | Actual `iraop_query` request and complete response |
 | `research-sources.json` | All returned source references |
 | `synthesis.*` | Same-session synthesis request and complete response |
@@ -399,6 +438,7 @@ accepts those actual envelopes and checks for an answer with a document name
 | --- | --- |
 | `ignored_existing` | Present in the initial baseline; intentionally not investigated |
 | `queued` | Newly selected alert; idempotent MOSAIC import can retry before any model run starts |
+| `investigating` | Agent mode: one goal submitted; the native Agent selects and executes its investigation steps |
 | `collecting` | Read-only diagnostic session started; actual native tool evidence is required |
 | `researching` | Actual IRAOP request; answer and a usable filename/positive-page reference are required |
 | `synthesizing` | Combining real observations and documentation in the same read-only session |
@@ -428,9 +468,11 @@ does not control manual clicks or other browser automation.
    `pending`/`firing` and the corresponding Alertmanager fingerprint.
 3. Leave the MOSAIC browser closed. Do not click **Start Investigating**, call
    the headless API manually, supply a follow-up prompt or run a send script.
-4. Observe `collecting → researching → synthesizing → ready → sending → sent`.
-   Confirm actual diagnostic tool results and the actual IRAOP response with
-   sources in the incident directory.
+4. In Agent mode observe `investigating → ready → sending → sent`, then inspect
+   actual native tool requests/results. Record whether the Agent chose research,
+   its exact questions, returned sources, unavailable tools and remaining gaps.
+   Staged-mode reproductions instead show
+   `collecting → researching → synthesizing → ready → sending → sent`.
 5. Confirm the complete report arrived from the **application bot**, preserving
    the Run ID and incident/session identity. The custom-bot Webhook is a
    different sender.
@@ -452,7 +494,7 @@ not establish that a second real user identity was rejected.
 
 ## Recorded deployment validation (2026-11-02)
 
-The host-service implementation was exercised against an existing kind
+The original **staged-mode** host-service implementation was exercised against an existing kind
 deployment with OpenClaw/Feishu `2026.6.10`, IRAOP and an indexed two-page GPU
 runbook. A new isolated DCGM cache sample was replayed by a Pod without GPU
 resources; a real Prometheus rule and Alertmanager produced the selected alert.
