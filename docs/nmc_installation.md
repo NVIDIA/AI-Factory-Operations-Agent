@@ -364,9 +364,9 @@ Use your configured served model name in the completion check if you changed the
 
 ## Uninstall across both clusters
 
-Run these commands in the same administrator login shell. Confirm the release and namespace in each cluster with `helm list -A`. Set the **existing** agent namespace explicitly; a new-install default does not migrate an older deployment. Uninstall the agent before its dedicated inference server. Keep a shared inference server running for its other clients.
+In the administrator login shell, confirm each release and namespace with `helm list -A`; use their existing names in the commands below. Remove the agent before its dedicated inference server, and keep shared inference running.
 
-Back up conversations, workspaces, audit logs and any other required persistent data before uninstalling. The agent chart owns PVCs such as `openclaw-home-pvc` and `mosaic-audit-log`; Helm deletes those claims on uninstall, and the StorageClass reclaim policy decides whether the backing volumes are deleted. If this release installed the AgentSandbox controller, confirm no other release depends on that controller before uninstalling. Helm retains the CRDs installed from `crds/`; do not delete shared CRDs or platform controllers as cleanup.
+Back up required agent data first: Helm deletes its workspace and audit-log PVCs, and the storage reclaim policy determines whether backing data is deleted. If this release installed the AgentSandbox controller, confirm no other release depends on it. Keep shared CRDs and platform controllers.
 
 ### 1. Remove the agent from `k8s-admin`
 
@@ -375,36 +375,28 @@ module load kubernetes/k8s-admin
 : "${AGENT_NAMESPACE:?Set the existing agent namespace}"
 helm list -A
 helm uninstall aifoa --namespace "$AGENT_NAMESPACE" --wait --timeout 12m
-kubectl -n "$AGENT_NAMESPACE" get pods,pvc,secrets
 ```
 
-For existing installations, use their current release name. Secrets created with kubectl, including `mosaic-external-llm`, `bcm-host-ssh-key` and `mosaic-grafana-auth`, are not Helm-owned and remain. Keep them if another workload uses them. Only for a namespace dedicated entirely to this installation, delete the namespace after confirming all remaining resources and data can be discarded:
+Separately created Secrets remain. Delete the namespace only if it is dedicated to this installation and all remaining resources and data can be discarded:
 
 ```bash
 kubectl delete namespace "$AGENT_NAMESPACE"
 ```
 
-The NMC `net-pol` release is shared platform infrastructure. Do not uninstall it. If the installation added the agent namespace to `admin.namespaceList`, have its owner remove only that entry through the existing policy-management workflow once the namespace has no remaining consumers.
+Keep NMC's shared `net-pol` release. After the namespace has no remaining consumers, its policy owner can remove its entry from `admin.namespaceList` through the existing policy-management workflow.
 
 ### 2. Remove dedicated inference from `k8s-user`
 
-Skip this section if you used an existing or shared inference endpoint.
+Skip this section for existing or shared inference endpoints.
 
 ```bash
 module load kubernetes/k8s-user
 helm list -A
 helm uninstall afoa-inference --namespace afoa-inference --wait --timeout 12m
-kubectl -n afoa-inference get pods,pvc,secrets
 ```
 
-The inference StatefulSet's model-cache PVC is retained by default after Helm uninstall so downloaded weights can be reused. The API-key and TLS Secrets also remain if created separately. To discard the cache and those Secrets, delete the namespace **only if it is dedicated to this inference installation**:
+The model-cache PVC and separately created API-key and TLS Secrets remain. Delete the namespace only if it is dedicated to this installation and its remaining data can be discarded; this deletes the PVC, with backing-storage deletion determined by its reclaim policy:
 
 ```bash
 kubectl delete namespace afoa-inference
-```
-
-Deleting that namespace deletes its retained PVCs; the PV reclaim policy determines whether the storage is destroyed. Finish by selecting the admin cluster again:
-
-```bash
-module load kubernetes/k8s-admin
 ```
