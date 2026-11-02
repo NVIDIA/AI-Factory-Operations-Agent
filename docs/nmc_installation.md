@@ -12,7 +12,7 @@ Run the NMC examples on the Base Command Manager head node in a Bash login shell
 sudo -i
 ```
 
-Skip this command if already root. A non-root account can run the same flow when the site has granted it the required Kubernetes administrator access and a readable SSH key for the Base Command Manager adapter; set `CLUSTER_MANAGER_SSH_KEY_PATH` to that key. Having Linux sudo access alone does not grant Kubernetes permissions. Run `module load` inside the selected login shell, rather than `sudo module load`; `module` is a shell function. Do not prepend `sudo` to each Helm or kubectl command, because it can select another user's kubeconfig and credentials.
+Run the commands in the same Bash login shell as root or a user with Kubernetes administrator access and a readable SSH key specified by `CLUSTER_MANAGER_SSH_KEY_PATH`.
 
 Both the agent and standalone inference charts are pulled from NGC. The commands work from any directory and do not require Git or a repository checkout. Each `module load` selects a different Kubernetes cluster for subsequent commands in that shell.
 
