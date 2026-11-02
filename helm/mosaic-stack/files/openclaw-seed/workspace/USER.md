@@ -9,9 +9,7 @@ SPDX-License-Identifier: MIT
 _Learn about the person you're helping. Update this as you go._
 
 - **Name:**
-  Team SRE
 - **What to call them:**
-  Team SRE
 - **Pronouns:**
   _(optional)_
 - **Timezone:**
