@@ -66,7 +66,8 @@ automation guard, which keeps the session read-only even if the installation
 also supports interactive Edit/Auto sessions. The worker does not change access
 mode or request cluster mutations.
 
-Publication is an independent operator action. With `delivery.session_key`
+Publication runs automatically as a separate service operation using the
+operator-configured target and credentials. With `delivery.session_key`
 configured, the worker first transfers the complete published report through a
 normal Gateway `agent` turn in the configured recipient conversation. That
 automatic receipt-only turn has external delivery disabled and the message tool
@@ -78,7 +79,7 @@ platform message ID. The original report is published unchanged; the receiving
 Agent's acknowledgement is not substituted for it.
 Configurations without a session key retain the original
 `message send --channel feishu` path for delivery-only compatibility.
-The agent cannot choose the
+For publication, the investigation Agent cannot choose the
 executable, namespace, channel, recipient or shell command. The report is one
 literal argument, and no shell is used. The gateway's existing application
 Secret and native plugin perform delivery; the worker does not copy the Feishu
@@ -493,6 +494,34 @@ cases. Tests using replayed policy inputs must be labelled as replays; they do
 not establish that a second real user identity was rejected.
 
 ## Recorded deployment validation (2026-11-02)
+
+### Agent-led default
+
+A fresh labelled alert was processed after removing the staged container scope,
+fixed research question and worker-issued research call. Admission and View
+permissions were retained; this test did not activate all-source handling or
+establish physical hardware diagnostic accuracy.
+
+| Field | Actual observation |
+| --- | --- |
+| Code | `17d66fa`; deployed worker SHA256 `d3a944357202ae58fb6a7d43c5207074ec11ba5292e6abd48c343efb395dafe5` |
+| Run / incident | `agent-gpu-20261102t112247z` / `9bb400a21b82bcd2c11ce2be` |
+| Investigation input | Exactly one headless goal; no worker-side research or synthesis request |
+| Agent choices | 12 actual calls: instant/range metric queries, metric discovery, memory lookup, collection/document discovery and an Agent-selected IRAOP question |
+| Tool errors | One Prometheus HTTP400 from invalid PromQL; complete failure retained, then the Agent continued. Non-error empty responses are not positive evidence |
+| Agent's research question | `What does DCGM XID error value 95 mean? What are valid XID error values and their interpretations?` |
+| Original / published report | 4,129 / 6,063 UTF-8 bytes; original model text preserved without factual correction or truncation |
+| Native report receipt | `om_x100b61b3765624a8c0b56ea650bc1d5`; p2p readback and complete real recipient input verified |
+| Restart | Same incident, message ID, every event row and evidence hash; no second model run or send |
+| Cleanup | Six exact-UID objects removed; source naturally resolved and worker-owned card cleared; existing rules, eight GPU counters and shared deployment preserved |
+| Checks | 39 Python tests, 22 focused integration/documentation checks, strict Sphinx, documentation bundle and GitHub CI passed |
+
+The actual tool history and original report are retained in the dated
+deployment handover. The model did not choose host-log collection in this run;
+that work must not be reported as completed. Report recommendations and
+diagnostic accuracy are separate from this autonomy/transport acceptance.
+
+### Historical staged-mode runs
 
 The original **staged-mode** host-service implementation was exercised against an existing kind
 deployment with OpenClaw/Feishu `2026.6.10`, IRAOP and an indexed two-page GPU
