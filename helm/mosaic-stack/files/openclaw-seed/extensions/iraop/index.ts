@@ -297,7 +297,7 @@ function toOpenClawResult(mcpResult: unknown) {
         .join("\n");
       throw new Error(typeof text === "string" && text ? text : "iraop tool call reported isError");
     }
-    return { content: r.content, details: mcpResult };
+    return { content: [...r.content], details: mcpResult };
   }
   const text = typeof mcpResult === "string" ? mcpResult : JSON.stringify(mcpResult, null, 2);
   return { content: [{ type: "text", text }], details: mcpResult };
@@ -314,6 +314,37 @@ function firstTextContent(result: { content?: unknown[] }) {
     })
     .filter(Boolean)
     .join("\n");
+}
+
+function queryEvidenceProblem(mcpResult: unknown): string | null {
+  const candidates: unknown[] = [];
+  if (mcpResult && typeof mcpResult === "object") {
+    const raw = mcpResult as Record<string, unknown>;
+    candidates.push(raw.structuredContent, raw);
+    if (Array.isArray(raw.content)) {
+      for (const item of raw.content) {
+        if (!item || typeof item !== "object" || !("text" in item) || typeof item.text !== "string") continue;
+        try { candidates.push(JSON.parse(item.text)); } catch { /* Try the next content block. */ }
+      }
+    }
+  } else if (typeof mcpResult === "string") {
+    try { candidates.push(JSON.parse(mcpResult)); } catch { /* Report an unreadable research response below. */ }
+  }
+  const response = candidates.find((candidate) =>
+    candidate && typeof candidate === "object" && !Array.isArray(candidate)
+    && "answer" in candidate,
+  ) as Record<string, unknown> | undefined;
+  if (!response || typeof response.answer !== "string" || !response.answer.trim()) {
+    return "IRAOP did not return a readable, nonempty research answer with document sources.";
+  }
+  const hasSource = Array.isArray(response.sources) && response.sources.some((source) =>
+    source && typeof source === "object"
+    && typeof source.source_file === "string" && source.source_file.trim()
+    && Number.isInteger(source.page_number) && source.page_number > 0,
+  );
+  return hasSource ? null : "IRAOP returned no usable document sources. The research is incomplete. "
+    + "Do not present its answer as retrieved documentation or use it to justify a repair. "
+    + "Missing sources do not establish that a collection is empty.";
 }
 
 function summarizeQueryResult(result: ReturnType<typeof toOpenClawResult>, elapsedMs: number) {
@@ -398,6 +429,21 @@ export default definePluginEntry({
             postSubagentEvent(subagent, "delta", message);
           });
           const openClawResult = toOpenClawResult(result);
+          const evidenceProblem = queryEvidenceProblem(result);
+          if (evidenceProblem) {
+            postSubagentEvent(subagent, "error", `IRA research incomplete: ${evidenceProblem}`);
+            return {
+              // The tool transport completed. Research completion is explicit in
+              // content; returning normally also preserves the raw MCP details.
+              // OpenClaw assigns its own isError flag to the resulting message.
+              content: [{ type: "text", text: JSON.stringify({
+                status: "incomplete",
+                error: evidenceProblem,
+                evidenceScope: "No document-grounded answer is available from this call. The full original response is retained in tool details for inspection.",
+              }) }],
+              details: result,
+            };
+          }
           postSubagentEvent(subagent, "complete", summarizeQueryResult(openClawResult, Date.now() - startedAt));
           openClawResult.content.unshift({ type: "text", text: "Evidence scope: documentation research. This service has not inspected the current workload. Proposed local causes remain hypotheses until checked against live evidence on the participating resources." });
           return openClawResult;
