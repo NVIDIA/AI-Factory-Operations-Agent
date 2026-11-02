@@ -17,6 +17,7 @@
     "deployment": "openclaw",
     "container": "gateway",
     "channel": "feishu",
-    "target": "chat:oc_REPLACE_WITH_APPROVED_GROUP"
+    "target": "chat:oc_REPLACE_WITH_APPROVED_GROUP",
+    "session_key": "agent:default:feishu:group:oc_REPLACE_WITH_APPROVED_GROUP"
   }
 }

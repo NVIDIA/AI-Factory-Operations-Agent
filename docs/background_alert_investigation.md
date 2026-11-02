@@ -9,7 +9,8 @@ collects actual diagnostic tool evidence through the headless API, calls IRAOP,
 requests a complete report, and publishes through the configured OpenClaw native
 Feishu channel. An open browser is not required.
 
-The operator explicitly selects both the alert labels and the destination group.
+The operator explicitly selects both the alert labels and the destination
+conversation: an approved group or a verified bot-to-user direct message.
 The default first poll records already-active alerts without investigating them.
 New alerts are keyed by fingerprint **and** start time in a persistent SQLite
 database. Restarting a completed worker does not send the same report again.
@@ -23,8 +24,10 @@ Existing Alertmanager, explicitly selected labels
     -> headless API, View: actual logs / state / metrics
     -> actual iraop_query, explicit knowledge collections
     -> same read-only session: complete report
+    -> configured recipient Agent conversation: real full-report input
+    -> verify complete input; external delivery disabled for this handoff
     -> separate fixed native CLI publisher
-    -> OpenClaw Feishu plugin -> approved group
+    -> OpenClaw Feishu plugin -> approved group or verified direct message
 
 Every stage -> complete private requests, responses and evidence
 ```
@@ -35,9 +38,19 @@ automation guard, which keeps the session read-only even if the installation
 also supports interactive Edit/Auto sessions. The worker does not change access
 mode or request cluster mutations.
 
-Publication is an independent operator action. The worker calls a fixed
-`kubectl exec ... node /app/dist/index.js message send --channel feishu` argument
-array against the configured gateway deployment. The agent cannot choose the
+Publication is an independent operator action. With `delivery.session_key`
+configured, the worker first transfers the complete published report through a
+normal Gateway `agent` turn in the configured recipient conversation. That
+automatic receipt-only turn has external delivery disabled and the message tool
+disabled. The worker waits for completion and reads `chat.history` with an
+explicit text limit to verify the complete report in a real Agent input record.
+It then calls a fixed `kubectl exec ... node /app/dist/index.js gateway call send
+--params ...` argument array and marks the incident `sent` only after receiving a
+platform message ID. The original report is published unchanged; the receiving
+Agent's acknowledgement is not substituted for it.
+Configurations without a session key retain the original
+`message send --channel feishu` path for delivery-only compatibility.
+The agent cannot choose the
 executable, namespace, channel, recipient or shell command. The report is one
 literal argument, and no shell is used. The gateway's existing application
 Secret and native plugin perform delivery; the worker does not copy the Feishu
@@ -57,7 +70,8 @@ do not enable Edit/Auto or relax tool policy to make a notification work.
 | Alertmanager URL | Read access to `/api/v2/alerts`; optional bearer token supported through `ALERTMANAGER_BEARER_TOKEN` |
 | Explicit label filter | Select the intended alert population; initially use dedicated test labels |
 | IRAOP | Working `iraop_query`, approved indexed documents and explicit collection names |
-| Existing native Feishu channel | Published application, loaded plugin, authorized group and working native send |
+| Existing native Feishu channel | Published application, loaded plugin, authorized recipient conversation and working native send |
+| Publisher Gateway device | Approved `operator.write` for native `send`; `operator.read` for history verification. This is deployment authorization, not an investigation access-mode change |
 | Kubernetes context | The host account can port-forward the UI and invoke the selected gateway's native CLI |
 | Persistent local state | Private writable disk under `~/.local/state/mosaic-alert-worker` |
 | Service ownership | A customer administrator approves startup, maintenance, token rotation and the report's sharing scope |
@@ -66,6 +80,36 @@ Customer application creation, publication, organization approval, group
 membership, corpus authorization and host credentials remain customer actions.
 Installing MOSAIC alone supplies none of those approvals. Native Feishu uses an
 App ID/App Secret; a custom-bot Webhook URL is a separate delivery credential.
+
+### One-time publisher device authorization
+
+An existing read-only CLI device may successfully read `chat.history` while a
+new `send` connection fails with `scope upgrade pending approval` or Gateway
+close code `1008`. Complete this deployment step before the live alert test.
+From an already authorized Gateway administrator client, inspect the pending
+request and approve the exact publisher device/scope request:
+
+```bash
+openclaw devices list --json
+openclaw devices approve REVIEWED_REQUEST_ID --json
+```
+
+Check the actual device identity, `clientId=cli`, operator role and requested
+scope. The publisher needs read/write access, not `operator.admin` or
+`operator.pairing`. Keep the administrator's management identity separate where
+possible. A read-only publisher cannot grant its own broader access through the
+Gateway. On the Gateway host, an authorized local owner can use OpenClaw's local
+pairing recovery; do not disable device authentication or hand-edit the paired
+device records. Some CLI versions can replace a pending request while opening
+the management connection, so re-check the request identity and scopes after
+an `unknown requestId` result rather than approving an unchecked latest request.
+
+Approval is retained with the device identity in the persistent OpenClaw state.
+Ordinary alerts do not require repeated approval. Replacing the device identity,
+discarding that state or requesting broader scopes can require a new deployment
+approval. The investigation remains in View mode. See
+[OpenClaw device management](https://docs.openclaw.ai/cli/devices) and
+[operator scopes](https://docs.openclaw.ai/gateway/operator-scopes).
 
 ## Install the persistent services
 
@@ -78,7 +122,8 @@ export MOSAIC_NAMESPACE=mosaic
 export MOSAIC_UI_AUTH_SECRET=mosaic-ui-auth
 export MOSAIC_KUBECTL="$(command -v kubectl)"
 export ALERTMANAGER_URL=https://alerts.example.com
-export FEISHU_CHAT_ID=oc_REPLACE_WITH_APPROVED_GROUP
+export FEISHU_CHAT_ID=oc_REPLACE_WITH_APPROVED_CHAT
+export FEISHU_SESSION_KEY=agent:default:feishu:direct:ou_REPLACE_WITH_VERIFIED_USER
 export RESEARCH_COLLECTION=approved-operations-runbooks
 
 install -d -m 0700 "$HOME/.local/share/mosaic-alert-worker"
@@ -114,6 +159,7 @@ config["delivery"].update(
     context=os.environ["KUBE_CONTEXT"],
     namespace=os.environ["MOSAIC_NAMESPACE"],
     target="chat:" + os.environ["FEISHU_CHAT_ID"],
+    session_key=os.environ["FEISHU_SESSION_KEY"],
 )
 secret = json.loads(subprocess.check_output([
     os.environ["MOSAIC_KUBECTL"], "--context", os.environ["KUBE_CONTEXT"],
@@ -142,6 +188,110 @@ example initially selects only alerts with both `mosaic_test=true` and
 `background_validation=true`. Start the service before creating the new test
 alert. Set `include_existing=true` only when intentionally processing selected
 alerts already firing at startup.
+
+### Deliver reports to a direct message
+
+The fixed `chat:oc_...` target can identify either a group or the existing
+conversation between the application bot and an authorized user. An `oc_...`
+prefix alone does not prove which kind of conversation it is. Set the matching
+`delivery.session_key` to support ordinary follow-up questions about reports;
+changing only the destination does not establish conversation context.
+
+1. Have the intended recipient send a real direct message to the published
+   application bot and verify that the native channel can reply. Keep the
+   recipient in the configured inbound user allowlist.
+2. Read that exact message using `GET /open-apis/im/v1/messages/{message_id}`.
+   Match its sender to the intended recipient's known `open_id` and record its
+   `chat_id`. Verify the conversation using
+   `GET /open-apis/im/v1/chats/{chat_id}`; `chat_mode` must be `p2p`.
+3. Test the installed native publisher against `chat:<verified-chat-id>`. Read
+   the returned message ID from the platform and check the recipient, complete
+   report and Run ID. A successful CLI exit is not independent receipt evidence.
+4. Obtain the actual native inbound session key for that recipient, such as
+   `agent:default:feishu:direct:ou_VERIFIED_USER`. For a simple group session use
+   `agent:default:feishu:group:oc_VERIFIED_GROUP` with the same group ID as the
+   delivery target. When no incident is in progress, back up the private
+   configuration and set both `delivery.target` and `delivery.session_key`.
+   Validate the configuration, restart `mosaic-alert-worker.service`, and check
+   that the service is active and the existing ledger is unchanged.
+5. Create a new isolated test alert after the service is running. Verify actual
+   collection, IRAOP sources, the model's full report and the new native message
+   in the intended direct-message conversation.
+
+The inbound `dmPolicy`/`allowFrom` settings control who can talk to the agent;
+they do not select the worker's outbound report recipient. This utility has one
+fixed delivery target. Changing that target changes subsequent reports from the
+group destination to the configured direct message; it does not add a second
+destination or replay completed incidents.
+
+With `delivery.session_key` set, ask an ordinary question in the same direct
+message after receiving the report; no copying, special marker or quoted reply
+is required. The worker's automation session remains separate, while the
+complete published report is automatically handed into the real native Agent
+conversation before delivery. Feishu's **Reply** action is also useful to identify a particular
+report when several incidents have arrived. Retain the incoming message ID,
+real report input record, native model response and outgoing message ID to verify
+the complete conversational loop.
+
+The Gateway receives separate deterministic idempotency keys for context handoff
+and publication. A `delivery-mirror` or `gateway-injected` assistant record is
+transcript-only in the tested OpenClaw version; finding it in display history
+does not prove that a future model turn can use the report. The worker therefore
+requires a real input record containing the full report. History display defaults
+to 8,000 characters, so verification explicitly requests enough characters for
+the complete handoff; it never accepts a truncated prefix as proof.
+
+The worker keeps the platform receipt in `native-delivery.gateway-receipt.json`.
+If context handoff is incomplete or sending is ambiguous, the incident becomes
+`delivery_unknown` and is not blindly tried again. The full handoff request,
+acknowledgement, history response, receipt and error remain available for
+reconciliation. The receipt-only Agent turn runs automatically in the service;
+no manual context backfill, `chat.inject` call or direct transcript-file editing
+is used. Its output does not alter the report's facts.
+
+### Select the Agent through configuration
+
+`delivery.target` selects the Feishu recipient conversation.
+`delivery.session_key` selects the OpenClaw conversation and includes its Agent
+ID. The native incoming Feishu binding must select that same Agent/session.
+Display names do not select an Agent. Configure the intended Agent with its own
+workspace and permissions before binding users to it.
+
+For example, an existing `ops` Agent can receive a verified user's direct
+messages through the native OpenClaw configuration:
+
+```json
+{
+  "bindings": [{
+    "agentId": "ops",
+    "match": {
+      "channel": "feishu",
+      "peer": {"kind": "direct", "id": "ou_VERIFIED_USER"}
+    }
+  }]
+}
+```
+
+After verifying a real incoming message reaches that Agent, use the actual
+conversation key and verified p2p chat ID in the worker configuration:
+
+```json
+{
+  "delivery": {
+    "channel": "feishu",
+    "target": "chat:oc_VERIFIED_P2P_CHAT",
+    "session_key": "agent:ops:feishu:direct:ou_VERIFIED_USER"
+  }
+}
+```
+
+These are partial configuration examples; retain the other required deployment
+fields. Native binding configuration must be retained in the deployment's
+persistent OpenClaw configuration, not changed only inside a running Pod.
+Custom session scopes can change the native key; inspect the actual incoming
+route rather than guessing it. The current worker accepts simple native
+`direct:ou_...` and `group:oc_...` conversation keys. See
+[OpenClaw channel routing](https://docs.openclaw.ai/channels/channel-routing).
 
 An optional `collection_context` provides trusted site-specific collection
 scope, such as registered cluster aliases and the intended workload/log fields.
@@ -215,6 +365,10 @@ For one incident, inspect its complete private files under
 | `report-integrity.json` | Original/published sizes, hashes and explicit no-truncation/no-factual-edit flags |
 | `native-delivery.intent.json` | Fixed target/channel and complete report hash/length |
 | `native-delivery.stdout.log` and `.stderr.log` | Complete native CLI output |
+| `native-delivery.context-handoff.request.json` and `.response.json` | Complete automatic receiving-Agent input and its receipt-only turn; external delivery and message tool disabled |
+| `native-delivery.gateway-receipt.json` | Confirmed platform receipt after successful real-context verification |
+| `native-delivery.context-history.stdout.log` and `.stderr.log` | Complete native history readback for the configured Agent conversation |
+| `native-delivery.context-verification.json` | Full report verified inside the actual Agent input record; context message ID, handoff run ID and report hash |
 | `native-receipt.json` | Parsed message ID and original structured send result |
 | `mosaic-resolution.*` | Removal of the worker-owned MOSAIC card after source resolution |
 | `failure.json` | Current failure phase and error, without the UI token |
@@ -250,7 +404,7 @@ accepts those actual envelopes and checks for an answer with a document name
 | `synthesizing` | Combining real observations and documentation in the same read-only session |
 | `ready` | Complete report saved; safe to begin its first publication |
 | `sending` | External side effect may be in flight; recorded before invoking the native CLI |
-| `sent` | Native CLI returned an actual message ID; no automatic resend on restart |
+| `sent` | Native delivery returned a message ID; when `session_key` is configured, the complete report was also verified in that conversation; no automatic resend on restart |
 | `resolved_before_start` | Source alert disappeared before a queued investigation began |
 | `needs_attention` | Investigation failed or was interrupted; preserve history and inspect it before starting another run |
 | `delivery_unknown` | Delivery was interrupted, timed out or lacked a confirmed receipt; reconcile with platform history instead of blindly sending again |
@@ -280,9 +434,14 @@ does not control manual clicks or other browser automation.
 5. Confirm the complete report arrived from the **application bot**, preserving
    the Run ID and incident/session identity. The custom-bot Webhook is a
    different sender.
-6. Restart the worker while the same source alert remains active. Confirm the
+6. With `delivery.session_key` configured, confirm the full report is present
+   in a real Agent input record. Have the recipient ask a normal, unquoted
+   question in the same DM without copying the report or its Run ID. Correlate
+   the real platform input, Qwen's contextual answer and the native reply. A
+   display mirror or the automatic handoff's own answer is not this acceptance.
+7. Restart the worker while the same source alert remains active. Confirm the
    same incident/message ID remains, without another investigation or delivery.
-7. Have the test administrator delete only the exact test objects. Verify the
+8. Have the test administrator delete only the exact test objects. Verify the
    source alert clears and only the worker-owned MOSAIC card is removed; keep
    the complete conversation and evidence.
 
@@ -323,6 +482,38 @@ tests; it did not resume a failed record or manually send its report.
 The complete dated operator record, commands, original model output, all
 attempts and channel evidence are maintained in the deployment documentation
 [pull request](https://github.com/JeffPengCoder/AI-Factory-Operations-Agent/pull/1).
+
+### Direct-message context regression and new automatic run
+
+An ordinary follow-up after a proactive DM exposed a separate defect: the
+report had arrived in Feishu, but its display-only `delivery-mirror` record did
+not enter the model's replay context. A second candidate also exposed the
+default 8,000-character history display limit. Those failed records and original
+model answers were retained; they were not edited or manually completed.
+
+The revised worker transfers the complete report through the normal `agent`
+method before publishing. A separate two-turn component probe first confirmed
+that normal Agent inputs survive into a later real model turn with external
+delivery disabled. A fresh alert then exercised the persistent service itself:
+
+| Field | Observed value |
+| --- | --- |
+| Run ID | `handoff-gpu-20261102t085400z` |
+| Incident | `3b0084bf90af7f0901912918` |
+| Collection | Five actual `run_kubectl` tool results; all successful |
+| IRAOP | Two source rows, runbook pages 1 and 2 |
+| Original model report | 12,186 UTF-8 bytes; SHA256 `bd8b666916caae931e0b6e119200c5b203ffdfd984875ce28e62648e92e68277` |
+| Published report | 14,675 UTF-8 bytes; SHA256 `d6fd75fb6218ecba9c9272fb5a2d0f259fac28317c6bc0d9eb0d977ec186db8a` |
+| Real recipient input | Record `8a93da79`; complete report verified before publication |
+| Native platform receipt | `om_x100b61b14468f570dd6b4d1203771ad`; readback confirmed the expected p2p conversation |
+| Worker completed | `2026-11-02T08:58:19Z`; no manual collection, Research, context insertion or report sending during acceptance |
+| Restart while firing | Same incident ID, message ID, every event row and all incident evidence hashes; worker active |
+| Ordinary human follow-up | Awaiting a real recipient message; automatic handoff output is not counted as this acceptance |
+
+The receipt-only handoff's model output was retained in full. It was not
+published or used to rewrite the report. The original model report remains
+fact-uncorrected; this regression test establishes context transport, not the
+accuracy of GPU hardware diagnosis.
 
 ## Stop and retain evidence
 
