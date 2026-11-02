@@ -143,6 +143,7 @@ spec:
               mkdir -p /home/node/.openclaw/workspace/skills /run/openclaw-tmp/runtime
               chmod 700 /run/openclaw-tmp/runtime
               rm -rf /home/node/.openclaw/extensions/automation-guard \
+                /home/node/.openclaw/extensions/alert-automation \
                 /home/node/.openclaw/extensions/bcm \
                 /home/node/.openclaw/extensions/dcgm \
                 /home/node/.openclaw/extensions/diagnostic-agent \
@@ -170,6 +171,12 @@ spec:
               cp /seed/automation-guard.slack-approval.ts /home/node/.openclaw/extensions/automation-guard/slack-approval.ts
               cp /seed/automation-guard.openclaw.plugin.json /home/node/.openclaw/extensions/automation-guard/openclaw.plugin.json
               cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json
+              {{- if .Values.modules.alertAutomation.enabled }}
+              mkdir -p /home/node/.openclaw/extensions/alert-automation
+              {{- range $name := list "index.ts" "plugin.ts" "core.ts" "runtime.ts" "openclaw.plugin.json" "package.json" }}
+              cp /seed/alert-automation.{{ $name }} /home/node/.openclaw/extensions/alert-automation/{{ $name }}
+              {{- end }}
+              {{- end }}
               cp /seed/mutation-ledger.ts /home/node/.openclaw/extensions/mutation-ledger.ts
               {{- if .Values.modules.slurm.enabled }}
               mkdir -p /home/node/.openclaw/workspace/skills/slurm
@@ -660,6 +667,20 @@ spec:
                 secretKeyRef:
                   name: {{ $uiAuthSecret }}
                   key: machineToken
+            {{- if and .Values.modules.alertAutomation.enabled .Values.modules.alertAutomation.alertmanagerAuth.existingSecret }}
+            - name: MOSAIC_ALERTMANAGER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.modules.alertAutomation.alertmanagerAuth.existingSecret | quote }}
+                  key: {{ .Values.modules.alertAutomation.alertmanagerAuth.tokenKey | quote }}
+            {{- end }}
+            {{- if and .Values.modules.alertAutomation.enabled (ne .Values.modules.alertAutomation.sourceMode "poll") }}
+            - name: MOSAIC_ALERT_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "modules.alertAutomation.webhook.existingSecret is required for webhook/both" .Values.modules.alertAutomation.webhook.existingSecret | quote }}
+                  key: {{ .Values.modules.alertAutomation.webhook.tokenKey | quote }}
+            {{- end }}
             {{- if eq (include "mosaic-stack.bcmAuthenticated" .) "true" }}
             - name: MOSAIC_BCM_MCP_TOKEN
               valueFrom:

@@ -18,12 +18,12 @@ For a checksum-verified mirrored or source-built sandbox backend package, config
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
-After installing the required modules and configuring native messaging, an
-authorized operator can separately install the
-[persistent background alert worker](background_alert_investigation.md).
-Its host services, explicit alert filters, knowledge collections and fixed
-recipient are configured in that guide; this builder leaves the site's
-background-processing policy unchanged.
+Select **Automatic alert investigation** to install the
+[native alert automation plugin](alert_automation_plugin.md). Configure the
+native messaging application first, then supply its channel, fixed report target
+and verified recipient conversation. The generated settings use Alertmanager
+polling. The plugin guide covers source filters, webhook intake, credentials and
+migration from the retained deployment-host worker.
 
 
 ```{raw} html
