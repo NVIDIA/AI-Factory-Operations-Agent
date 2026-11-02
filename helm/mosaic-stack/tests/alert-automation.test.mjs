@@ -306,6 +306,44 @@ test("rolls back an over-capacity batch, preserving all intake for a later retry
   store.close();
 });
 
+test("recipient child threads inherit report context without leaking it to another peer", (t) => {
+  const store = new Store(directory(t));
+  const a = alert();
+  const cfg = config();
+  store.ingest([a], cfg);
+  const id = incidentKey(a);
+  const report = "Complete context for this recipient only";
+  const folder = join(store.directory(id));
+  store.bindReport(
+    id,
+    "agent:default:feishu:direct:ou_person",
+    "run-thread-test",
+    report,
+  );
+  const fs = process.getBuiltinModule("node:fs");
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(join(folder, "published-report.txt"), report);
+  assert.equal(
+    store.reportContext(
+      "agent:default:feishu:direct:ou_person:thread:om_report",
+    ).report,
+    report,
+  );
+  assert.equal(
+    store.reportContext("agent:default:feishu:direct:ou_person2"),
+    undefined,
+  );
+  assert.equal(
+    store.reportContext("agent:other:feishu:direct:ou_person"),
+    undefined,
+  );
+  assert.equal(
+    store.reportContext("agent:default:slack:direct:ou_person"),
+    undefined,
+  );
+  store.close();
+});
+
 test("one native Agent goal produces the complete unchanged model report and durable followup context", async (t) => {
   const root = directory(t),
     a = alert(),

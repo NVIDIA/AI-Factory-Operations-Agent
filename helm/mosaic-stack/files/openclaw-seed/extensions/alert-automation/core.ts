@@ -416,9 +416,9 @@ export class Store {
   reportContext(sessionKey: string, prompt = "") {
     const records = this.db
       .prepare(
-        "SELECT * FROM report_contexts WHERE session_key=? ORDER BY created_at DESC",
+        "SELECT * FROM report_contexts WHERE session_key=? OR substr(?,1,length(session_key)+1)=session_key||':' ORDER BY created_at DESC",
       )
-      .all(sessionKey) as Json[];
+      .all(sessionKey, sessionKey) as Json[];
     const selected =
       records.find(
         (r) => prompt.includes(r.incident_id) || prompt.includes(r.run_id),
@@ -1003,17 +1003,15 @@ export class AlertService {
     }
   }
   status() {
-    const incidents = this.store
-      .rows()
-      .map((row) => ({
-        id: row.id,
-        state: row.state,
-        sessionKey: row.session_key,
-        messageId: row.message_id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        errorType: row.error_type,
-      }));
+    const incidents = this.store.rows().map((row) => ({
+      id: row.id,
+      state: row.state,
+      sessionKey: row.session_key,
+      messageId: row.message_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      errorType: row.error_type,
+    }));
     return {
       running: !!this.timer && !this.controller.signal.aborted,
       sourceMode: this.config.sourceMode,

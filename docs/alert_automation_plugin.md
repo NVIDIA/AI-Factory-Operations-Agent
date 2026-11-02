@@ -219,7 +219,9 @@ conversation. The hook treats report contents as evidence, not executable
 instructions. Other conversations receive no report context. This survives a
 Gateway restart without creating a synthetic acknowledgement turn or relying
 on a transcript-only delivery mirror. Hash validation rejects changed report
-files. Context-use records preserve the run/session/report association.
+files. Native child-thread conversations inherit their configured parent
+conversation's report at a session-key boundary; unrelated peers do not.
+Context-use records preserve the run/session/report association.
 
 Stopping the service cancels polling and forbids any subsequent investigation
 or send. An already-running native Agent may finish independently; its persisted
