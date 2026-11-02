@@ -1,0 +1,22 @@
+{
+  "alertmanager_url": "https://alerts.example.com",
+  "mosaic_url": "http://127.0.0.1:13300",
+  "match_labels": {"mosaic_test": "true", "background_validation": "true"},
+  "include_existing": false,
+  "poll_seconds": 30,
+  "timeout_seconds": 600,
+  "research_collections": ["approved-operations-runbooks"],
+  "collection_context": "",
+  "state_dir": "~/.local/state/mosaic-alert-worker",
+  "message_prefix": "MOSAIC automated read-only alert report",
+  "redact_values": [],
+  "delivery": {
+    "kubectl": "/home/operator/.local/bin/kubectl",
+    "context": "site-cluster",
+    "namespace": "mosaic",
+    "deployment": "openclaw",
+    "container": "gateway",
+    "channel": "feishu",
+    "target": "chat:oc_REPLACE_WITH_APPROVED_GROUP"
+  }
+}

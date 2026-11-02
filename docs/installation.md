@@ -760,6 +760,13 @@ Start the MCP client from the shell where `MOSAIC_URL` and `MOSAIC_UI_MACHINE_TO
 
 Replace `http://localhost:3000` with the deployed AI Factory Operations Agent URL when it is reachable directly. The bridge exposes `ai_factory_operations_agent_chat`, `ai_factory_operations_agent_history`, `ai_factory_operations_agent_commands`, and the AI Factory Operations Agent/OpenClaw tools enabled by the chart over stdio MCP. See `docs/skills/ai-factory-operations-agent-headless/SKILL.md` for the complete agent workflow.
 
+For persistent alert investigations without an open browser, follow the
+[background alert worker guide](background_alert_investigation.md). This
+optional deployment-host service uses the existing headless API, explicit
+Alertmanager label filters, IRAOP collections and an already configured native
+Feishu destination. The guide includes complete user-systemd units, credential
+setup, durable processing state and per-stage acceptance evidence.
+
 ## Vanilla Slurm RCA
 
 The public Slurm workflow is evidence based. By default, the chart deploys a read-only Slurm evidence collector. The collector mounts the host filesystem read-only inside the collector pod, exposes bounded HTTP tools to OpenClaw, and keeps broad host filesystem access out of the LLM sandbox.
