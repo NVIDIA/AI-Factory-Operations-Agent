@@ -339,6 +339,8 @@ openclaw:
       arm64: c7bf758ed864ef375ba3358d39b4d6e4b80da9e451b67a47ae1341df82c362e0
     pluginVersion: 2026.6.6
     pluginSha256: 1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33
+    # Optional mirrored or source-built package; pluginSha256 must match.
+    pluginArchiveUrl: ""
   service:
     port: 18789
 

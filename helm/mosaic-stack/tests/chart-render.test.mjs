@@ -1418,3 +1418,21 @@ test("inference selection preserves provider reasoning contracts", () => {
     assert.equal(render(...args, "--show-only", "templates/llm-compat.yaml").includes("json.reasoning_effort = 'none'"), effort);
   }
 });
+
+test("installs either the pinned or overridden sandbox archive with checksum verification", () => {
+  const archive = "https://artifacts.example.test/openshell-source-build.tgz";
+  const checksum = "a".repeat(64);
+  const defaults = render("--show-only", "templates/openclaw.yaml");
+  assert.ok(defaults.includes('value: "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz"'));
+  const overridden = render("--show-only", "templates/openclaw.yaml",
+    "--set-string", `openclaw.openshell.pluginArchiveUrl=${archive}`,
+    "--set-string", `openclaw.openshell.pluginSha256=${checksum}`);
+  assert.ok(overridden.includes(`value: "${archive}"`));
+  assert.ok(overridden.includes(`printf '%s  %s\\n' "${checksum}" "$plugin" | sha256sum -c -`));
+  assert.ok(overridden.includes('"$OPENSHELL_PLUGIN_ARCHIVE_URL"'));
+  assert.equal(
+    defaults.replaceAll("https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz", archive)
+      .replaceAll("1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33", checksum),
+    overridden,
+  );
+});

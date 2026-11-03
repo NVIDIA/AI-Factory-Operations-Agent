@@ -1031,6 +1031,8 @@ The model selects only the registered name. It cannot provide a kubeconfig path,
 
 ## OpenShell Dependency
 
+The sandbox backend package is pinned by `openclaw.openshell.pluginVersion` and verified against `openclaw.openshell.pluginSha256` before installation. For a mirrored or source-built compatible package, set `openclaw.openshell.pluginArchiveUrl` and its matching SHA256 in your tracked site values. Build backports from version-controlled source and retain the source commit and artifact checksum; do not modify downloaded packages at startup. An empty archive URL uses the pinned npm registry package. The override does not change the OpenClaw host or OpenShell CLI versions.
+
 The published chart includes the pinned official OpenShell OCI dependency from `ghcr.io/nvidia/openshell`. It uses the official gateway, supervisor, and unprivileged base sandbox images. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is included as well:
 
 - `CustomResourceDefinition` resources are placed under chart `crds/` so Helm installs them before templates.
