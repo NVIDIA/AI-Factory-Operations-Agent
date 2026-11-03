@@ -4,6 +4,7 @@
 const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
 export const inferenceProfiles = {
   super: {label: 'Nemotron 3.5 Super VL (1 GPU)', file: 'vllm-super-1gpu.yaml', model: 'nemotron-3.5-super-vl'},
+  deepseek: {label: 'DeepSeek V4.1 Flash 1017 (4 B200s)', file: 'vllm-deepseek-4gpu.yaml', model: 'deepseek-v4.1-flash-1017'},
   qwen: {label: 'Qwen3.8 Flash-Next (1 B200)', file: 'vllm-qwen-1gpu.yaml', model: 'qwen3.8-flash-next'},
 };
 export const modules = {

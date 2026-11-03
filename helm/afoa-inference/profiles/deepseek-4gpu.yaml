@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+image: vllm/vllm-openai@sha256:298b8765981d9dabda0da1504487bcdca876d5c18e8533455b3fda65ae964ba2
+model: deepseek-ai/DeepSeek-V4.1-Flash-1017
+servedModelName: deepseek-v4.1-flash-1017
+gpuCount: 4
+tensorParallelSize: 4
+modelCache:
+  size: 1Ti
+resources:
+  requests:
+    cpu: "64"
+    memory: 512Gi
+  limits:
+    cpu: "128"
+    memory: 1Ti
+chatTemplateKwargs:
+  enable_thinking: false
+  thinking: true
+extraEnv:
+  - name: VLLM_USE_RUST_FRONTEND
+    value: "1"
+  - name: VLLM_ENGINE_READY_TIMEOUT_S
+    value: "3600"
+extraArgs:
+  - --revision=1bae0e1088993b9b82de08f59de5be5a34e42170
+  - --tokenizer-mode=deepseek_v41
+  - --reasoning-parser=deepseek_v41
+  - --enable-auto-tool-choice
+  - --tool-call-parser=deepseek_v41
+  - --engram-config={"cpu_offload":false}
+  - --attention-config={"backend":"FLASHINFER_MLA_SPARSE_DSV41","indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true}
+  - --kv-cache-dtype=fp8
+  - --max-num-seqs=8
+  - --max-num-batched-tokens=4096
+  - --max-model-len=262144
+  - --gpu-memory-utilization=0.90

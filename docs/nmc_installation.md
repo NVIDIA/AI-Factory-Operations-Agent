@@ -183,7 +183,7 @@ ingress:
   tlsSecretName: inference-tls
 ```
 
-New chart versions default to Qwen3.8 Flash-Next on one B200, requesting 16 CPUs, 128 GiB host RAM (256 GiB limit) and a 500 GiB cache. The older pinned version above still defaults to Nemotron. Choose a published version containing the Qwen default change to use the new default. Both models remain available through explicit profiles. To select a profile, unpack the chart at the chosen version:
+New chart versions default to Qwen3.8 Flash-Next on one B200, requesting 16 CPUs, 128 GiB host RAM (256 GiB limit) and a 500 GiB cache. The older pinned version above still defaults to Nemotron. Choose a published version containing the Qwen default change to use the new default. DeepSeek V4.1 Flash 1017 is available on four B200s. Nemotron and Qwen remain available through explicit profiles. To select a profile, unpack the chart at the chosen version:
 
 ```bash
 INFERENCE_CHART_WORKDIR=$(mktemp -d)
@@ -191,7 +191,7 @@ helm pull "$INFERENCE_CHART" --version "$INFERENCE_CHART_VERSION" \
   --untar --untardir "$INFERENCE_CHART_WORKDIR"
 ```
 
-Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). Use `profiles/super-1gpu.yaml` instead to retain Nemotron on a newer chart. These profiles require a chart version containing them; the older pinned example above contains only Nemotron. When connecting Qwen to the external-mode agent, also apply the model-specific reasoning settings in the linked guide.
+Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). Use `profiles/super-1gpu.yaml` instead to retain Nemotron on a newer chart. These profiles require a chart version containing them; the older pinned example above contains only Nemotron. When connecting Qwen to the external-mode agent, also apply the model-specific reasoning settings in the linked guide. For DeepSeek, use `profiles/deepseek-4gpu.yaml` instead; see [large-model hardware and reasoning requirements](installation.md#on-prem-inference).
 
 ### 2. Deploy in `k8s-user`
 

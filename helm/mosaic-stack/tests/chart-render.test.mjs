@@ -1418,3 +1418,21 @@ test("inference selection preserves provider reasoning contracts", () => {
     assert.equal(render(...args, "--show-only", "templates/llm-compat.yaml").includes("json.reasoning_effort = 'none'"), effort);
   }
 });
+
+test("DeepSeek profile keeps four GPUs on one pod with its native protocol", () => {
+  const profile = ["--values", join(chart, "profiles/vllm-deepseek-4gpu.yaml")];
+  const output = render(...profile, "--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
+  assert.equal((output.match(/nvidia\.com\/gpu: "4"/g) ?? []).length, 2);
+  assert.match(output, /DeepSeek-V4\.1-Flash-1017/);
+  assert.match(output, /--tensor-parallel-size=4/);
+  for (const option of ["tokenizer-mode", "reasoning-parser", "tool-call-parser"]) {
+    assert.ok(output.includes(`--${option}=deepseek_v41`));
+  }
+  assert.match(output, /memory: 512Gi/);
+  assert.match(output, /storage: 1Ti/);
+  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
+  const proxy = render(...profile, "--show-only", "templates/llm-compat.yaml");
+  assert.doesNotMatch(proxy, /json\.reasoning_effort =/);
+  assert.match(render(...profile), /"maxTokens": 65536/);
+});

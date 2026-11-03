@@ -188,6 +188,24 @@ openclaw:
   thinkingDefault: high
 ```
 
+#### DeepSeek V4.1 Flash: large option
+
+Select **DeepSeek V4.1 Flash 1017 (4 B200s)** in the [installation builder](installation_builder.md). The bundled profile is `profiles/vllm-deepseek-4gpu.yaml`. It pins the October 17 checkpoint update and compatible vLLM runtime, including DeepSeek's tokenizer, reasoning parser, and automatic tool-call parser. See the [upstream serving recipe](https://recipes.vllm.ai/deepseek-ai/DeepSeek-V4.1-Flash).
+
+The profile requests four B200 GPUs on one node, 64 CPUs, 512 GiB host RAM (1 TiB limit), and a 1 TiB model cache. Engram tables remain in GPU memory. Serving is capped at 262,144-token context and eight sequences; the model's advertised 1M context is not the configured serving limit. Verify driver compatibility, free memory, and actual request concurrency before production use.
+
+As of November 3, 2026, [Artificial Analysis lists DeepSeek V4.1 Flash 1017 (Max)](https://artificialanalysis.ai/models/deepseek-v4-1-flash-1017) at 33 on its updated Intelligence Index. These evaluations support a large-model candidate, with results dependent on reasoning effort and benchmark version. The profile enables reasoning with a 65,536-token output ceiling; it does not claim to reproduce the Max evaluation configuration.
+
+For a separate GPU cluster, use `profiles/deepseek-4gpu.yaml` from the unpacked standalone inference chart, following the same [Secret, ingress, and storage setup](nmc_installation.md#self-hosted-inference):
+
+```bash
+helm upgrade --install deepseek ./afoa-inference \
+  -n afoa-inference \
+  -f ./afoa-inference/profiles/deepseek-4gpu.yaml \
+  -f inference-values.yaml \
+  --wait --timeout 2h
+```
+
 ### Configure additional model options
 
 The chart configures the primary provider as `llm` from the selected inference

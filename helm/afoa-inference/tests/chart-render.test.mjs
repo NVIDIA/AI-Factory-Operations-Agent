@@ -77,3 +77,13 @@ test("Qwen is the default and Nemotron remains an explicit option", () => {
   assert.match(nemotron, /enable_thinking.*false/);
   assert.doesNotMatch(nemotron, /VLLM_USE_RUST_FRONTEND|engram-config/);
 });
+
+test("DeepSeek standalone profile preserves authentication with native parsing", () => {
+  const output = render("--values", `${chart}/profiles/deepseek-4gpu.yaml`);
+  assert.match(output, /DeepSeek-V4\.1-Flash-1017/);
+  assert.match(output, /--tensor-parallel-size=4/);
+  assert.equal((output.match(/nvidia\.com\/gpu: "4"/g) ?? []).length, 2);
+  assert.match(output, /--tool-call-parser=deepseek_v41/);
+  assert.match(output, /name: VLLM_ENGINE_READY_TIMEOUT_S/);
+  assert.match(output, /name: VLLM_API_KEY/);
+});
