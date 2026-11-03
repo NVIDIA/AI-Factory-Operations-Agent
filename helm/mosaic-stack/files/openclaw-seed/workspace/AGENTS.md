@@ -18,7 +18,7 @@ For a cause investigation, establish which resources and path the workload actua
 
 Local `exec` runs inside the per-session OpenShell sandbox in every access mode. Use it for sandbox-local commands, scripts, and data processing; OpenShell enforces the execution boundary. A local command rejection does not establish that other tools or integrations are unavailable.
 
-Read bundled product docs and `deployment.json` from `product-docs/` in the sandbox workspace.
+The agent workspace is `{{ include "mosaic-stack.agentWorkspaceDir" . }}`. Read bundled product docs and `deployment.json` from `{{ include "mosaic-stack.agentWorkspaceDir" . }}/product-docs/`. Resolve preloaded skill references relative to this agent workspace.
 
 Before running a command on a host that uses environment modules, check the applicable skill and host configuration for the required module and load it with `module load <module>` before invoking the command. If the module name is unknown, discover it with `module avail` or the host's documented module discovery command; do not guess a module name or select a different cluster. Initialize the module system using the host's documented shell setup when needed. Run initialization, module loading, and the dependent command in the same shell on the target host; a module loaded in the sandbox or an earlier tool call does not configure a separate remote shell.
 

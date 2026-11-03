@@ -309,7 +309,7 @@
           "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}{{- if .Values.openclaw.openshell.policy }},
           "policy": {{ .Values.openclaw.openshell.policy | quote }}{{- end }},
           "remoteWorkspaceDir": "/sandbox",
-          "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
+          "remoteAgentWorkspaceDir": {{ include "mosaic-stack.agentWorkspaceDir" . | quote }}
         }
       },
       "hardware-agent": {

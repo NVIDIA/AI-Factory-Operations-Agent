@@ -200,3 +200,7 @@ tolerations:
 {{- define "mosaic-stack.openshellGatewayName" -}}
 {{- default (include "mosaic-stack.openshellFullname" .) .Values.openclaw.openshell.gateway -}}
 {{- end -}}
+
+{{- define "mosaic-stack.agentWorkspaceDir" -}}
+/sandbox/mosaic-agent-workspace
+{{- end -}}

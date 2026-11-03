@@ -1274,6 +1274,8 @@ test("packaged product and GPU documentation installs locally with research, UI 
     execFileSync("sh", ["-eu", "-c", script]);
     assert.equal(existsSync(legacySkill), false);
     const documentation = join(home, "workspace/product-docs");
+    const backend = JSON.parse(readFileSync(join(home, "openclaw.json"), "utf8")).plugins.entries.openshell.config;
+    assert.ok(readFileSync(join(home, "workspace/AGENTS.md"), "utf8").includes(`${backend.remoteAgentWorkspaceDir}/product-docs/`));
     const root = join(chart, "../..");
     const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})
       .split("\0").filter(name => name.endsWith(".md"));
