@@ -232,11 +232,7 @@ test("renders only official OpenClaw and OpenShell runtime images", () => {
 
 test("pins every default runtime image", () => {
   const output = render();
-  assert.ok(
-    output.includes(
-      "vllm/vllm-openai@sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd",
-    ),
-  );
+  assert.match(output, /image: ["']?vllm\/vllm-openai@sha256:[a-f0-9]{64}/);
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
 });
 
@@ -442,7 +438,6 @@ test("uses one no-reasoning request contract for external endpoints", () => {
 
 test("configures chart-managed vLLM for non-thinking generation", () => {
   for (const args of [
-    [],
     ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
     ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")],
   ]) {
@@ -451,13 +446,13 @@ test("configures chart-managed vLLM for non-thinking generation", () => {
   }
 });
 
-test("defaults to a single Super inference pod with one GPU", () => {
+test("defaults to a single Qwen inference pod with one B200", () => {
   const output = render("--show-only", "templates/vllm.yaml");
   assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
-  assert.match(output, /NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4/);
+  assert.match(output, /Inferact\/Qwen3.8-Flash-Next-NVFP4/);
   assert.match(output, /--tensor-parallel-size=1/);
   assert.equal((output.match(/nvidia.com\/gpu: "1"/g) ?? []).length, 2);
-  assert.match(output, /memory: 64Gi/);
+  assert.match(output, /memory: 128Gi/);
   assert.match(output, /storage: 500Gi/);
   assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
 });
@@ -1417,4 +1412,23 @@ test("inference environment and chat template settings reach the server", () => 
     "--set-json", 'llm.vllm.chatTemplateKwargs={"enable_thinking":true}', "--show-only", "templates/vllm.yaml");
   assert.match(output, /name: MODEL_RUNTIME_SETTING\s+value: configured/);
   assert.match(output, /enable_thinking.*true/);
+});
+
+
+test("inference selection preserves provider reasoning contracts", () => {
+  const cases = [
+    {args: [], model: "qwen3.8-flash-next", reasoning: true, thinking: "high", effort: false},
+    {args: ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")], model: "nemotron-3.5-super-vl", reasoning: false, thinking: "off", effort: true},
+    {args: ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")], model: "nemotron-ultra-550b", reasoning: false, thinking: "off", effort: true},
+    {args: ["--set", "llm.mode=external,llm.external.baseUrl=https://inference.example/v1,llm.external.model=custom-model"], model: "custom-model", reasoning: false, thinking: "off", effort: true},
+  ];
+  for (const {args, model, reasoning, thinking, effort} of cases) {
+    const seed = JSON.parse(configMapBlock(render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml"), "openclaw.json"));
+    const primary = seed.models.providers.llm.models[0];
+    assert.equal(primary.id, model);
+    assert.equal(primary.reasoning, reasoning);
+    assert.equal(seed.agents.defaults.thinkingDefault, thinking);
+    if (!reasoning) assert.equal(primary.thinkingLevelMap, undefined);
+    assert.equal(render(...args, "--show-only", "templates/llm-compat.yaml").includes("json.reasoning_effort = 'none'"), effort);
+  }
 });

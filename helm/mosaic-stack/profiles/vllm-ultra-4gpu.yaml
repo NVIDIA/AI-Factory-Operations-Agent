@@ -4,6 +4,16 @@
 llm:
   mode: vllm
   vllm:
+    thinkingDefault: "off"
+    reasoningEffort: none
+    modelOptions:
+      reasoning: false
+      contextWindow: 262144
+      maxTokens: 8192
+      thinkingLevelMap: null
+    chatTemplateKwargs:
+      enable_thinking: false
+    extraEnv: []
     image:
       repository: vllm/vllm-openai
       digest: sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f

@@ -4,7 +4,7 @@ Select your inference path and modules to generate an installation command. Comp
 
 CPU, RAM, GPUs and disk update automatically with your selections. Values come from this documentation version’s rendered Helm manifests. Different chart versions or site overrides can change the requirements.
 
-The inference selector also offers [Qwen3.8 Flash-Next on one B200](installation.md#on-prem-inference), with host RAM offload and reasoning enabled. Existing Nemotron and external options remain available.
+The inference selector defaults to [Qwen3.8 Flash-Next on one B200](installation.md#on-prem-inference), with host RAM offload and reasoning enabled. The Helm charts use the same model by default. Existing Nemotron and external options remain available.
 
 Select Base Command Manager to expose the optional **Read-only Redfish** checkbox inside its module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 

@@ -100,7 +100,7 @@ export function buildCommand(state) {
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');
 if (root) {
-  const state = {inference: 'external', channel: 'devel', slurmBackend: 'bcm', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
+  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
   const form = document.createElement('form'); form.addEventListener('submit', event => event.preventDefault());
   const options = document.createElement('fieldset'); options.innerHTML = '<legend>Installation options</legend>';
   function select(key, label, choices) {

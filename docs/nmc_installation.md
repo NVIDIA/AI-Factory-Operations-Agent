@@ -183,7 +183,7 @@ ingress:
   tlsSecretName: inference-tls
 ```
 
-The chart also includes a Qwen single-B200 profile. To select it, unpack the chart at the chosen version:
+New chart versions default to Qwen3.8 Flash-Next on one B200, requesting 16 CPUs, 128 GiB host RAM (256 GiB limit) and a 500 GiB cache. The older pinned version above still defaults to Nemotron. Choose a published version containing the Qwen default change to use the new default. Both models remain available through explicit profiles. To select a profile, unpack the chart at the chosen version:
 
 ```bash
 INFERENCE_CHART_WORKDIR=$(mktemp -d)
@@ -191,7 +191,7 @@ helm pull "$INFERENCE_CHART" --version "$INFERENCE_CHART_VERSION" \
   --untar --untardir "$INFERENCE_CHART_WORKDIR"
 ```
 
-Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). These profiles require a chart version containing them; the older pinned example above contains only Nemotron.
+Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). Use `profiles/super-1gpu.yaml` instead to retain Nemotron on a newer chart. These profiles require a chart version containing them; the older pinned example above contains only Nemotron. When connecting Qwen to the external-mode agent, also apply the model-specific reasoning settings in the linked guide.
 
 ### 2. Deploy in `k8s-user`
 
@@ -213,7 +213,7 @@ helm upgrade --install afoa-inference "$INFERENCE_CHART" \
   --timeout 2h
 ```
 
-The default is Nemotron 3.5 Super VL NVFP4, validated on one B200 for text generation and automatic tool calling. The model revision and compatible vLLM image are pinned. GPU memory and architecture matter; one GPU does not mean every GPU is compatible.
+The pinned example uses Nemotron 3.5 Super VL NVFP4. In newer chart versions containing this change, the default is Qwen3.8 Flash-Next NVFP4; both have passed text generation and automatic tool calling on one B200. The model revision and compatible vLLM image are pinned. GPU memory and architecture matter; one GPU does not mean every GPU is compatible.
 
 When upgrading from Nemotron 3 Super, preserve site settings and cache size, and update existing clients to the served name `nemotron-3.5-super-vl`. For shared endpoints, validate a separate inference release before switching clients.
 

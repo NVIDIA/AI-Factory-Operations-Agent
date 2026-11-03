@@ -1,7 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-{{- $c := .Values.llm.requestCompatibility -}}
+{{- $c := deepCopy .Values.llm.requestCompatibility -}}
+{{- if eq (kindOf $c.reasoningEffort) "invalid" -}}
+{{- $effort := "none" -}}
+{{- if eq .Values.llm.mode "vllm" -}}
+{{- $effort = .Values.llm.vllm.reasoningEffort -}}
+{{- end -}}
+{{- $_ := set $c "reasoningEffort" $effort -}}
+{{- end -}}
 {{- if and .Values.modules.execution.enabled $c.enabled }}
 apiVersion: v1
 kind: ConfigMap

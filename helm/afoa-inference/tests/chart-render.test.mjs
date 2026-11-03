@@ -68,3 +68,12 @@ test("Qwen standalone profile serves the reasoning model on one GPU", () => {
   assert.match(output, /enable_thinking.*true/);
   assert.match(output, /name: VLLM_API_KEY/);
 });
+
+
+test("Qwen is the default and Nemotron remains an explicit option", () => {
+  assert.equal(render(), render("-f", fileURLToPath(new URL("../profiles/qwen-1gpu.yaml", import.meta.url))));
+  const nemotron = render("-f", fileURLToPath(new URL("../profiles/super-1gpu.yaml", import.meta.url)));
+  assert.match(nemotron, /NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4/);
+  assert.match(nemotron, /enable_thinking.*false/);
+  assert.doesNotMatch(nemotron, /VLLM_USE_RUST_FRONTEND|engram-config/);
+});
