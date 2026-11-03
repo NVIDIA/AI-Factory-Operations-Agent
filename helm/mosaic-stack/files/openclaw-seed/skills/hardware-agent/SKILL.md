@@ -32,7 +32,7 @@ SPDX-License-Identifier: Apache-2.0
 Delegate hardware failure analysis to the Hardware Agent service. The backend handles:
 - DUT and credential lookup
 - Targeted nvdebug collection
-- LLM diagnosis via vllm-nemotron-ultra-550b
+- LLM diagnosis via the Hardware Agent backend's configured inference endpoint
 - Typed `recommended_actions`
 
 ## Expected Latency

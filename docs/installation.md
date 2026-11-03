@@ -102,7 +102,7 @@ After installing with your external endpoint, skip the on-prem inference instruc
 
 #### On-Prem Inference
 
-This path deploys the inference server on your cluster. Qwen3.8 Flash-Next is the default for one B200. Nemotron Super and Ultra remain explicit profile options. Choose a model profile below. If you already have an inference endpoint, use [External inference](#external-inference) instead.
+This path deploys the inference server on your cluster. Qwen3.8 Flash-Next is the default for one B200. Nemotron 3.5 Super remains an explicit profile option. Choose a model profile below. If you already have an inference endpoint, use [External inference](#external-inference) instead.
 
 To use the bundled on-prem inference profiles, the GPU nodes must belong to the same Kubernetes cluster as the agent's Helm release. For NMC deployments with separate admin and GPU workload clusters, use the [standalone inference example](nmc_installation.md#self-hosted-inference) and connect the agent with external inference settings.
 
@@ -147,35 +147,6 @@ helm upgrade --install aifoa "$MOSAIC_CHART_PATH" \
 The Super profile pins the [Nemotron 3.5 Super VL checkpoint](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) and compatible vLLM image. It was validated on one B200 for text generation and automatic tool calling with 262,144-token context and 16 maximum concurrent sequences. Image/video input and production concurrency were not tested; the agent retains its existing text-input configuration.
 
 When upgrading from Nemotron 3 Super, preserve existing module and site values and the model-cache size, then apply `profiles/vllm-super-1gpu.yaml` last. The served model name changes to `nemotron-3.5-super-vl`; update external clients that used `nemotron-super-120b`. Restarting inference interrupts requests until the new checkpoint is ready. For shared endpoints, validate a separate inference release before switching clients.
-
-##### Nemotron Ultra
-
-To install AI Factory Operations Agent with Nemotron Ultra running on four Blackwell GPUs on one node, run:
-
-The [Ultra model card](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b/modelcard) specifies four B200/GB200/B300/GB300 GPUs or eight H100 GPUs as the minimum. For H100, override both `llm.vllm.gpuCount=8` and `llm.vllm.tensorParallelSize=8` on one node. Set `llm.vllm.nodeSelector` to keep inference on compatible hardware in mixed clusters. The distributed Ray option and `vllm-ultra-16gpu.yaml` profile have been removed; replace old values instead of reusing them during upgrades.
-
-When upgrading an existing release, preserve its `llm.vllm.modelCache.size` override. Kubernetes does not allow changing the StatefulSet volume claim template in place, and the smaller Super default does not shrink an existing cache.
-
-```bash
-helm upgrade --install aifoa "$MOSAIC_CHART_PATH" \
-  -n aifoa \
-  -f "$MOSAIC_CHART_PATH/profiles/vllm-ultra-4gpu.yaml" \
-  --set 'global.imagePullSecrets[0].name=nvcr-image-pull-secret' \
-  --set modules.ui.enabled=true \
-  --set modules.execution.enabled=true \
-  --set modules.kubernetes.enabled=false \
-  --set modules.observability.enabled=false \
-  --set modules.grafana.enabled=false \
-  --set modules.bcm.enabled=false \
-  --set modules.slurm.enabled=false \
-  --set modules.diagnostics.enabled=false \
-  --set modules.research.enabled=false \
-  --set modules.terminal.enabled=false \
-  --reset-values \
-  --atomic \
-  --wait \
-  --timeout 30m
-```
 
 #### Qwen3.8 Flash-Next: default on one B200
 

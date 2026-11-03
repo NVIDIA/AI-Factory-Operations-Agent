@@ -436,14 +436,9 @@ test("uses one no-reasoning request contract for external endpoints", () => {
   assert.doesNotMatch(output, /DISABLE_THINKING|VLLM_UPSTREAM|chat_template_kwargs|scrubVisibleThinking|pipeOpenAiStream/);
 });
 
-test("configures chart-managed vLLM for non-thinking generation", () => {
-  for (const args of [
-    ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")],
-    ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")],
-  ]) {
-    const output = render(...args, "--show-only", "templates/vllm.yaml");
-    assert.match(output, /--default-chat-template-kwargs=\{\\?"enable_thinking\\?":false\}/);
-  }
+test("the Nemotron profile retains non-thinking generation", () => {
+  const output = render("--values", join(chart, "profiles/vllm-super-1gpu.yaml"), "--show-only", "templates/vllm.yaml");
+  assert.match(output, /--default-chat-template-kwargs=.*enable_thinking.*false/);
 });
 
 test("defaults to a single Qwen inference pod with one B200", () => {
@@ -457,18 +452,10 @@ test("defaults to a single Qwen inference pod with one B200", () => {
   assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
 });
 
-test("the Ultra profile uses four GPUs in a single inference pod", () => {
-  const output = render("--values", join(chart, "profiles/vllm-ultra-4gpu.yaml"), "--show-only", "templates/vllm.yaml");
-  assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
-  assert.match(output, /NVIDIA-Nemotron-3-Ultra-550B-A55B-NVFP4/);
-  assert.match(output, /--tensor-parallel-size=4/);
-  assert.equal((output.match(/nvidia.com\/gpu: "4"/g) ?? []).length, 2);
-  assert.doesNotMatch(output, /ray-worker|ray-head|RAY_ADDRESS/);
-});
-
 test("rejects removed distributed inference and mismatched GPU allocation", () => {
   for (const [setting, message] of [
     ["llm.vllm.profile=ultra-16gpu", /profile must be one of/],
+    ["llm.vllm.profile=ultra-4gpu", /profile must be one of/],
     ["llm.vllm.distributed.enabled=true", /distributed has been removed/],
     ["llm.vllm.gpuCount=2", /tensorParallelSize must equal/],
   ]) {
@@ -1419,7 +1406,6 @@ test("inference selection preserves provider reasoning contracts", () => {
   const cases = [
     {args: [], model: "qwen3.8-flash-next", reasoning: true, thinking: "high", effort: false},
     {args: ["--values", join(chart, "profiles/vllm-super-1gpu.yaml")], model: "nemotron-3.5-super-vl", reasoning: false, thinking: "off", effort: true},
-    {args: ["--values", join(chart, "profiles/vllm-ultra-4gpu.yaml")], model: "nemotron-ultra-550b", reasoning: false, thinking: "off", effort: true},
     {args: ["--set", "llm.mode=external,llm.external.baseUrl=https://inference.example/v1,llm.external.model=custom-model"], model: "custom-model", reasoning: false, thinking: "off", effort: true},
   ];
   for (const {args, model, reasoning, thinking, effort} of cases) {
