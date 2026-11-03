@@ -183,6 +183,16 @@ ingress:
   tlsSecretName: inference-tls
 ```
 
+The chart also includes a Qwen single-B200 profile. To select it, unpack the chart at the chosen version:
+
+```bash
+INFERENCE_CHART_WORKDIR=$(mktemp -d)
+helm pull "$INFERENCE_CHART" --version "$INFERENCE_CHART_VERSION" \
+  --untar --untardir "$INFERENCE_CHART_WORKDIR"
+```
+
+Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). These profiles require a chart version containing them; the older pinned example above contains only Nemotron.
+
 ### 2. Deploy in `k8s-user`
 
 Choose an inference API key and save it in your credential store. This same key will be used by the agent; it is separate from NGC and model-download credentials.

@@ -29,6 +29,10 @@ resources:
   limits:
     cpu: "16"
     memory: 128Gi
+# Model-specific runtime environment and chat template defaults.
+extraEnv: []
+chatTemplateKwargs:
+  enable_thinking: false
 extraArgs:
   - --revision=8a115b9d966adce8c059a7bcf47f49a1e57957d8
   - --reasoning-parser=nemotron_v3

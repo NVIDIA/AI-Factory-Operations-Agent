@@ -177,6 +177,26 @@ helm upgrade --install aifoa "$MOSAIC_CHART_PATH" \
   --timeout 30m
 ```
 
+#### Qwen3.8 Flash-Next: single B200 option
+
+Select **Qwen3.8 Flash-Next (1 B200)** in the [installation builder](installation_builder.md) to generate the full command, including module and connection settings. The bundled profile is `profiles/vllm-qwen-1gpu.yaml`.
+
+This profile requests one B200-class Blackwell GPU with 180 GB memory, 16 CPUs, 128 GiB host RAM (256 GiB limit), and a 500 GiB model cache. It pins the Inferact NVFP4 checkpoint and a compatible vLLM image. The large PLE embedding table is offloaded to host RAM. Context is capped at 262,144 tokens and concurrency at eight sequences; available KV cache and workload determine the practical concurrency. See the [vLLM serving recipe](https://recipes.vllm.ai/Qwen/Qwen3.8-Flash-Next).
+
+As of November 3, 2026, [Artificial Analysis](https://artificialanalysis.ai/models/comparisons/nemotron-3-5-super-vl-vs-qwen3-8-flash-next) reports stronger AutomationBench-AA and Terminal-Bench 4.0 results for Qwen than Nemotron 3.5 Super VL. Its updated overall Intelligence Index is unavailable. This is a quality-oriented single-B200 candidate; parameter count and hosted API speed do not establish self-hosted throughput.
+
+The profile enables reasoning and automatic tool calling. Existing Nemotron and external defaults are preserved. Allow a larger output budget and longer response latency than non-thinking generation. GPU fit and serving quality must be checked on the target node before production use.
+
+For a separate GPU cluster, unpack the standalone inference chart and use `profiles/qwen-1gpu.yaml` with the Secret, ingress, and storage setup in [self-hosted inference](nmc_installation.md#self-hosted-inference):
+
+```bash
+helm upgrade --install qwen ./afoa-inference \
+  -n afoa-inference \
+  -f ./afoa-inference/profiles/qwen-1gpu.yaml \
+  -f inference-values.yaml \
+  --wait --timeout 2h
+```
+
 ### Configure additional model options
 
 The chart configures the primary provider as `llm` from the selected inference

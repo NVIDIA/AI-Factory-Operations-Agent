@@ -122,8 +122,15 @@ kubernetes:
 
 llm:
   mode: vllm
+  # Optional primary-model metadata overrides, e.g. reasoning and token limits.
+  modelOptions:
+    reasoning: false
+    contextWindow: 262144
+    maxTokens: 8192
   requestCompatibility:
     enabled: true
+    # Empty passes each model’s reasoning settings through unchanged.
+    reasoningEffort: none
     name: llm-openai-compat
     port: 8000
   external:
@@ -158,6 +165,10 @@ llm:
     shmSize: 64Gi
     nodeSelector: {}
     tolerations: []
+    # Model-specific runtime environment and chat template defaults.
+    extraEnv: []
+    chatTemplateKwargs:
+      enable_thinking: false
     extraArgs:
       - --revision=8a115b9d966adce8c059a7bcf47f49a1e57957d8
       - --reasoning-parser=nemotron_v3
@@ -268,6 +279,7 @@ openclaw:
   extraEnv: []
   # OpenClaw provider definitions keyed by provider ID; llm is reserved for the primary provider.
   additionalModelProviders: {}
+  thinkingDefault: "off"
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4

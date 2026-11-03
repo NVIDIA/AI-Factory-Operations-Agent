@@ -1393,3 +1393,28 @@ test("deployment reference reflects module settings without exporting credential
     assert.ok(Buffer.byteLength(seed) < 1048576);
   }
 });
+
+
+test("Qwen profile renders one GPU with host offload and reasoning enabled", () => {
+  const profile = ["--values", join(chart, "profiles/vllm-qwen-1gpu.yaml")];
+  const output = render(...profile, "--show-only", "templates/vllm.yaml");
+  assert.equal((output.match(/nvidia\.com\/gpu: "1"/g) ?? []).length, 2);
+  assert.match(output, /--tensor-parallel-size=1/);
+  assert.match(output, /--engram-config=.*cpu_offload/);
+  assert.match(output, /--reasoning-parser=qwen3/);
+  assert.match(output, /--tool-call-parser=qwen3_coder/);
+  assert.match(output, /memory: 128Gi/);
+  const all = render(...profile);
+  const proxy = render(...profile, "--show-only", "templates/llm-compat.yaml");
+  assert.doesNotMatch(proxy, /json\.reasoning_effort =/);
+  assert.match(all, /"reasoning": true/);
+  assert.match(all, /"thinkingDefault": "high"/);
+  assert.match(all, /"thinkingLevelMap": {"high":"xhigh","max":"xhigh","minimal":"low"}/);
+});
+
+test("inference environment and chat template settings reach the server", () => {
+  const output = render("--set-json", 'llm.vllm.extraEnv=[{"name":"MODEL_RUNTIME_SETTING","value":"configured"}]',
+    "--set-json", 'llm.vllm.chatTemplateKwargs={"enable_thinking":true}', "--show-only", "templates/vllm.yaml");
+  assert.match(output, /name: MODEL_RUNTIME_SETTING\s+value: configured/);
+  assert.match(output, /enable_thinking.*true/);
+});

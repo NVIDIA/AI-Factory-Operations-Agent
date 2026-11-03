@@ -57,3 +57,14 @@ test("missing inference authentication or ingress TLS fails before installation"
     assert.match(result.stderr, /is required/);
   }
 });
+
+
+test("Qwen standalone profile serves the reasoning model on one GPU", () => {
+  const output = render("--values", `${chart}/profiles/qwen-1gpu.yaml`);
+  assert.match(output, /Inferact\/Qwen3.8-Flash-Next-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=1/);
+  assert.match(output, /--engram-config=.*cpu_offload/);
+  assert.match(output, /name: VLLM_USE_RUST_FRONTEND/);
+  assert.match(output, /enable_thinking.*true/);
+  assert.match(output, /name: VLLM_API_KEY/);
+});

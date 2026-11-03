@@ -66,8 +66,7 @@ def render_footprint(state):
         if argument in {"--timeout", "--version"}:
             next(arguments)
         elif argument == "-f":
-            next(arguments)
-            profile = "vllm-ultra-4gpu.yaml" if state["inference"] == "ultra" else "vllm-super-1gpu.yaml"
+            profile = Path(next(arguments)).name
             rendered.extend(["-f", str(CHART / "profiles" / profile)])
         else:
             rendered.append(argument)
@@ -100,7 +99,11 @@ def generate():
     defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus"}
     base = render_footprint(defaults)
     variants = {}
-    selections = {"sandbox": {"sandboxInstalled": False}, "super": {"inference": "super"}, "ultra": {"inference": "ultra"}}
+    profiles = json.loads(subprocess.check_output([
+        "node", "--input-type=module", "-e",
+        "import {inferenceProfiles} from './docs/_static/install-builder.mjs'; console.log(JSON.stringify(Object.keys(inferenceProfiles)));",
+    ], cwd=ROOT, text=True))
+    selections = {"sandbox": {"sandboxInstalled": False}, **{name: {"inference": name} for name in profiles}}
     selections.update({module: {"modules": [module]} for module in MODULES})
     selections["slurm-vanilla"] = {"modules": ["slurm"], "slurmBackend": "vanilla"}
     for name, selection in selections.items():

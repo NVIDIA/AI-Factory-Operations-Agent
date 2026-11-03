@@ -49,7 +49,7 @@ spec:
             - --port={{ $v.port }}
             - --tensor-parallel-size={{ include "mosaic-stack.vllmTensorParallelSize" . }}
             - --served-model-name={{ $v.servedModelName }}
-            - {{ "--default-chat-template-kwargs={\"enable_thinking\":false}" | quote }}
+            - {{ printf "--default-chat-template-kwargs=%s" ($v.chatTemplateKwargs | toJson) | quote }}
             {{- range $v.extraArgs }}
             - {{ . | quote }}
             {{- end }}
@@ -72,6 +72,9 @@ spec:
               value: "0"
             - name: VLLM_ALLREDUCE_USE_SYMM_MEM
               value: "0"
+            {{- with $v.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ $v.port }}
