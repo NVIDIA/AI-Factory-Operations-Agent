@@ -57,3 +57,23 @@ test("missing inference authentication or ingress TLS fails before installation"
     assert.match(result.stderr, /is required/);
   }
 });
+
+
+test("Qwen standalone profile serves the reasoning model on one GPU", () => {
+  const output = render("--values", `${chart}/profiles/qwen-1gpu.yaml`);
+  assert.match(output, /Inferact\/Qwen3.8-Flash-Next-NVFP4/);
+  assert.match(output, /--tensor-parallel-size=1/);
+  assert.match(output, /--engram-config=.*cpu_offload/);
+  assert.match(output, /name: VLLM_USE_RUST_FRONTEND/);
+  assert.match(output, /enable_thinking.*true/);
+  assert.match(output, /name: VLLM_API_KEY/);
+});
+
+
+test("Qwen is the default and Nemotron remains an explicit option", () => {
+  assert.equal(render(), render("-f", fileURLToPath(new URL("../profiles/qwen-1gpu.yaml", import.meta.url))));
+  const nemotron = render("-f", fileURLToPath(new URL("../profiles/super-1gpu.yaml", import.meta.url)));
+  assert.match(nemotron, /NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4/);
+  assert.match(nemotron, /enable_thinking.*false/);
+  assert.doesNotMatch(nemotron, /VLLM_USE_RUST_FRONTEND|engram-config/);
+});
