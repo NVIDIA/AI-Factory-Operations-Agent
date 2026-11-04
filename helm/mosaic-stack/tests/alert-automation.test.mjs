@@ -2,8 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +25,7 @@ import {
   sha256,
   requestJson,
   completedReport,
+  save,
 } from "../files/openclaw-seed/extensions/alert-automation/core.ts";
 import {
   nativeRuntime,
@@ -605,9 +614,10 @@ test("HTTP transport records complete responses but never follows a credential-b
   );
 });
 
-test("native plugin enforces webhook auth and restores full context on multiple turns and service restart", async (t) => {
+test("native plugin owns webhook jobs independently of HTTP scope and restores report context", async (t) => {
   const root = directory(t),
     token = "unit-test-webhook-bearer-token-only";
+  const requestScope = new AsyncLocalStorage();
   const previous = process.env.MOSAIC_ALERT_WEBHOOK_TOKEN;
   process.env.MOSAIC_ALERT_WEBHOOK_TOKEN = token;
   t.after(() => {
@@ -642,6 +652,8 @@ test("native plugin enforces webhook auth and restores full context on multiple 
     runtime: {
       subagent: {
         async run(p) {
+          if (requestScope.getStore()?.httpClient)
+            throw new Error("missing scope: operator.write");
           prompt = p.message;
           return { runId: "native" };
         },
@@ -679,7 +691,9 @@ test("native plugin enforces webhook auth and restores full context on multiple 
   lifecycle.start({ stateDir: root, config: api.config, logger });
   t.after(() => lifecycle.stop());
   const endpoint = await server(t, (req, res) => {
-    void route.handler(req, res);
+    requestScope.run({ httpClient: true, scopes: [] }, () => {
+      void route.handler(req, res);
+    });
   });
   const body = JSON.stringify({ alerts: [alert({ status: "firing" })] });
   const response = await fetch(endpoint + route.path, {
@@ -733,4 +747,105 @@ test("native plugin enforces webhook auth and restores full context on multiple 
   assert.equal(repeated.status, 202);
   await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(messages.length, 1);
+});
+
+test("webhook-only recovery clears the imported UI alert without polling Alertmanager", async (t) => {
+  const root = directory(t);
+  let deleted = 0;
+  const ui = await server(t, (req, res) => {
+    if (req.method === "DELETE") {
+      deleted++;
+      assert.equal(
+        req.url,
+        "/api/alerts?id=alertmanager%3A1234567890abcdef",
+      );
+    }
+    res.setHeader("content-type", "application/json");
+    res.end(JSON.stringify({ success: true }));
+  });
+  const env = {
+    MOSAIC_ALERT_WEBHOOK_TOKEN: "test-only-webhook-token-not-a-real-credential",
+    MOSAIC_UI_MACHINE_TOKEN: "test-only-ui-token",
+  };
+  const cfg = normalizeConfig({
+    sourceMode: "webhook",
+    mosaicUrl: ui,
+    delivery: {
+      channel: "slack",
+      target: "channel:C_TEST",
+      sessionKey: "agent:default:slack:channel:c_test",
+    },
+  }, env);
+  const rt = runtime();
+  const service = new AlertService(cfg, root, rt, logger, env);
+  t.after(() => service.stop());
+  service.start();
+  const source = alert({ status: "firing" });
+  service.ingestWebhook({ alerts: [source] });
+  const id = incidentKey(source);
+  for (let i = 0; i < 100 && service.store.get(id)?.state !== "sent"; i++)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(service.store.get(id).state, "sent");
+  service.ingestWebhook({ alerts: [{ ...source, status: "resolved" }] });
+  for (let i = 0; i < 100 && !service.store.get(id)?.ui_cleared_at; i++)
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(service.store.get(id).resolved_at);
+  assert.ok(service.store.get(id).ui_cleared_at);
+  assert.equal(deleted, 1);
+  assert.deepEqual(rt.counters(), { runs: 1, sends: 1 });
+  assert.equal(existsSync(join(root, "last-poll.json")), false);
+});
+
+test("an agent-only hook registration reads the latest durable report without starting the Gateway service", (t) => {
+  const root = directory(t);
+  const cfg = config();
+  const state = join(root, cfg.stateDirectory);
+  const store = new Store(state);
+  const source = alert();
+  const id = incidentKey(source);
+  store.ingest([source], cfg);
+  const report =
+    "FRESH REPORT: evidence belongs to fresh-report-run, not the old conversation.";
+  // The real publisher has already persisted this file and binding.
+  save(join(store.directory(id), "published-report.txt"), report);
+  store.bindReport(id, cfg.delivery.sessionKey, "fresh-report-run", report);
+  store.close();
+  let hook;
+  const api = {
+    pluginConfig: { alertmanagerUrl: cfg.alertmanagerUrl, delivery: cfg.delivery },
+    config: {},
+    logger,
+    runtime: { state: { resolveStateDir: () => root } },
+    registerService() {},
+    registerGatewayMethod() {},
+    on(name, handler) {
+      assert.equal(name, "before_prompt_build");
+      hook = handler;
+    },
+  };
+  registerAlertAutomation(api);
+  // Native Agent hook registries do not run the Gateway service lifecycle.
+  // Native channel turns can also omit ctx.runId.
+  const result = hook(
+    { prompt: "What is the report Run ID?" },
+    { sessionKey: cfg.delivery.sessionKey },
+  );
+  assert.ok(result?.prependContext.includes(report));
+  assert.ok(result.prependContext.includes("Run ID: fresh-report-run"));
+  const paths = readdirSync(join(state, "incidents", id, "context-use"));
+  assert.equal(paths.length, 1);
+  const witness = JSON.parse(
+    readFileSync(join(state, "incidents", id, "context-use", paths[0]), "utf8"),
+  );
+  assert.equal(witness.runId, null);
+  assert.equal(witness.reportIncidentId, id);
+  assert.equal(witness.inputPrompt, "What is the report Run ID?");
+  assert.equal(witness.completeReportSha256, sha256(report));
+  assert.equal(
+    hook(
+      { prompt: "Same Run ID?" },
+      { sessionKey: "agent:other:slack:channel:c_test" },
+    ),
+    undefined,
+  );
 });

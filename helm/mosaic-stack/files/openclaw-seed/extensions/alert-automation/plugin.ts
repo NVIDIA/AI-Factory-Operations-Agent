@@ -1,10 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { AlertService, normalizeConfig, save } from "./core.ts";
+import {
+  AlertService,
+  normalizeConfig,
+  readStoredReportContext,
+  save,
+} from "./core.ts";
 import { nativeRuntime } from "./runtime.ts";
 
 export function registerAlertAutomation(api: OpenClawPluginApi) {
@@ -35,8 +40,12 @@ export function registerAlertAutomation(api: OpenClawPluginApi) {
   // This restores the complete report on every human follow-up, rather than
   // relying on a transcript-only delivery mirror or an extra synthetic ACK turn.
   api.on("before_prompt_build", (event, ctx) => {
-    if (!service || !ctx.sessionKey) return;
-    const binding = service.store.reportContext(
+    if (!ctx.sessionKey) return;
+    const root =
+      service?.store.root ??
+      path.join(api.runtime.state.resolveStateDir(), config.stateDirectory);
+    const binding = readStoredReportContext(
+      root,
       ctx.sessionKey,
       event.prompt ?? "",
     );
@@ -49,24 +58,30 @@ export function registerAlertAutomation(api: OpenClawPluginApi) {
       `Incident: ${binding.incident_id}\nRun ID: ${binding.run_id}\nReport SHA256: ${binding.report_sha256}\n\n` +
       binding.report +
       "\n[End MOSAIC automated alert report context]";
-    if (ctx.runId)
-      save(
-        path.join(
-          service.store.directory(binding.incident_id),
-          "context-use",
-          ctx.runId.replace(/[^a-zA-Z0-9_-]/g, "_") + ".json",
-        ),
-        {
-          at: new Date().toISOString(),
-          sessionKey: ctx.sessionKey,
-          runId: ctx.runId,
-          reportIncidentId: binding.incident_id,
-          completeReportSha256: binding.report_sha256,
-          completeReportChars: binding.report.length,
-          mechanism: "before_prompt_build.prependContext",
-          completeContext: prependContext,
-        },
-      );
+    const witnessId = ctx.runId ?? randomUUID();
+    save(
+      path.join(
+        root,
+        "incidents",
+        binding.incident_id,
+        "context-use",
+        witnessId.replace(/[^a-zA-Z0-9_-]/g, "_") + ".json",
+      ),
+      {
+        at: new Date().toISOString(),
+        sessionKey: ctx.sessionKey,
+        runId: ctx.runId ?? null,
+        witnessId,
+        inputPrompt: event.prompt ?? "",
+        serviceStartedInThisRegistration: Boolean(service),
+        lookupMode: "durable-readonly",
+        reportIncidentId: binding.incident_id,
+        completeReportSha256: binding.report_sha256,
+        completeReportChars: binding.report.length,
+        mechanism: "before_prompt_build.prependContext",
+        completeContext: prependContext,
+      },
+    );
     return { prependContext };
   });
   api.registerGatewayMethod(

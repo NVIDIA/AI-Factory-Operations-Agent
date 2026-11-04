@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from "node:crypto";
+import { AsyncResource } from "node:async_hooks";
 import {
   mkdirSync,
   readFileSync,
@@ -271,6 +272,56 @@ export function matches(alert: Json, labels: Record<string, string>) {
   );
 }
 
+function reportContextFromDatabase(
+  db: DatabaseSync,
+  root: string,
+  sessionKey: string,
+  prompt = "",
+) {
+  const records = db
+    .prepare(
+      "SELECT * FROM report_contexts WHERE session_key=? OR substr(?,1,length(session_key)+1)=session_key||':' ORDER BY created_at DESC",
+    )
+    .all(sessionKey, sessionKey) as Json[];
+  const selected =
+    records.find(
+      (r) => prompt.includes(r.incident_id) || prompt.includes(r.run_id),
+    ) ?? records[0];
+  if (!selected) return undefined;
+  const report = readFileSync(
+    path.join(root, "incidents", selected.incident_id, "published-report.txt"),
+    "utf8",
+  );
+  if (sha256(report) !== selected.report_sha256)
+    throw new Error("Stored report context integrity mismatch");
+  return { ...selected, report };
+}
+
+/** Agent hook registries need not own a started Gateway service instance. */
+export function readStoredReportContext(
+  root: string,
+  sessionKey: string,
+  prompt = "",
+) {
+  const filename = path.join(root, "state.sqlite3");
+  if (!existsSync(filename)) return undefined;
+  const db = new DatabaseSync(filename, { readOnly: true });
+  try {
+    db.exec("PRAGMA busy_timeout=5000");
+    if (
+      !db
+        .prepare(
+          "SELECT name FROM sqlite_schema WHERE type='table' AND name='report_contexts'",
+        )
+        .get()
+    )
+      return undefined;
+    return reportContextFromDatabase(db, root, sessionKey, prompt);
+  } finally {
+    db.close();
+  }
+}
+
 /** Same incident/event schema as the legacy worker, permitting an explicit stopped-worker migration. */
 export class Store {
   root: string;
@@ -414,23 +465,7 @@ export class Store {
       .run(id, sessionKey, runId, sha256(report), now());
   }
   reportContext(sessionKey: string, prompt = "") {
-    const records = this.db
-      .prepare(
-        "SELECT * FROM report_contexts WHERE session_key=? OR substr(?,1,length(session_key)+1)=session_key||':' ORDER BY created_at DESC",
-      )
-      .all(sessionKey, sessionKey) as Json[];
-    const selected =
-      records.find(
-        (r) => prompt.includes(r.incident_id) || prompt.includes(r.run_id),
-      ) ?? records[0];
-    if (!selected) return undefined;
-    const report = readFileSync(
-      path.join(this.directory(selected.incident_id), "published-report.txt"),
-      "utf8",
-    );
-    if (sha256(report) !== selected.report_sha256)
-      throw new Error("Stored report context integrity mismatch");
-    return { ...selected, report };
+    return reportContextFromDatabase(this.db, this.root, sessionKey, prompt);
   }
   close() {
     this.db.close();
@@ -598,6 +633,9 @@ export class AlertService {
   timer: ReturnType<typeof setInterval> | undefined;
   polling = false;
   processing: Promise<void> | undefined;
+  // Created by the native service lifecycle, before any inbound HTTP request.
+  // Background work must retain service ownership rather than a webhook caller's scopes.
+  workContext = new AsyncResource("mosaic-alert-automation-service");
   logger: { info: (text: string) => void; error: (text: string) => void };
   constructor(
     config: Config,
@@ -630,20 +668,24 @@ export class AlertService {
   }
   start() {
     if (this.timer) return;
-    const tick = () => {
+    this.timer = setInterval(() => this.wake(), this.config.pollSeconds * 1000);
+    this.timer.unref();
+    this.wake();
+  }
+  wake() {
+    if (this.controller.signal.aborted) return;
+    this.workContext.runInAsyncScope(() => {
       void this.tick().catch((error) =>
         this.logger.error(`alert-automation tick: ${error.name}`),
       );
-    };
-    this.timer = setInterval(tick, this.config.pollSeconds * 1000);
-    this.timer.unref();
-    tick();
+    });
   }
   async tick() {
     if (this.polling || this.controller.signal.aborted) return;
     this.polling = true;
     try {
       if (this.config.sourceMode !== "webhook") await this.poll();
+      else await this.reconcileResolvedUi();
       this.kick();
     } finally {
       this.polling = false;
@@ -681,12 +723,24 @@ export class AlertService {
       at: now(),
       selected: selected.length,
     });
+    await this.reconcileResolvedUi(new Set(matching.map((a) => a.fingerprint)));
+  }
+  async reconcileResolvedUi(presentFingerprints?: Set<string>) {
+    const config = this.config;
+    const present =
+      presentFingerprints ??
+      new Set(
+        this.store
+          .rows()
+          .filter((row) => !row.resolved_at)
+          .map((row) => row.fingerprint),
+      );
     if (config.mosaicUrl)
       for (const row of this.store.rows()) {
         if (
           !row.resolved_at ||
           row.ui_cleared_at ||
-          matching.some((a) => a.fingerprint === row.fingerprint)
+          present.has(row.fingerprint)
         )
           continue;
         if (
@@ -749,7 +803,7 @@ export class AlertService {
       ),
       { at: now(), payload: body },
     );
-    this.kick();
+    this.wake();
     return { accepted: selected.length };
   }
   kick() {
@@ -1024,6 +1078,7 @@ export class AlertService {
     this.controller.abort();
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    this.workContext.emitDestroy();
     // Native Agent runs may outlive shutdown. No new investigation or send is permitted afterwards.
     if (this.processing) void this.processing.finally(() => this.store.close());
     else this.store.close();
