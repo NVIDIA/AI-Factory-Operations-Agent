@@ -15,6 +15,7 @@ const DEFAULT_BCM_HEAD_HOST = "";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_EVENT_CHARS = 4000;
 const BCM_CACHE_TTL_MS = 60_000;
+const MUTATING_MCP_TOOLS = new Set(["execute_cmsh_admin", "add_note", "remove_note"]);
 
 const bcmCache = new Map<string, { expiresAt: number; value: unknown }>();
 const bcmInFlight = new Map<string, Promise<unknown>>();
@@ -478,7 +479,8 @@ async function callBcmTool(
   const startedAt = Date.now();
   try {
     postSubagentEvent(options, "delta", "BCM MCP request is in flight.");
-    const result = await cachedBcmRpc(config, "tools/call", { name: mcpToolName, arguments: args });
+    const rpc = MUTATING_MCP_TOOLS.has(mcpToolName) ? bcmRpc : cachedBcmRpc;
+    const result = await rpc(config, "tools/call", { name: mcpToolName, arguments: args });
     postSubagentEvent(options, "complete", summarizeResult(mcpToolName, result, Date.now() - startedAt));
     return toOpenClawResult(result);
   } catch (error) {

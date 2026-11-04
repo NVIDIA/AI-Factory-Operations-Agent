@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { toolAccess, toolRequiresEdit } from "../files/openclaw-seed/extensions/automation-context.ts";
 
@@ -183,5 +185,59 @@ test("surfaces Redfish policy refusals and validates hostnames before calling th
     assert.equal(calls.length, 2);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("executes independent BCM mutations without sharing cached or in-flight results", async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "mosaic-bcm-mutations-"));
+  const previousLedgerPath = process.env.MOSAIC_EDIT_LEDGER_PATH;
+  process.env.MOSAIC_EDIT_LEDGER_PATH = path.join(directory, "ledger.json");
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("/api/subagents/events")) return new Response("{}");
+    assert.equal(String(url), "http://mutations.test/mcp");
+    const request = JSON.parse(init.body);
+    calls.push(request.params);
+    const receipt = calls.length;
+    await new Promise(resolve => setImmediate(resolve));
+    return Response.json({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: JSON.stringify({ receipt }) }] } });
+  };
+  try {
+    const plugin = await loadBcmPlugin();
+    const { tools, policy } = registerBcm(plugin, { editEnabled: true, hitl: true, headHost: "bcm-head", mcpUrl: "http://mutations.test/mcp" });
+    const context = { sessionKey: "agent:default:interactive", getSessionExtension: () => ({ mode: "edit" }) };
+    async function approved(toolName, toolCallId, params) {
+      const decision = await policy.evaluate({ toolName, toolCallId, params }, context);
+      assert.ok(decision.requireApproval);
+      // Simulate accepting this operation's approval before executing it.
+      return tools.get(toolName).execute(toolCallId, params);
+    }
+    const commands = "device; use dgx-03; power reset";
+    const first = await approved("bcm_execute_cmsh_admin", "admin-1", { commands });
+    const second = await approved("bcm_execute_cmsh_admin", "admin-2", { commands });
+    assert.deepEqual([first, second].map(result => JSON.parse(result.content[0].text).receipt), [1, 2]);
+    const replay = await approved("bcm_execute_cmsh_admin", "admin-1", { commands });
+    assert.equal(replay.details.replayed, true);
+    assert.equal(replay.details.executed, false);
+    assert.equal(calls.filter(call => call.name === "execute_cmsh_admin").length, 2);
+
+    const notes = [
+      { subject: "Cache collision", content: "First line\n\nSecond line" },
+      { subject: "Cache collision", content: "First line; Second line" },
+    ];
+    await Promise.all(notes.map((note, i) => approved("bcm_add_note", `note-${i}`, note)));
+    assert.deepEqual(calls.filter(call => call.name === "add_note").map(call => call.arguments), notes);
+    await approved("bcm_remove_note", "remove-1", { filename: "outdated-note.txt" });
+    await approved("bcm_remove_note", "remove-2", { filename: "outdated-note.txt" });
+    assert.equal(calls.filter(call => call.name === "remove_note").length, 2);
+    await tools.get("bcm_list_notes").execute("read-1", {});
+    await tools.get("bcm_list_notes").execute("read-2", {});
+    assert.equal(calls.filter(call => call.name === "list_notes").length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousLedgerPath === undefined) delete process.env.MOSAIC_EDIT_LEDGER_PATH;
+    else process.env.MOSAIC_EDIT_LEDGER_PATH = previousLedgerPath;
+    rmSync(directory, { recursive: true, force: true });
   }
 });
