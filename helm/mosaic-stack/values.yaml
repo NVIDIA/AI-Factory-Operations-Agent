@@ -169,8 +169,13 @@ kubernetes:
 
 llm:
   mode: vllm
+  # Optional primary-model metadata overrides, e.g. reasoning and token limits.
+  modelOptions: {}
   requestCompatibility:
     enabled: true
+    # Null uses the selected inference runtime policy; external endpoints use none.
+    # Empty passes reasoning settings through unchanged.
+    reasoningEffort: null
     name: llm-openai-compat
     port: 8000
   external:
@@ -181,15 +186,15 @@ llm:
     caCertificateSecret: ""
     caCertificateKey: ca.crt
   vllm:
-    profile: super-1gpu
-    name: vllm-nemotron
+    profile: qwen-1gpu
+    name: vllm-qwen
     replicaCount: 1
     image:
       repository: vllm/vllm-openai
-      digest: sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd
+      digest: sha256:298b8765981d9dabda0da1504487bcdca876d5c18e8533455b3fda65ae964ba2
       pullPolicy: IfNotPresent
-    model: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
-    servedModelName: nemotron-3.5-super-vl
+    model: Inferact/Qwen3.8-Flash-Next-NVFP4
+    servedModelName: qwen3.8-flash-next
     tensorParallelSize: 1
     gpuCount: 1
     port: 8000
@@ -205,27 +210,41 @@ llm:
     shmSize: 64Gi
     nodeSelector: {}
     tolerations: []
+    extraEnv:
+      - name: VLLM_ENGINE_READY_TIMEOUT_S
+        value: '3600'
+      - name: VLLM_USE_RUST_FRONTEND
+        value: '1'
+    chatTemplateKwargs:
+      enable_thinking: true
     extraArgs:
-      - --revision=8a115b9d966adce8c059a7bcf47f49a1e57957d8
-      - --reasoning-parser=nemotron_v3
-      - --mamba-backend=flashinfer
-      - --mamba-ssm-cache-dtype=float16
-      - --enable-mamba-cache-stochastic-rounding
-      - --mamba-cache-philox-rounds=5
-      - --max-num-seqs=16
+      - --revision=103a7608316173ca6edd49929544244de7ffda70
+      - --engram-config={"cpu_offload":true}
+      - --reasoning-parser=qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser=qwen3_coder
+      - --kv-cache-dtype=fp8
+      - --max-num-seqs=8
+      - --max-num-batched-tokens=4096
       - --max-model-len=262144
       - --gpu-memory-utilization=0.90
-      - --trust-remote-code
-      - --enable-auto-tool-choice
-      - --tool-call-parser
-      - qwen3_coder
     resources:
       requests:
-        cpu: "8"
-        memory: 64Gi
-      limits:
-        cpu: "16"
+        cpu: '16'
         memory: 128Gi
+      limits:
+        cpu: '32'
+        memory: 256Gi
+    modelOptions:
+      reasoning: true
+      maxTokens: 32768
+      thinkingLevelMap:
+        minimal: low
+        high: xhigh
+        max: xhigh
+      contextWindow: 262144
+    thinkingDefault: high
+    reasoningEffort: ''
     compatibilityService:
       enabled: false
       namespace: mosaic
@@ -249,7 +268,7 @@ researchAgent:
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: "9200"
       NVIDIA_CHAT_BASE_URL: http://llm-openai-compat:8000/v1
-      NVIDIA_CHAT_MODEL: nemotron-ultra-550b
+      NVIDIA_CHAT_MODEL: qwen3.8-flash-next
       NVIDIA_API_BASE_URL: https://integrate.api.nvidia.com/v1
       NVIDIA_EMBEDDING_MODEL: nvidia/llama-nemotron-embed-vl-1b-v2
       EMBEDDING_DIMENSION: "2048"
@@ -294,7 +313,7 @@ mosaicUi:
   replicaCount: 1
   image:
     repository: nvcr.io/0948643769302270/afoa-release/mosaic-ui
-    tag: b4e45fbf
+    tag: a9cecf48
     pullPolicy: Always
   deploymentVersion: v0.0.1
   auditPvc:
@@ -315,6 +334,8 @@ openclaw:
   extraEnv: []
   # OpenClaw provider definitions keyed by provider ID; llm is reserved for the primary provider.
   additionalModelProviders: {}
+  # Empty uses the inference runtime default; external endpoints use off.
+  thinkingDefault: ""
   # Skill instructions included in every session, without a separate file read.
   bootstrapSkills: []
   gatewayProtocol: 4

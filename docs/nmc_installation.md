@@ -4,6 +4,18 @@ This guide installs AI Factory Operations Agent on an NVIDIA Mission Control adm
 
 For self-hosted inference on the separate GPU workload cluster, first follow [Self-hosted inference](#self-hosted-inference), then use its endpoint, served model name, and API key below. The bundled vLLM profile requires GPUs in the same cluster as the agent and should not be used on a GPU-free admin cluster.
 
+## Execution environment
+
+Run the NMC examples on the Base Command Manager head node in a Bash login shell. They assume a root login, which can read `/root/.ssh/id_ecdsa` and load the cluster administrator modules. From a sudo-enabled account, enter that shell **before** setting credentials:
+
+```bash
+sudo -i
+```
+
+Run the commands in the same Bash login shell as root or a user with Kubernetes administrator access and a readable SSH key specified by `CLUSTER_MANAGER_SSH_KEY_PATH`.
+
+Both the agent and standalone inference charts are pulled from NGC. The commands work from any directory and do not require Git or a repository checkout. Each `module load` selects a different Kubernetes cluster for subsequent commands in that shell.
+
 ## Install the agent
 
 Run this flow as a Kubernetes administrator on the Base Command Manager head node after setting `NGC_API_KEY`, `EXTERNAL_LLM_API_KEY`, `EXTERNAL_LLM_BASE_URL`, and `EXTERNAL_LLM_MODEL`. The endpoint, model, and API key must belong to the same OpenAI-compatible provider. For OpenAI, use `https://api.openai.com/v1` and a model available to that account.
@@ -24,7 +36,7 @@ module load kubernetes/k8s-admin
 : "${EXTERNAL_LLM_API_KEY:?Set EXTERNAL_LLM_API_KEY for the selected provider}"
 : "${EXTERNAL_LLM_BASE_URL:?Set EXTERNAL_LLM_BASE_URL for the selected provider}"
 : "${EXTERNAL_LLM_MODEL:?Set EXTERNAL_LLM_MODEL for the selected provider}"
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 NMC_POLICY_RELEASE=${NMC_POLICY_RELEASE:-net-pol}
 NMC_POLICY_NAMESPACE=${NMC_POLICY_NAMESPACE:-default}
 MOSAIC_CHART=oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack
@@ -71,7 +83,7 @@ kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-grafana-auth \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install mosaic "$MOSAIC_CHART" \
+helm upgrade --install aifoa "$MOSAIC_CHART" \
   --devel \
   -n "$MOSAIC_NAMESPACE" \
   --create-namespace \
@@ -123,7 +135,7 @@ A rule selecting `app.kubernetes.io/name=coredns` does not match pods labeled on
 If installation times out, check DNS from the running UI pod. If the UI is unavailable, use a diagnostic pod in the same namespace:
 
 ```bash
-MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-mosaic}
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 kubernetes.default.svc.cluster.local
 kubectl -n "$MOSAIC_NAMESPACE" exec deployment/mosaic-ui -- getent ahostsv4 dl.k8s.io
 ```
@@ -145,7 +157,17 @@ Deploy inference in `k8s-user` and connect the agent in `k8s-admin` to its HTTPS
 
 ### 1. Configure inference
 
-Run from a checkout of this repository. The example chart is at `helm/afoa-inference`; it is separate from the published agent chart. You need:
+In the login shell described above, sign in to NGC using the same invited account described in [Install the agent](#install-the-agent). The standalone inference chart is published alongside the agent chart:
+
+```bash
+: "${NGC_API_KEY:?Set NGC_API_KEY to an NGC API key with private registry access}"
+printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
+  --username '$oauthtoken' --password-stdin
+INFERENCE_CHART=oci://nvcr.io/0948643769302270/afoa-release/afoa-inference
+INFERENCE_CHART_VERSION=0.0.2-main.20261030003406.gd14c5492
+```
+
+This pins a published development version. Select another published version deliberately when upgrading. No checkout or `cd` step is needed. You need:
 
 - A compatible GPU in `k8s-user`, the NVIDIA device plugin and a GPU runtime. The default [Nemotron 3.5 Super VL profile](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4) requests one GPU, 8 CPUs, 64 GiB host memory and a 500 GiB persistent cache. Check the model card for GPU memory and driver requirements.
 - A StorageClass for the cache, plus access to the vLLM image and model weights.
@@ -161,6 +183,16 @@ ingress:
   tlsSecretName: inference-tls
 ```
 
+New chart versions default to Qwen3.8 Flash-Next on one B200, requesting 16 CPUs, 128 GiB host RAM (256 GiB limit) and a 500 GiB cache. The older pinned version above still defaults to Nemotron. Choose a published version containing the Qwen default change to use the new default. Both models remain available through explicit profiles. To select a profile, unpack the chart at the chosen version:
+
+```bash
+INFERENCE_CHART_WORKDIR=$(mktemp -d)
+helm pull "$INFERENCE_CHART" --version "$INFERENCE_CHART_VERSION" \
+  --untar --untardir "$INFERENCE_CHART_WORKDIR"
+```
+
+Use `"$INFERENCE_CHART_WORKDIR/afoa-inference"` as the install target, omit `--version`, and add `-f "$INFERENCE_CHART_WORKDIR/afoa-inference/profiles/qwen-1gpu.yaml"` before site values. See [Qwen hardware and reasoning requirements](installation.md#on-prem-inference). Use `profiles/super-1gpu.yaml` instead to retain Nemotron on a newer chart. These profiles require a chart version containing them; the older pinned example above contains only Nemotron. When connecting Qwen to the external-mode agent, also apply the model-specific reasoning settings in the linked guide.
+
 ### 2. Deploy in `k8s-user`
 
 Choose an inference API key and save it in your credential store. This same key will be used by the agent; it is separate from NGC and model-download credentials.
@@ -173,20 +205,40 @@ kubectl -n afoa-inference create secret generic afoa-inference-auth \
   --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-helm upgrade --install afoa-inference ./helm/afoa-inference \
+helm upgrade --install afoa-inference "$INFERENCE_CHART" \
+  --version "$INFERENCE_CHART_VERSION" \
   -n afoa-inference \
   -f inference-values.yaml \
   --wait \
   --timeout 2h
 ```
 
-The default is Nemotron 3.5 Super VL NVFP4, validated on one B200 for text generation and automatic tool calling. The model revision and compatible vLLM image are pinned. GPU memory and architecture matter; one GPU does not mean every GPU is compatible.
+The pinned example uses Nemotron 3.5 Super VL NVFP4. In newer chart versions containing this change, the default is Qwen3.8 Flash-Next NVFP4; both have passed text generation and automatic tool calling on one B200. The model revision and compatible vLLM image are pinned. GPU memory and architecture matter; one GPU does not mean every GPU is compatible.
 
 When upgrading from Nemotron 3 Super, preserve site settings and cache size, and update existing clients to the served name `nemotron-3.5-super-vl`. For shared endpoints, validate a separate inference release before switching clients.
 
 The first download and GPU kernel compilation can take more than 30 minutes. Wait for Helm to finish; startup checks are below.
 
-### 3. Connect the agent
+### 3. Verify inference
+
+Before installing the agent, test the HTTPS endpoint using the inference API key selected above; replace the example hostname and model if customized:
+
+```bash
+curl --fail-with-body --max-time 120 \
+  "https://inference.example.com/v1/chat/completions" \
+  -H "Authorization: Bearer $EXTERNAL_LLM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nemotron-3.5-super-vl",
+    "messages": [{"role": "user", "content": "Reply with ready."}],
+    "max_tokens": 128,
+    "chat_template_kwargs": {"enable_thinking": false}
+  }'
+```
+
+Confirm the response contains generated text in `choices[0].message.content`. This checks inference, authentication, DNS, TLS and ingress from the head node; the check below separately verifies access from the agent pod. If the request fails, inspect the startup and connectivity checks below before continuing.
+
+### 4. Connect the agent
 
 ```bash
 export EXTERNAL_LLM_BASE_URL='https://inference.example.com/v1'
@@ -318,3 +370,43 @@ JS
 Use your configured served model name in the completion check if you changed the default. HTTP 200 for both requests establishes DNS, routing, TLS trust, authentication, and basic inference from the admin cluster. Then ask a short question through the agent UI to verify the full agent path. TLS errors require correcting certificate trust, timeouts require checking routing or server readiness, and 401 responses indicate mismatched keys.
 
 </details>
+
+
+## Uninstall across both clusters
+
+In the administrator login shell, confirm each release and namespace with `helm list -A`; use their existing names in the commands below. Remove the agent before its dedicated inference server, and keep shared inference running.
+
+Back up required agent data first: Helm deletes its workspace and audit-log PVCs, and the storage reclaim policy determines whether backing data is deleted. If this release installed the AgentSandbox controller, confirm no other release depends on it. Keep shared CRDs and platform controllers.
+
+### 1. Remove the agent from `k8s-admin`
+
+```bash
+module load kubernetes/k8s-admin
+: "${AGENT_NAMESPACE:?Set the existing agent namespace}"
+helm list -A
+helm uninstall aifoa --namespace "$AGENT_NAMESPACE" --wait --timeout 12m
+```
+
+Separately created Secrets remain. Delete the namespace only if it is dedicated to this installation and all remaining resources and data can be discarded:
+
+```bash
+kubectl delete namespace "$AGENT_NAMESPACE"
+```
+
+Keep NMC's shared `net-pol` release. After the namespace has no remaining consumers, its policy owner can remove its entry from `admin.namespaceList` through the existing policy-management workflow.
+
+### 2. Remove dedicated inference from `k8s-user`
+
+Skip this section for existing or shared inference endpoints.
+
+```bash
+module load kubernetes/k8s-user
+helm list -A
+helm uninstall afoa-inference --namespace afoa-inference --wait --timeout 12m
+```
+
+The model-cache PVC and separately created API-key and TLS Secrets remain. Delete the namespace only if it is dedicated to this installation and its remaining data can be discarded; this deletes the PVC, with backing-storage deletion determined by its reclaim policy:
+
+```bash
+kubectl delete namespace afoa-inference
+```

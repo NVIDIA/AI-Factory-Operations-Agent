@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+image: vllm/vllm-openai@sha256:298b8765981d9dabda0da1504487bcdca876d5c18e8533455b3fda65ae964ba2
+model: Inferact/Qwen3.8-Flash-Next-NVFP4
+servedModelName: qwen3.8-flash-next
+gpuCount: 1
+tensorParallelSize: 1
+modelCache:
+  size: 500Gi
+resources:
+  requests:
+    cpu: "16"
+    memory: 128Gi
+  limits:
+    cpu: "32"
+    memory: 256Gi
+chatTemplateKwargs:
+  enable_thinking: true
+extraEnv:
+  - name: VLLM_ENGINE_READY_TIMEOUT_S
+    value: "3600"
+  - name: VLLM_USE_RUST_FRONTEND
+    value: "1"
+extraArgs:
+  - --revision=103a7608316173ca6edd49929544244de7ffda70
+  - --engram-config={"cpu_offload":true}
+  - --reasoning-parser=qwen3
+  - --enable-auto-tool-choice
+  - --tool-call-parser=qwen3_coder
+  - --kv-cache-dtype=fp8
+  - --max-num-seqs=8
+  - --max-num-batched-tokens=4096
+  - --max-model-len=262144
+  - --gpu-memory-utilization=0.90

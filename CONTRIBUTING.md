@@ -14,6 +14,12 @@ Open an issue before substantial implementation work so maintainers can confirm 
 
 ## Code Contributions
 
+### Pull request scope
+
+Each pull request must contain one independently reviewable component: a single feature, bug fix, refactor, or documentation change. Split work involving multiple features or separable components into individual pull requests, even when they support the same larger goal. Separate commits within one pull request do not replace separate pull requests.
+
+Keep the implementation, tests, and documentation needed for that component together. If a component depends on another pull request, link the dependency and describe the review and merge order. Maintainers will ask for bundled changes to be split before review.
+
 1. Fork the repository and create a focused branch from `main`.
 2. Keep changes minimal and include documentation for user-visible behavior.
 3. Validate the Helm chart:

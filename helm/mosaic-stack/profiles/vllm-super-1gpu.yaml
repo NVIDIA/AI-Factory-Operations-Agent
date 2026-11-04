@@ -4,9 +4,20 @@
 llm:
   mode: vllm
   vllm:
+    thinkingDefault: "off"
+    reasoningEffort: none
+    modelOptions:
+      reasoning: false
+      contextWindow: 262144
+      maxTokens: 8192
+      thinkingLevelMap: null
+    chatTemplateKwargs:
+      enable_thinking: false
+    extraEnv: []
     image:
       repository: vllm/vllm-openai
       digest: sha256:cb9bc64f0f038c2c2ebf13b31248fb87aca40c356c3d20f363be087cfcff1fcd
+    name: vllm-nemotron
     profile: super-1gpu
     replicaCount: 1
     model: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4

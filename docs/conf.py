@@ -58,7 +58,7 @@ def render_footprint(state):
     command = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", script, json.dumps(state)], cwd=ROOT, text=True))
     shell = 'trap \'[ -z "${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"\' EXIT; helm() { if [ "$1" = pull ]; then ln -s "$CHART" "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf \'%s\\0\' "$@"; fi; }; '
     arguments = subprocess.check_output(["bash", "-c", shell + command], env={**os.environ, "CHART": str(CHART)}, text=True).split("\0")[4:-1]
-    rendered = ["template", "mosaic", str(CHART)]
+    rendered = ["template", "aifoa", str(CHART)]
     arguments = iter(arguments)
     for argument in arguments:
         if argument in {"--atomic", "--wait", "--devel"}:
@@ -66,8 +66,7 @@ def render_footprint(state):
         if argument in {"--timeout", "--version"}:
             next(arguments)
         elif argument == "-f":
-            next(arguments)
-            profile = "vllm-ultra-4gpu.yaml" if state["inference"] == "ultra" else "vllm-super-1gpu.yaml"
+            profile = Path(next(arguments)).name
             rendered.extend(["-f", str(CHART / "profiles" / profile)])
         else:
             rendered.append(argument)
@@ -79,7 +78,7 @@ def render_footprint(state):
         kind = document.get("kind")
         spec = document.get("spec", {})
         name = document["metadata"]["name"]
-        key = f"{kind}/{document['metadata'].get('namespace', 'mosaic')}/{name}"
+        key = f"{kind}/{document['metadata'].get('namespace', 'aifoa')}/{name}"
         if kind == "PersistentVolumeClaim":
             components[key] = {"name": name, "kind": kind, "storage": spec["resources"]["requests"]["storage"], "count": 1}
         elif kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "Sandbox"}:
@@ -100,7 +99,11 @@ def generate():
     defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus"}
     base = render_footprint(defaults)
     variants = {}
-    selections = {"sandbox": {"sandboxInstalled": False}, "super": {"inference": "super"}, "ultra": {"inference": "ultra"}}
+    profiles = json.loads(subprocess.check_output([
+        "node", "--input-type=module", "-e",
+        "import {inferenceProfiles} from './docs/_static/install-builder.mjs'; console.log(JSON.stringify(Object.keys(inferenceProfiles)));",
+    ], cwd=ROOT, text=True))
+    selections = {"sandbox": {"sandboxInstalled": False}, **{name: {"inference": name} for name in profiles}}
     selections.update({module: {"modules": [module]} for module in MODULES})
     selections["slurm-vanilla"] = {"modules": ["slurm"], "slurmBackend": "vanilla"}
     for name, selection in selections.items():
