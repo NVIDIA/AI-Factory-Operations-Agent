@@ -96,7 +96,10 @@ async function read(file: string) {
 async function write<T>(file: string, records: T[]) {
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(temporary, JSON.stringify(records.slice(-1000)), { mode: 0o600 });
+  // Running claims must survive until their operations finish.
+  const retained = records.filter((record, index) => index >= records.length - 1000
+    || (record !== null && typeof record === "object" && "state" in record && record.state === "running"));
+  await fs.writeFile(temporary, JSON.stringify(retained), { mode: 0o600 });
   await fs.rename(temporary, file);
 }
 
