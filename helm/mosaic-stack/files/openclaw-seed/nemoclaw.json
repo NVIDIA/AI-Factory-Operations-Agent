@@ -254,11 +254,23 @@
           "investigationContext": {{ .Values.modules.alertAutomation.investigationContext | quote }},
           "redactValues": {{ .Values.modules.alertAutomation.redactValues | toJson }},
           "delivery": {
+            {{- if eq .Values.modules.alertAutomation.delivery.backend "n8n" }}
+            "backend": "n8n",
+            "n8n": {
+              "baseUrl": {{ required "modules.alertAutomation.delivery.n8n.baseUrl is required" .Values.modules.alertAutomation.delivery.n8n.baseUrl | quote }},
+              "senderId": {{ required "modules.alertAutomation.delivery.n8n.senderId is required" .Values.modules.alertAutomation.delivery.n8n.senderId | quote }},
+              "recipientId": {{ required "modules.alertAutomation.delivery.n8n.recipientId is required" .Values.modules.alertAutomation.delivery.n8n.recipientId | quote }},
+              "tokenEnv": "MOSAIC_N8N_BRIDGE_TOKEN",
+              "pollSeconds": {{ .Values.modules.alertAutomation.delivery.n8n.pollSeconds }},
+              "maxPages": {{ .Values.modules.alertAutomation.delivery.n8n.maxPages }}
+            }
+            {{- else }}
             "channel": {{ required "modules.alertAutomation.delivery.channel is required" .Values.modules.alertAutomation.delivery.channel | quote }},
             "target": {{ required "modules.alertAutomation.delivery.target is required" .Values.modules.alertAutomation.delivery.target | quote }},
             "sessionKey": {{ required "modules.alertAutomation.delivery.sessionKey is required" .Values.modules.alertAutomation.delivery.sessionKey | quote }}
             {{- with .Values.modules.alertAutomation.delivery.accountId }},
             "accountId": {{ . | quote }}
+            {{- end }}
             {{- end }}
           },
           "webhook": {

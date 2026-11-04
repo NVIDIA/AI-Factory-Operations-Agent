@@ -11,10 +11,12 @@ import {
   save,
 } from "./core.ts";
 import { nativeRuntime } from "./runtime.ts";
+import { N8nBridge } from "./n8n.ts";
 
 export function registerAlertAutomation(api: OpenClawPluginApi) {
   const config = normalizeConfig(api.pluginConfig);
   let service: AlertService | undefined;
+  let n8n: N8nBridge | undefined;
   api.registerService({
     id: "alert-automation",
     start(ctx) {
@@ -22,33 +24,55 @@ export function registerAlertAutomation(api: OpenClawPluginApi) {
       const agents = ctx.config.agents?.list ?? [];
       if (!agents.some((agent) => agent.id === config.agentId))
         throw new Error("alert-automation agentId is not a configured Agent");
+      const root = path.join(ctx.stateDir, config.stateDirectory);
+      const runtime = nativeRuntime(api);
+      if (config.delivery.backend === "n8n")
+        n8n = new N8nBridge(config, root, runtime, ctx.logger);
       service = new AlertService(
         config,
-        path.join(ctx.stateDir, config.stateDirectory),
-        nativeRuntime(api),
+        root,
+        n8n ? { ...runtime, deliver: n8n.deliver } : runtime,
         ctx.logger,
       );
       service.start();
+      n8n?.start();
       ctx.logger.info("alert-automation native service started");
     },
     stop() {
       const old = service;
+      const bridge = n8n;
       service = undefined;
+      n8n = undefined;
       old?.stop();
+      return bridge?.stop();
     },
   });
   // This restores the complete report on every human follow-up, rather than
   // relying on a transcript-only delivery mirror or an extra synthetic ACK turn.
   api.on("before_prompt_build", (event, ctx) => {
     if (!ctx.sessionKey) return;
-    const root =
-      service?.store.root ??
-      path.join(api.runtime.state.resolveStateDir(), config.stateDirectory);
-    const binding = readStoredReportContext(
-      root,
-      ctx.sessionKey,
-      event.prompt ?? "",
-    );
+    // A native IM conversation keeps its own report context while n8n is selected.
+    let root = "",
+      binding;
+    const stateRoot = service
+      ? path.dirname(service.store.root)
+      : api.runtime.state.resolveStateDir();
+    for (const directory of new Set([
+      config.stateDirectory,
+      config.nativeStateDirectory,
+    ])) {
+      const candidate = path.join(stateRoot, directory);
+      const found = readStoredReportContext(
+        candidate,
+        ctx.sessionKey,
+        event.prompt ?? "",
+      );
+      if (found) {
+        root = candidate;
+        binding = found;
+        break;
+      }
+    }
     if (!binding) return;
     const prependContext =
       "[MOSAIC automated alert report context]\n" +
@@ -87,7 +111,14 @@ export function registerAlertAutomation(api: OpenClawPluginApi) {
   api.registerGatewayMethod(
     "mosaic.alertAutomation.status",
     ({ respond }) => {
-      respond(true, service?.status() ?? { running: false }, undefined);
+      respond(
+        true,
+        {
+          ...(service?.status() ?? { running: false }),
+          ...(n8n ? { n8n: n8n.status() } : {}),
+        },
+        undefined,
+      );
     },
     { scope: "operator.read" },
   );

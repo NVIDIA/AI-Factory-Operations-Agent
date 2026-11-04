@@ -10,4 +10,21 @@
 {{- if and (ne .Values.modules.alertAutomation.sourceMode "poll") (not .Values.modules.alertAutomation.webhook.existingSecret) -}}
 {{- fail "modules.alertAutomation.webhook.existingSecret is required for webhook/both" -}}
 {{- end -}}
+{{- if not (has .Values.modules.alertAutomation.delivery.backend (list "native" "n8n")) -}}
+{{- fail "modules.alertAutomation.delivery.backend must be native or n8n" -}}
+{{- end -}}
+{{- if eq .Values.modules.alertAutomation.delivery.backend "n8n" -}}
+{{- $profile := .Values.modules.alertAutomation.delivery.n8n -}}
+{{- if not (and $profile.existingSecret $profile.tokenKey) -}}
+{{- fail "modules.alertAutomation.delivery.n8n.existingSecret and tokenKey are required" -}}
+{{- end -}}
+{{- range $id := list $profile.senderId $profile.recipientId -}}
+{{- if not (regexMatch "^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$" $id) -}}
+{{- fail "n8n senderId and recipientId must be Entra user GUIDs" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq (lower $profile.senderId) (lower $profile.recipientId) -}}
+{{- fail "n8n needs distinct assistant and recipient identities" -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

@@ -15,13 +15,16 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { normalizeN8n, type N8nConfig } from "./n8n-config.ts";
 
 type Json = Record<string, any>;
 export type Delivery = {
+  backend?: "native" | "n8n";
   channel: string;
   target: string;
   sessionKey: string;
   accountId?: string;
+  n8n?: N8nConfig;
 };
 export type Config = {
   sourceMode: "poll" | "webhook" | "both";
@@ -32,6 +35,7 @@ export type Config = {
   timeoutSeconds: number;
   agentId: string;
   stateDirectory: string;
+  nativeStateDirectory: string;
   messagePrefix: string;
   reportLanguage: string;
   investigationContext: string;
@@ -130,7 +134,21 @@ export function normalizeConfig(
   const agentId = value.agentId ?? "default";
   if (typeof agentId !== "string" || !/^[a-zA-Z0-9_-]+$/.test(agentId))
     throw new Error("Invalid agentId");
-  const delivery = object(value.delivery, "delivery") as Delivery;
+  const rawDelivery = object(value.delivery, "delivery");
+  const backend = rawDelivery.backend ?? "native";
+  if (!["native", "n8n"].includes(backend))
+    throw new Error("Invalid delivery.backend");
+  let delivery = { ...rawDelivery } as Delivery;
+  if (backend === "n8n") {
+    const n8n = normalizeN8n(rawDelivery.n8n, env);
+    delivery = {
+      backend: "n8n",
+      channel: "n8n",
+      target: n8n.recipientId,
+      sessionKey: `agent:${agentId}:mosaic-automation-alert-n8n-${sha256(n8n.senderId + "/" + n8n.recipientId).slice(0, 24)}`,
+      n8n,
+    };
+  }
   if (
     typeof delivery.channel !== "string" ||
     !/^[a-z][a-z0-9_-]*$/.test(delivery.channel)
@@ -228,7 +246,13 @@ export function normalizeConfig(
       "timeoutSeconds",
     ),
     agentId,
-    stateDirectory,
+    nativeStateDirectory: stateDirectory,
+    stateDirectory:
+      backend === "n8n"
+        ? stateDirectory +
+          "-n8n-" +
+          sha256(delivery.n8n!.senderId + "/" + delivery.target).slice(0, 12)
+        : stateDirectory,
     messagePrefix: value.messagePrefix ?? "MOSAIC automated alert report",
     reportLanguage: value.reportLanguage ?? "English",
     investigationContext: value.investigationContext ?? "",
@@ -970,6 +994,9 @@ export class AlertService {
           this.env.MOSAIC_UI_MACHINE_TOKEN,
           this.env[config.alertmanagerTokenEnv],
           this.env[config.webhook.tokenEnv],
+          config.delivery.n8n
+            ? this.env[config.delivery.n8n.tokenEnv]
+            : undefined,
         ].filter((v): v is string => !!v);
         const identifiers = [
           ...secrets,
@@ -1071,6 +1098,7 @@ export class AlertService {
       sourceMode: this.config.sourceMode,
       agentId: this.config.agentId,
       channel: this.config.delivery.channel,
+      deliveryBackend: this.config.delivery.backend ?? "native",
       incidents,
     };
   }

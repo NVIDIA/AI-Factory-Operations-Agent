@@ -61,7 +61,7 @@ data:
   automation-guard.package.json: |-
 {{ .Files.Get "files/openclaw-seed/extensions/automation-guard/package.json" | indent 4 }}
   {{- if .Values.modules.alertAutomation.enabled }}
-  {{- range $name := list "index.ts" "plugin.ts" "core.ts" "runtime.ts" "openclaw.plugin.json" "package.json" }}
+  {{- range $name := list "index.ts" "plugin.ts" "core.ts" "runtime.ts" "n8n-config.ts" "n8n.ts" "openclaw.plugin.json" "package.json" }}
   alert-automation.{{ $name }}: |-
 {{ $.Files.Get (printf "files/openclaw-seed/extensions/alert-automation/%s" $name) | indent 4 }}
   {{- end }}

@@ -149,7 +149,7 @@ spec:
               cp /seed/automation-guard.package.json /home/node/.openclaw/extensions/automation-guard/package.json
               {{- if .Values.modules.alertAutomation.enabled }}
               mkdir -p /home/node/.openclaw/extensions/alert-automation
-              {{- range $name := list "index.ts" "plugin.ts" "core.ts" "runtime.ts" "openclaw.plugin.json" "package.json" }}
+              {{- range $name := list "index.ts" "plugin.ts" "core.ts" "runtime.ts" "n8n-config.ts" "n8n.ts" "openclaw.plugin.json" "package.json" }}
               cp /seed/alert-automation.{{ $name }} /home/node/.openclaw/extensions/alert-automation/{{ $name }}
               {{- end }}
               {{- end }}
@@ -640,6 +640,13 @@ spec:
                 secretKeyRef:
                   name: {{ required "modules.alertAutomation.webhook.existingSecret is required for webhook/both" .Values.modules.alertAutomation.webhook.existingSecret | quote }}
                   key: {{ .Values.modules.alertAutomation.webhook.tokenKey | quote }}
+            {{- end }}
+            {{- if and .Values.modules.alertAutomation.enabled (eq .Values.modules.alertAutomation.delivery.backend "n8n") }}
+            - name: MOSAIC_N8N_BRIDGE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "modules.alertAutomation.delivery.n8n.existingSecret is required" .Values.modules.alertAutomation.delivery.n8n.existingSecret | quote }}
+                  key: {{ .Values.modules.alertAutomation.delivery.n8n.tokenKey | quote }}
             {{- end }}
             {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
             - name: MOSAIC_BCM_MCP_TOKEN

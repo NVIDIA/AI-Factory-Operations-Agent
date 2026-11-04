@@ -73,7 +73,6 @@
       "delivery": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["channel", "target", "sessionKey"],
         "properties": {
           "channel": {
             "type": "string",
@@ -90,8 +89,76 @@
           "accountId": {
             "type": "string",
             "minLength": 1
+          },
+          "backend": {
+            "type": "string",
+            "enum": [
+              "native",
+              "n8n"
+            ]
+          },
+          "n8n": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "baseUrl",
+              "senderId",
+              "recipientId"
+            ],
+            "properties": {
+              "baseUrl": {
+                "type": "string"
+              },
+              "senderId": {
+                "type": "string"
+              },
+              "recipientId": {
+                "type": "string"
+              },
+              "tokenEnv": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "pollSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "maxPages": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            }
           }
-        }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "backend": {
+                "enum": [
+                  "native"
+                ]
+              }
+            },
+            "required": [
+              "channel",
+              "target",
+              "sessionKey"
+            ]
+          },
+          {
+            "properties": {
+              "backend": {
+                "const": "n8n"
+              }
+            },
+            "required": [
+              "backend",
+              "n8n"
+            ]
+          }
+        ]
       },
       "webhook": {
         "type": "object",

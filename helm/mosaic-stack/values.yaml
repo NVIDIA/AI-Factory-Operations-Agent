@@ -67,12 +67,23 @@ modules:
     investigationContext: ""
     redactValues: []
     delivery:
+      # native keeps the existing channel; n8n uses only the independent profile below.
+      backend: native
       # Any installed native channel with a text outbound adapter.
       channel: ""
       target: ""
       # Exact conversation used by that channel for the selected Agent.
       sessionKey: ""
       accountId: ""
+      n8n:
+        # Published Webhook prefix; workflows append /send and /read.
+        baseUrl: ""
+        senderId: ""
+        recipientId: ""
+        pollSeconds: 30
+        maxPages: 20
+        existingSecret: ""
+        tokenKey: token
     alertmanagerAuth:
       existingSecret: ""
       tokenKey: token
