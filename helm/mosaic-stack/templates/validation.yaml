@@ -4,15 +4,32 @@
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
-{{- if .Values.openclaw.msteams.enabled -}}
+{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled -}}
 {{- if not (and .Values.modules.execution.enabled .Values.openclaw.enabled) -}}
-{{- fail "openclaw.msteams.enabled requires modules.execution.enabled and openclaw.enabled" -}}
+{{- fail "openclaw.msteams installation requires modules.execution.enabled and openclaw.enabled" -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.openclaw.msteams.enabled -}}
+{{- if not (kindIs "slice" .Values.openclaw.msteams.allowedUserIds) -}}
+{{- fail "openclaw.msteams.allowedUserIds must be a list of Microsoft Entra object IDs" -}}
 {{- end -}}
 {{- if not .Values.openclaw.msteams.existingSecret -}}
 {{- fail "openclaw.msteams.existingSecret is required when Teams is enabled" -}}
 {{- end -}}
 {{- if empty .Values.openclaw.msteams.allowedUserIds -}}
 {{- fail "openclaw.msteams.allowedUserIds must contain at least one Microsoft Entra object ID" -}}
+{{- end -}}
+{{- range $index, $userId := .Values.openclaw.msteams.allowedUserIds -}}
+{{- if not (kindIs "string" $userId) -}}
+{{- fail (printf "openclaw.msteams.allowedUserIds[%d] must be a Microsoft Entra object ID (GUID)" $index) -}}
+{{- else if not (regexMatch "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" $userId) -}}
+{{- fail (printf "openclaw.msteams.allowedUserIds[%d] must be a Microsoft Entra object ID (GUID); wildcard and blank entries are not allowed" $index) -}}
+{{- end -}}
+{{- end -}}
+{{- range $key, $value := dict "appIdKey" .Values.openclaw.msteams.appIdKey "appPasswordKey" .Values.openclaw.msteams.appPasswordKey "tenantIdKey" .Values.openclaw.msteams.tenantIdKey -}}
+{{- if not $value -}}
+{{- fail (printf "openclaw.msteams.%s must name an existing Secret key" $key) -}}
+{{- end -}}
 {{- end -}}
 {{- if and .Values.openclaw.msteams.ingress.enabled (not .Values.openclaw.msteams.ingress.host) -}}
 {{- fail "openclaw.msteams.ingress.host is required when the Teams ingress is enabled" -}}

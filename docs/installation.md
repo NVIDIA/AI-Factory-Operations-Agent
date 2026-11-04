@@ -327,11 +327,39 @@ Teams is optional and uses OpenClaw's native `msteams` plugin, pinned to the
 chart's OpenClaw release. It supports direct messages, group chats, channel
 mentions, and proactive messages with alert explanations.
 
+Installing AI Factory Operations Agent does not register a bot in a customer's
+Microsoft tenant or enable Teams messaging. The tenant owner must permit the
+app registration and Teams app installation, provide the bot credentials and
+allowed users, and arrange a reachable HTTPS callback. The chart handles plugin
+installation, Secret references, channel configuration, and the optional ingress.
+
+To prepare the runtime before bot registration, optionally preinstall the plugin:
+
+```yaml
+openclaw:
+  msteams:
+    install: true
+```
+
+This installs the pinned package on the existing OpenClaw persistent volume and
+loads its plugin entry. It does not require a bot Secret or user allowlist and
+does not start or expose the Teams webhook. `enabled: true` also installs the
+plugin, so this separate preparation step is optional. Pod initialization needs
+access to the configured npm registry.
+
 Register a single-tenant bot and install its Teams app in the intended personal,
 team, or group-chat scope using the [OpenClaw Teams setup guide](https://docs.openclaw.ai/channels/msteams/setup).
+The Microsoft developer CLI is `@microsoft/teams.cli` (command `teams`); it manages
+apps and bots. It is separate from chat-management tools named `teams-cli` and
+is not required in the OpenClaw runtime. When using it, run
+`teams status --json` in a new process after login; a successful browser sign-in alone does
+not verify that the local CLI retained its session.
+
 Create a Kubernetes Secret in the release namespace containing
 `MSTEAMS_APP_ID`, `MSTEAMS_APP_PASSWORD`, and `MSTEAMS_TENANT_ID` from that registration.
-Keep the secret values outside Helm values and source control.
+Keep the secret values outside Helm values and source control. `allowedUserIds`
+must contain concrete Microsoft Entra user object IDs (GUIDs), not email
+addresses, wildcard entries, or blank strings.
 
 Add these values to the release configuration:
 
@@ -356,6 +384,10 @@ webhook path. Bot Framework tokens are validated by the plugin. The OpenClaw
 gateway is not exposed by this ingress. Alternatively, leave the ingress disabled
 and route an existing HTTPS proxy to the `openclaw` Service's `msteams` port.
 Teams requires a reachable HTTPS endpoint with a trusted certificate.
+An ingress resource alone does not install an ingress controller, provide public
+DNS, or make a private Kind host reachable from Microsoft. Provide those through
+the deployment's network infrastructure. TLS may terminate at the ingress or an
+existing HTTPS proxy.
 
 `allowedUserIds` applies to both direct and group messages. To enable specific
 team/channel conversations, add their IDs to the native `teams` mapping:
@@ -376,8 +408,17 @@ remain enabled alongside Teams, and Teams DMs use separate sessions per sender.
 
 For proactive alerts, first send a message to the installed bot in the destination
 conversation so OpenClaw records its conversation reference. Use that conversation
-ID as the outbound target. An OpenClaw scheduled job can deliver its generated
-explanation with this delivery configuration:
+ID as the outbound target. To run native OpenClaw scheduled jobs, explicitly
+enable the scheduler (disabled by default):
+
+```yaml
+openclaw:
+  cron:
+    enabled: true
+```
+
+An OpenClaw scheduled job can then deliver its generated explanation with this
+delivery configuration:
 
 ```json
 {
@@ -396,6 +437,14 @@ preview, and depend on Teams and operating-system notification settings. Tenant
 app approval and a real phone notification check are required before claiming
 end-to-end delivery. Basic text messaging does not require the additional
 SharePoint permissions used for channel file uploads.
+
+This configures a delivery channel; it does not automatically forward cluster
+monitor alerts or create scheduled jobs. Configure the alert producer or job
+separately. Before accepting the integration, verify a real allowed-user DM and
+reply, rejection of a non-allowlisted sender before agent dispatch, conversation
+isolation, a proactive message to an initialized destination, and persistence
+after an OpenClaw Pod restart. Gateway readiness and an unsigned webhook `401`
+are useful checks, but neither proves authenticated Teams delivery.
 
 ### Access Modes
 
