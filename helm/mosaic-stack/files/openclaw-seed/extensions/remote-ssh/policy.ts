@@ -79,28 +79,3 @@ export function classifySshRequest(raw: unknown, hosts: RemoteHost[]) {
     remoteCommand: argv.map(quoteRemoteArg).join(" "),
   };
 }
-
-type RemoteSshConfig = {
-  command?: string;
-  keyPath?: string;
-  knownHostsPath?: string;
-  hosts?: unknown;
-  hitl?: boolean;
-  approvalTimeoutMs?: number;
-  timeoutMs?: number;
-  maxOutputBytes?: number;
-};
-
-export function remoteSshConfig(value: unknown) {
-  const raw = value && typeof value === "object" ? value as RemoteSshConfig : {};
-  return {
-    command: raw.command || "/tools/ssh",
-    keyPath: raw.keyPath || "/var/run/mosaic-ssh/id",
-    knownHostsPath: raw.knownHostsPath || "/var/run/mosaic-ssh/known_hosts",
-    hosts: normalizeHosts(raw.hosts),
-    hitl: raw.hitl !== false,
-    approvalTimeoutMs: raw.approvalTimeoutMs || 120_000,
-    timeoutMs: raw.timeoutMs || 60_000,
-    maxOutputBytes: raw.maxOutputBytes || 65_536,
-  };
-}

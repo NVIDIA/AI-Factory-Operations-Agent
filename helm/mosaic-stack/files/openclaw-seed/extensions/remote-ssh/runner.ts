@@ -63,7 +63,7 @@ export function redactSshOutput(value: string, settings: Pick<SshSettings, "keyP
     .replaceAll("/var/run/mosaic-ssh", "<ssh-credentials>");
 }
 
-export function runSsh(settings: SshSettings, host: RemoteHost, remoteCommand: string, stdin?: string) {
+export function runSsh(settings: SshSettings, host: RemoteHost, remoteCommand: string) {
   return new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(settings.command, buildSshArgs(settings, host, remoteCommand), {
       env: {
@@ -72,7 +72,7 @@ export function runSsh(settings: SshSettings, host: RemoteHost, remoteCommand: s
         PATH: process.env.PATH || "/usr/bin:/bin",
       },
       shell: false,
-      stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
     let stderr = "";
@@ -100,8 +100,6 @@ export function runSsh(settings: SshSettings, host: RemoteHost, remoteCommand: s
     };
     child.stdout.on("data", (chunk: Buffer) => collect("stdout", chunk));
     child.stderr.on("data", (chunk: Buffer) => collect("stderr", chunk));
-    child.stdin?.on("error", (error) => finish(error));
-    if (stdin !== undefined) child.stdin?.end(stdin);
     child.on("error", (error) => finish(error));
     child.on("close", (code) => finish(undefined, code ?? -1));
     timer = setTimeout(() => {
