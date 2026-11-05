@@ -223,8 +223,8 @@ researchAgent:
       NVIDIA_CHAT_BASE_URL: http://llm-openai-compat:8000/v1
       NVIDIA_CHAT_MODEL: qwen3.8-flash-next
       NVIDIA_API_BASE_URL: https://integrate.api.nvidia.com/v1
-      NVIDIA_EMBEDDING_MODEL: nvidia/llama-nemotron-embed-vl-1b-v2
-      EMBEDDING_DIMENSION: "2048"
+      NVIDIA_EMBEDDING_MODEL: nvidia/nemotron-3.5-embed-8b
+      EMBEDDING_DIMENSION: "4096"
       MAX_TOKENS: "2048"
       DEFAULT_DEPTH: deep
       CORPUS_DIR: /cm/shared/iraop-corpus

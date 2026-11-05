@@ -634,6 +634,28 @@ helm upgrade aifoa "$MOSAIC_CHART" \
 unset NVIDIA_API_KEY IRAOP_API_KEY
 ```
 
+The Research Agent embeds documents with `nvidia/nemotron-3.5-embed-8b`
+(4096 dimensions). Installations created before this release used
+`nvidia/llama-nemotron-embed-vl-1b-v2`, which is retired on November 16, 2026.
+`--reuse-values` keeps the old model, so set the new one explicitly when
+upgrading:
+
+```bash
+helm upgrade aifoa "$MOSAIC_CHART" \
+  --devel \
+  -n aifoa \
+  --reuse-values \
+  --set-string researchAgent.iraop.config.NVIDIA_EMBEDDING_MODEL=nvidia/nemotron-3.5-embed-8b \
+  --set-string researchAgent.iraop.config.EMBEDDING_DIMENSION=4096 \
+  --wait \
+  --timeout 12m
+```
+
+Each collection stores vectors from one embedding model, so collections
+ingested with the old model must be deleted and ingested again after the
+upgrade. Until then, queries against them return an error that names the
+collection to delete.
+
 ### Hardware Agent
 
 The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
