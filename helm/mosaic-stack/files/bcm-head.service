@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+[Unit]
+Description=AFOA Base Command Manager MCP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/afoa-bcm
+Environment=PYTHONPATH=/opt/afoa-bcm/vendor
+EnvironmentFile=/etc/afoa-bcm/server.env
+ExecStart=/opt/afoa-bcm/venv/bin/python /opt/afoa-bcm/bcm-mcp-ssh-server.py
+UMask=0077
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

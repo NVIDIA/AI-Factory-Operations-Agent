@@ -518,7 +518,18 @@ server exposes only read tools. For a private CA, set
 
 ### Base Command Manager
 
-To enable the Base Command Manager extension, provide the Base Command Manager head host and SSH key:
+Choose how AFOA connects to Base Command Manager:
+
+- **Use an SSH key:** the chart runs an adapter that connects to the head node.
+- **Use a head-node MCP server:** install the MCP server on the head node and
+  connect AFOA to its authenticated HTTPS endpoint. AFOA does not need a
+  head-node SSH key for this option.
+
+The [installation builder](installation_builder.md) offers both connection options.
+
+#### Use an SSH key
+
+Provide the Base Command Manager head host and SSH key:
 
 ```bash
 export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
@@ -536,6 +547,11 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --set modules.bcm.enabled=true \
   --set bcmMcp.enabled=true \
   --set bcmMcp.mode=ssh-adapter \
+  --set bcmMcp.mcpUrl=http://bcm-mcp-tools:3001/mcp \
+  --set bcmMcp.authTokenCreate=true \
+  --set bcmMcp.authTokenSecretName=bcm-mcp-auth \
+  --set bcmMcp.authTokenSecretKey=token \
+  --set bcmMcp.networkPolicy.enabled=false \
   --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
   --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
   --wait \
@@ -543,6 +559,57 @@ helm upgrade aifoa "$MOSAIC_CHART" \
 ```
 
 The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+#### Use a head-node MCP server
+
+First follow [Install the MCP server on the head node](bcm-external.md).
+That guide installs the server as a system service and explains its listening
+address, TLS certificate, bearer token, and firewall configuration.
+
+Once the server is running, configure AFOA from your Kubernetes administration
+host. Use the same bearer token as the server and the CA certificate that signed
+its TLS certificate. Keep this token in a separate Secret from the chart-managed
+SSH adapter credentials, as shown below:
+
+```bash
+export CLUSTER_MANAGER_MCP_URL='https://bcm-head.example.com:3002/mcp'
+export CLUSTER_MANAGER_CA_CERT_PATH='/path/to/ca.crt'
+read -rsp 'Head-node MCP bearer token: ' CLUSTER_MANAGER_MCP_TOKEN; echo
+
+kubectl -n aifoa create secret generic bcm-external-mcp-auth \
+  --from-literal=token="$CLUSTER_MANAGER_MCP_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n aifoa create secret generic bcm-mcp-ca \
+  --from-file=ca.crt="$CLUSTER_MANAGER_CA_CERT_PATH" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade aifoa "$MOSAIC_CHART" \
+  --devel \
+  -n aifoa \
+  --reuse-values \
+  --set modules.bcm.enabled=true \
+  --set bcmMcp.enabled=false \
+  --set bcmMcp.mode=external \
+  --set-string bcmMcp.mcpUrl="$CLUSTER_MANAGER_MCP_URL" \
+  --set bcmMcp.authTokenCreate=false \
+  --set bcmMcp.authTokenSecretName=bcm-external-mcp-auth \
+  --set bcmMcp.authTokenSecretKey=token \
+  --set bcmMcp.caCertificateSecret=bcm-mcp-ca \
+  --set-string bcmMcp.headHost='' \
+  --set-string bcmMcp.hostSshKeySecretName='' \
+  --set-string diagnosticAgent.hostSshKeySecretName='' \
+  --wait \
+  --timeout 12m
+
+unset CLUSTER_MANAGER_MCP_TOKEN
+```
+
+For a publicly trusted server certificate, omit the CA Secret creation and set
+`bcmMcp.caCertificateSecret=''`. A separate compute-node SSH identity can still
+be configured with `diagnosticAgent.hostSshKeySecretName` when hardware collection
+requires it. The [head-node guide](bcm-external.md#restrict-head-node-network-access)
+also explains the optional Helm network policy for restricting direct head-node
+connections.
 
 ### Read-only Redfish
 
@@ -554,8 +621,8 @@ them to the model.
 
 Prerequisites:
 
-- The [Base Command Manager extension](#base-command-manager) is configured in `ssh-adapter` mode.
-- The adapter's SSH identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
+- The [Base Command Manager extension](#base-command-manager) uses the SSH adapter or the head-node MCP server installed by this guide.
+- The server identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
 - The head node can reach the BMC network over HTTPS and has `curl`. Check one BMC from the head node:
 
   ```bash
@@ -574,13 +641,16 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-By default each request runs `curl` on the head node over the adapter's existing SSH session
-(`modules.bcm.redfish.viaHeadNode=true`), because the head node is routed to the BMC network. The
+By default each request runs `curl` on the head node
+(`modules.bcm.redfish.viaHeadNode=true`): over SSH for the adapter, or locally for
+the head-node MCP service. The head node is routed to the BMC network. The
 BMC credential reaches `curl` on standard input, so it does not appear in process listings. Set
 `viaHeadNode=false` only when the adapter pod itself can reach the BMCs. BMCs usually present
 self-signed certificates, so `modules.bcm.redfish.verifyTls` defaults to `false`.
 `modules.bcm.redfish.timeoutSeconds` (default `60`) bounds each request; some DGX BMCs take about
 30 seconds to return the expanded firmware inventory.
+For an independently installed head-node service, configure the equivalent
+settings in its [environment file](../helm/mosaic-stack/examples/bcm-head.env.example).
 
 The adapter enforces the following allowlist before it looks up any credential. Only `GET` is
 used, and the only query parameters accepted are `$top`, `$skip`, and `$expand=.` limited to one
@@ -658,7 +728,7 @@ collection to delete.
 
 ### Hardware Agent
 
-The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
+With the SSH adapter, the Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. With a head-node MCP server, it uses that server's HTTPS lookup routes; enable Hardware Agent compatibility on the server and match its webhook token to the Hardware Agent auth Secret. A separate compute-node SSH identity remains optional through `diagnosticAgent.hostSshKeySecretName`. The chart generates the Hardware Agent's internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
 helm upgrade aifoa "$MOSAIC_CHART" \

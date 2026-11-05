@@ -10,8 +10,8 @@ bcmMcp:
   mcpUrl: https://bcm-head.example.com:3002/mcp
   headHost: ""
   authTokenCreate: false
-  authTokenSecretName: bcm-mcp-auth
-  authTokenSecretKey: BCM_MCP_TOKEN
+  authTokenSecretName: bcm-external-mcp-auth
+  authTokenSecretKey: token
   hostSshKeySecretName: ""
   caCertificateSecret: bcm-mcp-ca
   networkPolicy:
