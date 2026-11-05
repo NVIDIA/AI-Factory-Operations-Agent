@@ -242,7 +242,7 @@ researchAgent:
     requiredNodeHostname: ""
     image:
       repository: opensearchproject/opensearch
-      tag: "2.17.0"
+      tag: "2.19.7"
       pullPolicy: IfNotPresent
     pvc:
       size: 20Gi
@@ -377,7 +377,7 @@ slurmEvidenceCollector:
     secretKey: token
   image:
     repository: node
-    tag: 20-bookworm-slim
+    tag: 24.22.2-bookworm-slim
     pullPolicy: IfNotPresent
   port: 8080
   maxFileBytes: 65536
@@ -412,7 +412,7 @@ bcmMcp:
     pullPolicy: IfNotPresent
   busyboxImage:
     repository: busybox
-    tag: "1.36"
+    tag: "1.37.0"
     pullPolicy: IfNotPresent
   config:
     execTimeout: "120"

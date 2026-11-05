@@ -99,7 +99,7 @@ spec:
             - name: runtime-tools
               mountPath: /tools
         - name: init-perms
-          image: busybox:1.37
+          image: busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw && chmod 0775 /home/node/.openclaw"]
           securityContext:
@@ -109,7 +109,7 @@ spec:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
         - name: init-config
-          image: busybox:1.37
+          image: busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -281,7 +281,7 @@ spec:
             {{- end }}
         {{- if and .Values.modules.edit.enabled .Values.modules.edit.ssh.enabled }}
         - name: init-remote-ssh-credentials
-          image: busybox:1.37
+          image: busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command:
             - sh
