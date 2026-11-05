@@ -19,12 +19,15 @@ function argumentsFor(state) {
   const workdir = args.pop();
   return args.slice(4).map(arg => workdir ? arg.replace(`${workdir}/mosaic-stack`, chart) : arg);
 }
-const example = {inference:'external', baseUrl:'https://inference.example.com/v1', model:'served-model', bcmHead:'root@head.example.com',
+const example = {inference:'external', baseUrl:'https://inference.example.com/v1', model:'served-model', bcmHead:'root@head.example.com', bcmUrl:'https://head.example.com:3002/mcp',
   prometheusUrl:'http://metrics:9090', alertmanagerUrl:'http://alerts:9093', grafanaUrl:'https://dashboards.example.com/grafana',
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['bcm'],redfish:true},
+  {modules:['bcm'],bcmMode:'external'},
+  {modules:['bcm'],bcmMode:'ssh-adapter'},
+  {modules:['slurm','diagnostics'],bcmMode:'external',redfish:true,bcmCaSecret:'head-ca'},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   ...Object.keys(inferenceProfiles).map(inference => ({inference,modules:['terminal']})),
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
@@ -42,6 +45,30 @@ test('dependencies are derived without changing requested modules', () => {
   const state={modules:['diagnostics','terminal'],slurmBackend:'vanilla'};
   assert.deepEqual([...enabledModules(state)].sort(),['bcm','diagnostics','kubernetes','terminal']);
   assert.deepEqual(state.modules,['diagnostics','terminal']);
+});
+
+test('BCM defaults to the head-node endpoint and token without a head SSH identity', () => {
+  const state = {...example, modules:['diagnostics'], bcmTokenSecret:'head-token', bcmCaSecret:'head-ca'};
+  const args = argumentsFor(state);
+  for (const setting of ['bcmMcp.enabled=false', 'bcmMcp.mode=external', `bcmMcp.mcpUrl=${example.bcmUrl}`,
+    'bcmMcp.authTokenCreate=false', 'bcmMcp.authTokenSecretName=head-token', 'bcmMcp.authTokenSecretKey=token',
+    'bcmMcp.caCertificateSecret=head-ca', 'bcmMcp.headHost=', 'bcmMcp.hostSshKeySecretName=', 'diagnosticAgent.hostSshKeySecretName=']) {
+    assert.ok(args.includes(setting), setting);
+  }
+  const separateKey = argumentsFor({...state, diagnosticSshSecret:'compute-key'});
+  assert.ok(separateKey.includes('diagnosticAgent.hostSshKeySecretName=compute-key'));
+});
+
+test('changing the connection choice selects its endpoint and credential owner', () => {
+  const state = {...example, modules:['bcm'], bcmMode:'external'};
+  const external = argumentsFor(state);
+  const ssh = argumentsFor({...state, bcmMode:'ssh-adapter'});
+  const setting = (args, name) => args.find(arg => arg.startsWith(`${name}=`));
+  assert.notEqual(setting(external, 'bcmMcp.authTokenSecretName'), setting(ssh, 'bcmMcp.authTokenSecretName'));
+  assert.ok(ssh.includes('bcmMcp.authTokenCreate=true'));
+  assert.ok(ssh.includes('bcmMcp.enabled=true'));
+  assert.ok(ssh.includes(`bcmMcp.headHost=${example.bcmHead}`));
+  assert.ok(!ssh.includes(`bcmMcp.mcpUrl=${example.bcmUrl}`));
 });
 test('Redfish is opt-in and requires BCM, including when BCM is selected by a dependency', () => {
   for (const [selected, redfish, expected] of [
@@ -151,8 +178,11 @@ cases=[]
 for inference in ['external', *json.loads(sys.argv[1])]:
  for backend in ['bcm','vanilla']:
   for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
-   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
+   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','bcmUrl':'https://head.example.com:3002/mcp','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
    cases.append({'state':state,'components':list(render_footprint(state).values())})
+for modules in [['bcm'], ['slurm'], ['diagnostics'], ['bcm','slurm','diagnostics']]:
+ state={'inference':'external','modules':modules,'bcmMode':'external','bcmUrl':'https://head.example.com:3002/mcp','baseUrl':'https://inference.example.com/v1','model':'served-model'}
+ cases.append({'state':state,'components':list(render_footprint(state).values())})
 print(json.dumps({'catalog':catalog,'cases':cases}))`;
   const result = spawnSync('uv', ['run', '--project', 'docs', '--locked', 'python', '-c', script, JSON.stringify(Object.keys(inferenceProfiles))], {cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024});
   assert.equal(result.status, 0, result.stderr);

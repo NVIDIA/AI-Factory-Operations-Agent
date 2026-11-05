@@ -84,7 +84,11 @@ tolerations:
 {{- $bcm := .Values.modules.bcm | default dict -}}
 {{- $moduleEnabled := true -}}
 {{- if hasKey $bcm "enabled" -}}{{- $moduleEnabled = $bcm.enabled -}}{{- end -}}
-{{- if and $moduleEnabled (or .Values.bcmMcp.enabled .Values.externalServices.bcmMcp.enabled) -}}true{{- else -}}false{{- end -}}
+{{- if and $moduleEnabled (or .Values.bcmMcp.enabled .Values.externalServices.bcmMcp.enabled (eq .Values.bcmMcp.mode "external")) -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "mosaic-stack.bcmAuthenticated" -}}
+{{- if and (eq (include "mosaic-stack.bcmEnabled" .) "true") (has .Values.bcmMcp.mode (list "ssh-adapter" "external")) -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
 {{- define "mosaic-stack.slurmEvidenceEnabled" -}}

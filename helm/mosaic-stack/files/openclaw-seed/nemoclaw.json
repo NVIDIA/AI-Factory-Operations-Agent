@@ -331,7 +331,7 @@
           "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
-          {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+          {{- if eq (include "mosaic-stack.bcmAuthenticated" .) "true" }}
           "authToken": "${MOSAIC_BCM_MCP_TOKEN}",
           {{- end }}
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},

@@ -56,7 +56,7 @@
       },
       "mcpMode": {
         "type": "string",
-        "enum": ["direct", "ssh-adapter"],
+        "enum": ["direct", "ssh-adapter", "external"],
         "description": "BCM MCP deployment mode."
       },
       "cmshEnabled": {

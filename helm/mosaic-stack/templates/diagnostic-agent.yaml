@@ -25,6 +25,23 @@ spec:
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
       {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       initContainers:
+        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        - name: prepare-bcm-ca
+          image: {{ include "mosaic-stack.image" .Values.diagnosticAgent.image | quote }}
+          command: ["python", "-c"]
+          args:
+            - |
+              import pathlib, ssl
+              roots = pathlib.Path(ssl.get_default_verify_paths().cafile).read_bytes()
+              extra = pathlib.Path('/etc/bcm-ca/ca.crt').read_bytes()
+              pathlib.Path('/combined-ca/ca.crt').write_bytes(roots + b'\n' + extra)
+          volumeMounts:
+            - name: bcm-ca
+              mountPath: /etc/bcm-ca
+              readOnly: true
+            - name: combined-ca
+              mountPath: /combined-ca
+        {{- end }}
         - name: init-nvdebug-wrapper
           image: busybox:1.36
           command:
@@ -58,6 +75,12 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            - name: SSL_CERT_FILE
+              value: /etc/combined-ca/ca.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/combined-ca/ca.crt
+            {{- end }}
             - name: DEBUGHUB_NVDEBUG__TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.nvdebugTimeoutSeconds | quote }}
             - name: DEBUGHUB_NVDEBUG__PATH
@@ -86,7 +109,12 @@ spec:
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
             - name: BCM_WEBHOOK_URL
+              {{- if eq .Values.bcmMcp.mode "external" }}
+              {{- $endpoint := urlParse .Values.bcmMcp.mcpUrl }}
+              value: {{ printf "%s://%s" $endpoint.scheme $endpoint.host | quote }}
+              {{- else }}
               value: {{ printf "http://%s:%v" .Values.bcmMcp.service.name .Values.bcmMcp.service.port | quote }}
+              {{- end }}
             - name: BCM_WEBHOOK_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -125,12 +153,27 @@ spec:
           volumeMounts:
             - name: diagnostic-agent-bin
               mountPath: /opt/mosaic-bin
+            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            - name: combined-ca
+              mountPath: /etc/combined-ca
+              readOnly: true
+            {{- end }}
             {{- if .Values.diagnosticAgent.hostSshKeySecretName }}
             - name: bcm-host-ssh-key
               mountPath: /etc/ssh-keys
               readOnly: true
             {{- end }}
       volumes:
+        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        - name: bcm-ca
+          secret:
+            secretName: {{ .Values.bcmMcp.caCertificateSecret | quote }}
+            items:
+              - key: {{ .Values.bcmMcp.caCertificateKey | quote }}
+                path: ca.crt
+        - name: combined-ca
+          emptyDir: {}
+        {{- end }}
         - name: diagnostic-agent-bin
           emptyDir: {}
         {{- if .Values.diagnosticAgent.hostSshKeySecretName }}

@@ -245,6 +245,9 @@ class StaticTokenVerifier:
 class MosaicBCMServer(BCMServer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.execution_mode = get_env_str("MOSAIC_BCM_EXECUTION_MODE", "ssh")
+        if self.execution_mode not in {"ssh", "local"}:
+            raise ValueError("MOSAIC_BCM_EXECUTION_MODE must be ssh or local")
         self.cmsh_enabled = get_env_bool("MOSAIC_BCM_CMSH_ENABLED", False)
         self.cmsh_admin_enabled = get_env_bool("MOSAIC_BCM_CMSH_ADMIN_ENABLED", False)
         self.cmsh_username = get_env_str("MOSAIC_BCM_CMSH_USERNAME", "aichatbotuser") or "aichatbotuser"
@@ -262,11 +265,14 @@ class MosaicBCMServer(BCMServer):
         self._cmsh_ready = False
         self._cmsh_setup_lock = threading.Lock()
 
-    def _ssh(self, script: str, timeout: int, stdin: bytes | None = None,
-             max_output_bytes: int | None = None) -> subprocess.CompletedProcess[bytes]:
-        if not self.bcm_head_host:
-            raise RuntimeError("BCM head host is not configured")
-        command = ["ssh", self.bcm_head_host, "sh -lc " + shlex.quote(script)]
+    def _run_head(self, script: str, timeout: int, stdin: bytes | None = None,
+                  max_output_bytes: int | None = None) -> subprocess.CompletedProcess[bytes]:
+        if self.execution_mode == "local":
+            command = ["sh", "-lc", script]
+        else:
+            if not self.bcm_head_host:
+                raise RuntimeError("BCM head host is not configured")
+            command = ["ssh", self.bcm_head_host, "sh -lc " + shlex.quote(script)]
         if max_output_bytes is None:
             return subprocess.run(command, capture_output=True, timeout=timeout, check=False, input=stdin)
         deadline = time.monotonic() + timeout
@@ -329,7 +335,7 @@ class MosaicBCMServer(BCMServer):
                 {cmsh} -c 'user; add --use {user}; set profile {profile}; commit' >/dev/null 2>&1
                 """
             ).strip()
-            result = self._ssh(setup, self.cmsh_setup_timeout)
+            result = self._run_head(setup, self.cmsh_setup_timeout)
             if result.returncode != 0:
                 error = result.stderr.decode(errors="replace").strip()
                 raise RuntimeError(f"failed to configure CMSH readonly user {self.cmsh_username}: {error}")
@@ -348,17 +354,17 @@ class MosaicBCMServer(BCMServer):
         body = "; ".join(line for line in lines if line and not line.startswith("|"))
         command = f"{self.cmsh_path} -c {shlex.quote(body)}"
         script = f"su - {shlex.quote(self.cmsh_username)} -c {shlex.quote(command)}"
-        return self._result(self._ssh(script, self.cmsh_exec_timeout))
+        return self._result(self._run_head(script, self.cmsh_exec_timeout))
 
     def _run_cmsh_admin(self, commands: str) -> str:
         if not self.cmsh_admin_enabled:
             raise RuntimeError("BCM admin CMSH is disabled")
         body = "; ".join(line.strip() for line in commands.replace("\r\n", "\n").split("\n") if line.strip())
         script = f"{shlex.quote(self.cmsh_path)} -c {shlex.quote(body)}"
-        return self._result(self._ssh(script, self.cmsh_exec_timeout))
+        return self._result(self._run_head(script, self.cmsh_exec_timeout))
 
     def _run_hardware_cmsh(self, commands: str) -> str:
-        result = self._ssh(f"{shlex.quote(self.cmsh_path)} -c {shlex.quote(commands)}", self.cmsh_exec_timeout)
+        result = self._run_head(f"{shlex.quote(self.cmsh_path)} -c {shlex.quote(commands)}", self.cmsh_exec_timeout)
         if result.returncode != 0:
             raise RuntimeError(result.stderr.decode(errors="replace").strip() or "cmsh failed")
         return result.stdout.decode(errors="replace")
@@ -422,7 +428,7 @@ class MosaicBCMServer(BCMServer):
             if not self.redfish_verify_tls:
                 command.append("-k")
             try:
-                result = self._ssh(shlex.join(command + [url]), self.redfish_timeout + 30,
+                result = self._run_head(shlex.join(command + [url]), self.redfish_timeout + 30,
                                    curl_user_config(bmc["bmc_username"], bmc["bmc_password"]),
                                    max_output_bytes=REDFISH_MAX_BYTES + 4)
             except subprocess.TimeoutExpired as error:
@@ -741,7 +747,7 @@ class MosaicBCMServer(BCMServer):
             match = re.search(rf"^{field}\s+(/\S+)\s*$", metadata, re.MULTILINE)
             if not match:
                 return ""
-            result = self._ssh(f"tail -c 20000 -- {shlex.quote(match.group(1))}", self.cmsh_exec_timeout)
+            result = self._run_head(f"tail -c 20000 -- {shlex.quote(match.group(1))}", self.cmsh_exec_timeout)
             return result.stdout.decode(errors="replace") if result.returncode == 0 else ""
 
         return f"# Metadata\n{metadata}\n# StdOut\n{read('Stdout file')}\n# StdErr\n{read('Stderr file')}"
@@ -756,7 +762,7 @@ class MosaicBCMServer(BCMServer):
         if self.cmsh_admin_enabled:
             @self.mcp.tool()
             async def execute_cmsh_admin(commands: str) -> str:
-                """Execute an approval-gated CMSH change using the configured SSH administrator identity."""
+                """Execute an approval-gated CMSH change using the configured head-node administrator identity."""
                 return await asyncio.to_thread(self._run_cmsh_admin, commands)
 
         @self.mcp.tool()
@@ -811,7 +817,7 @@ def main() -> int:
         auth_token=token or None,
         max_output_lines=get_env_int("MCP_MAX_OUTPUT_LINES", 200),
         max_output_chars=get_env_int("MCP_MAX_OUTPUT_CHARS", 20000),
-        preloaded_modules=(get_env_str("MCP_PRELOADED_MODULES", "shared,slurm") or "").split(","),
+        preloaded_modules=[name.strip() for name in (get_env_str("MCP_PRELOADED_MODULES", "shared,slurm") or "").split(",") if name.strip()],
         cmsh_username=None,
         notes_manager=notes,
     )
@@ -820,21 +826,33 @@ def main() -> int:
     if server.hardware_compat_enabled and not hardware_token:
         raise RuntimeError("MOSAIC_BCM_HARDWARE_TOKEN is required when Hardware Agent compatibility is enabled")
 
+    ssl_cert = get_env_str("MOSAIC_BCM_TLS_CERT", "") or ""
+    ssl_key = get_env_str("MOSAIC_BCM_TLS_KEY", "") or ""
+    if server.execution_mode == "local" and (not token or not ssl_cert or not ssl_key):
+        raise RuntimeError("local BCM MCP requires MOSAIC_BCM_MCP_TOKEN, MOSAIC_BCM_TLS_CERT and MOSAIC_BCM_TLS_KEY")
+    scheme = "https" if ssl_cert else "http"
+    public_url = get_env_str("MOSAIC_BCM_PUBLIC_URL", f"{scheme}://bcm-mcp-tools:{port}").rstrip("/")
     auth = {
         "token_verifier": StaticTokenVerifier(token),
         "auth": AuthSettings(
-            issuer_url=f"http://bcm-mcp-tools:{port}",
-            resource_server_url=f"http://bcm-mcp-tools:{port}/mcp",
+            issuer_url=public_url,
+            resource_server_url=f"{public_url}/mcp",
             required_scopes=["bcm"],
         ),
     } if token else {}
-    server.mcp = FastMCP("BCM MCP over SSH", host=host, port=port, stateless_http=True, **auth)
+    server.mcp = FastMCP("BCM MCP", host=host, port=port, stateless_http=True, **auth)
     server._register_tools()  # pylint: disable=protected-access
     server.register_mosaic_tools()
     if server.hardware_compat_enabled:
         server.register_hardware_routes(hardware_token)
     logging.getLogger("mosaic.bcm").info("Starting local BCM MCP server on %s:%s", host, port)
-    server.mcp.run(transport="streamable-http")
+    if ssl_cert:
+        import uvicorn
+
+        uvicorn.run(server.mcp.streamable_http_app(), host=host, port=port,
+                    ssl_certfile=ssl_cert, ssl_keyfile=ssl_key)
+    else:
+        server.mcp.run(transport="streamable-http")
     return 0
 
 

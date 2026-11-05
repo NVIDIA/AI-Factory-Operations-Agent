@@ -1,6 +1,39 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if eq .Values.bcmMcp.mode "external" -}}
+{{- if .Values.bcmMcp.enabled -}}
+{{- fail "bcmMcp.mode=external requires bcmMcp.enabled=false; the MCP server is operated independently" -}}
+{{- end -}}
+{{- $endpoint := urlParse .Values.bcmMcp.mcpUrl -}}
+{{- if or (ne $endpoint.scheme "https") (not $endpoint.host) $endpoint.userinfo $endpoint.query $endpoint.fragment -}}
+{{- fail "external bcmMcp.mcpUrl must be HTTPS without credentials, query or fragment" -}}
+{{- end -}}
+{{- if or (not .Values.bcmMcp.authTokenSecretName) (not .Values.bcmMcp.authTokenSecretKey) .Values.bcmMcp.authTokenCreate -}}
+{{- fail "external BCM MCP requires an existing authTokenSecretName/authTokenSecretKey and authTokenCreate=false matching the server token" -}}
+{{- end -}}
+{{- if .Values.bcmMcp.hostSshKeySecretName -}}
+{{- fail "external BCM MCP does not use bcmMcp.hostSshKeySecretName" -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.bcmMcp.networkPolicy.enabled -}}
+{{- if or (ne .Values.bcmMcp.mode "external") (not .Values.modules.bcm.enabled) -}}
+{{- fail "bcmMcp.networkPolicy.enabled requires modules.bcm.enabled=true and bcmMcp.mode=external" -}}
+{{- end -}}
+{{- if empty .Values.bcmMcp.networkPolicy.headCidrs -}}
+{{- fail "bcmMcp.networkPolicy.headCidrs must include every head-node address" -}}
+{{- end -}}
+{{- $port := int .Values.bcmMcp.networkPolicy.mcpPort -}}
+{{- if or (lt $port 1) (gt $port 65535) (eq $port 22) -}}
+{{- fail "bcmMcp.networkPolicy.mcpPort must be between 1 and 65535 and cannot be SSH port 22" -}}
+{{- end -}}
+{{- $endpoint := urlParse .Values.bcmMcp.mcpUrl -}}
+{{- $urlPort := trimPrefix ":" (regexFind ":[0-9]+$" $endpoint.host) | default "443" | int -}}
+{{- if ne $port $urlPort -}}
+{{- fail "bcmMcp.networkPolicy.mcpPort must match the external MCP URL port" -}}
+{{- end -}}
+{{- end -}}
+
 {{- if not (has .Values.llm.mode (list "external" "vllm")) -}}
 {{- fail "llm.mode must be one of: external, vllm" -}}
 {{- end -}}
@@ -25,8 +58,8 @@
 {{- end -}}
 {{- end -}}
 {{- if .Values.modules.bcm.redfish.enabled -}}
-{{- if not (and .Values.modules.bcm.enabled .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter")) -}}
-{{- fail "modules.bcm.redfish.enabled requires modules.bcm.enabled=true, bcmMcp.enabled=true and bcmMcp.mode=ssh-adapter" -}}
+{{- if not (and .Values.modules.bcm.enabled (or .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "external")) (has .Values.bcmMcp.mode (list "ssh-adapter" "external"))) -}}
+{{- fail "modules.bcm.redfish.enabled requires modules.bcm.enabled=true and an SSH adapter or external BCM MCP endpoint" -}}
 {{- end -}}
 {{- if or (lt (int .Values.modules.bcm.redfish.timeoutSeconds) 1) (gt (int .Values.modules.bcm.redfish.timeoutSeconds) 300) -}}
 {{- fail "modules.bcm.redfish.timeoutSeconds must be between 1 and 300" -}}
@@ -46,10 +79,10 @@
 {{- if and .Values.modules.slurm.enabled (eq .Values.modules.slurm.backend "bcm") (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.slurm.backend=bcm requires an enabled BCM MCP service" -}}
 {{- end -}}
-{{- if and (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") (ne .Values.bcmMcp.mode "ssh-adapter") -}}
-{{- fail "BCM Slurm evidence requires bcmMcp.mode=ssh-adapter" -}}
+{{- if and (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") (not (has .Values.bcmMcp.mode (list "ssh-adapter" "external"))) -}}
+{{- fail "BCM Slurm evidence requires bcmMcp.mode=ssh-adapter or external" -}}
 {{- end -}}
-{{- if and .Values.modules.slurm.enabled (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") .Values.bcmMcp.enabled .Values.bcmMcp.config.noCmshUser -}}
+{{- if and .Values.modules.slurm.enabled (eq (include "mosaic-stack.slurmBcmEnabled" .) "true") (or .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "external")) .Values.bcmMcp.config.noCmshUser -}}
 {{- fail "BCM-backed Slurm evidence requires bcmMcp.config.noCmshUser=false" -}}
 {{- end -}}
 {{- if and .Values.modules.slurm.enabled (ne (include "mosaic-stack.slurmBcmEnabled" .) "true") (not .Values.modules.slurm.evidenceCollector.enabled) -}}
@@ -279,8 +312,8 @@
 {{- if and .Values.modules.edit.bcm.enabled (ne (include "mosaic-stack.bcmEnabled" .) "true") -}}
 {{- fail "modules.edit.bcm.enabled=true requires an enabled BCM MCP service" -}}
 {{- end -}}
-{{- if and .Values.modules.edit.bcm.enabled (ne .Values.bcmMcp.mode "ssh-adapter") -}}
-{{- fail "modules.edit.bcm.enabled=true requires bcmMcp.mode=ssh-adapter" -}}
+{{- if and .Values.modules.edit.bcm.enabled (not (has .Values.bcmMcp.mode (list "ssh-adapter" "external"))) -}}
+{{- fail "modules.edit.bcm.enabled=true requires bcmMcp.mode=ssh-adapter or external" -}}
 {{- end -}}
 {{- if and .Values.modules.edit.ssh.enabled (not .Values.modules.edit.ssh.existingSecret) -}}
 {{- fail "modules.edit.ssh.existingSecret is required when edit SSH is enabled" -}}
@@ -342,9 +375,9 @@
 {{- if and .Values.modules.diagnostics.enabled (not .Values.modules.bcm.enabled) -}}
 {{- fail "modules.diagnostics.enabled=true requires modules.bcm.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.modules.diagnostics.enabled (not .Values.bcmMcp.enabled) -}}
+{{- if and .Values.modules.diagnostics.enabled (not (or .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "external"))) -}}
 {{- fail "modules.diagnostics.enabled=true requires bcmMcp.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.modules.diagnostics.enabled (ne .Values.bcmMcp.mode "ssh-adapter") -}}
-{{- fail "modules.diagnostics.enabled=true requires bcmMcp.mode=ssh-adapter" -}}
+{{- if and .Values.modules.diagnostics.enabled (not (has .Values.bcmMcp.mode (list "ssh-adapter" "external"))) -}}
+{{- fail "modules.diagnostics.enabled=true requires bcmMcp.mode=ssh-adapter or external" -}}
 {{- end -}}
