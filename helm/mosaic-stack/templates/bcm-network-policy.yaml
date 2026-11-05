@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.bcmMcp.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bcm-head-access
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  # Include dynamically created sandboxes. Use a dedicated AFOA namespace.
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    # Preserve other destinations, excluding every configured head-node address.
+    {{- range $family := list "0.0.0.0/0" "::/0" }}
+    - to:
+        - ipBlock:
+            cidr: {{ $family | quote }}
+            {{- $exceptions := list }}
+            {{- range $.Values.bcmMcp.networkPolicy.headCidrs }}
+            {{- if eq (contains ":" .) (contains ":" $family) }}
+            {{- $exceptions = append $exceptions . }}
+            {{- end }}
+            {{- end }}
+            {{- with $exceptions }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+    {{- end }}
+    - to:
+        {{- range .Values.bcmMcp.networkPolicy.headCidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.bcmMcp.networkPolicy.mcpPort }}
+{{- end }}

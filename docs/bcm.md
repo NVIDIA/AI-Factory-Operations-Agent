@@ -8,6 +8,9 @@ SSH. Kind remains independent of Base Command Manager's `cm-kubernetes-setup` in
 For upgrades, UI access, and module configuration, see the
 [shared Helm guide](installation.md).
 
+To connect to an independently operated HTTPS Base Command Manager MCP endpoint without giving
+AFOA head-node SSH access, see [External Base Command Manager MCP](bcm-external.md).
+
 ## 1. Prerequisites
 
 Run this procedure as `root` on the Base Command Manager head node. Install Docker, Kind, Helm

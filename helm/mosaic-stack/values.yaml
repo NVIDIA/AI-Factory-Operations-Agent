@@ -395,6 +395,7 @@ slurmEvidenceCollector:
 
 bcmMcp:
   enabled: false
+  # direct, ssh-adapter, or external (independently operated HTTPS server).
   mode: direct
   mcpUrl: http://bcm-mcp-tools:3001/mcp
   headHost: ""
@@ -403,6 +404,15 @@ bcmMcp:
   authTokenSecretKey: BCM_MCP_TOKEN
   authToken: ""
   hostSshKeySecretName: ""
+  # External mode connects to an independently operated HTTPS MCP server.
+  caCertificateSecret: ""
+  caCertificateKey: ca.crt
+  networkPolicy:
+    enabled: false
+    # Dedicated AFOA namespace only: applies to every pod, including agent sandboxes.
+    # Include every IPv4/IPv6 address of the head node as /32 or /128 CIDRs.
+    headCidrs: []
+    mcpPort: 3002
   service:
     name: bcm-mcp-tools
     port: 3001
