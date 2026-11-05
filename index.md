@@ -32,7 +32,6 @@ Installation and configuration <docs/installation>
 Installation builder <docs/installation_builder>
 Mission Control installation <docs/nmc_installation>
 Base Command Manager installation <docs/bcm>
-External Base Command Manager MCP <docs/bcm-external>
 Kind installation <docs/kind_installation>
 ```
 

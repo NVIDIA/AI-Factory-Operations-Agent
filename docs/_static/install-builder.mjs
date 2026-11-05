@@ -71,7 +71,7 @@ export function buildCommand(state) {
     set('observability.grafanaAuth.existingSecret', value('grafanaSecret'), true);
   }
   if (enabled.has('bcm')) {
-    const external = state.bcmMode === 'external';
+    const external = state.bcmMode !== 'ssh-adapter';
     set('bcmMcp.enabled', !external); set('bcmMcp.mode', external ? 'external' : 'ssh-adapter');
     set('bcmMcp.mcpUrl', external ? value('bcmUrl') : 'http://bcm-mcp-tools:3001/mcp', true);
     set('bcmMcp.authTokenCreate', !external);
@@ -113,7 +113,7 @@ export function buildCommand(state) {
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');
 if (root) {
-  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', bcmMode: 'ssh-adapter', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
+  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', bcmMode: 'external', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
   const form = document.createElement('form'); form.addEventListener('submit', event => event.preventDefault());
   const options = document.createElement('fieldset'); options.innerHTML = '<legend>Installation options</legend>';
   function select(key, label, choices) {
@@ -171,8 +171,11 @@ if (root) {
       if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaType', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
       if (enabled.has('bcm')) {
-        settingsBody.append(select('bcmMode', 'Base Command Manager connection', [['ssh-adapter', 'Use SSH key'], ['external', 'Connect to head-node MCP server']]));
-        if (state.bcmMode === 'external') {
+        const alternative = document.createElement('label'); const toggle = document.createElement('input');
+        toggle.type = 'checkbox'; toggle.name = 'bcmSshAlternative'; toggle.checked = state.bcmMode === 'ssh-adapter';
+        toggle.addEventListener('change', () => {state.bcmMode = toggle.checked ? 'ssh-adapter' : 'external'; update(true);});
+        alternative.append(toggle, document.createTextNode('Use SSH adapter instead (not recommended)')); settingsBody.append(alternative);
+        if (state.bcmMode !== 'ssh-adapter') {
           keys.push('bcmUrl', 'bcmTokenSecret', 'bcmCaSecret');
           if (enabled.has('diagnostics')) keys.push('diagnosticSshSecret');
         } else keys.push('bcmHead', 'bcmSecret');
@@ -199,8 +202,8 @@ if (root) {
     }
     if (enabled.has('grafana')) notes.push(`Create ${state.grafanaSecret || fields.grafanaSecret[1]} with keys username and password.`);
     if (enabled.has('bcm')) {
-      if (state.bcmMode === 'external') {
-        notes.push(`Install the MCP server on the head node first. Create ${state.bcmTokenSecret || fields.bcmTokenSecret[1]} with key token matching the server token.`);
+      if (state.bcmMode !== 'ssh-adapter') {
+        notes.push(`Install the MCP server on the head node first and enable its matching Redfish, Hardware Agent, or admin CMSH settings for your selected modules. Create ${state.bcmTokenSecret || fields.bcmTokenSecret[1]} with key token matching the server token.`);
         if (state.bcmCaSecret?.trim()) notes.push(`Create ${state.bcmCaSecret.trim()} with key ca.crt containing the MCP server CA certificate.`);
         if (enabled.has('diagnostics') && state.diagnosticSshSecret?.trim()) notes.push(`Create ${state.diagnosticSshSecret.trim()} with key id_ecdsa for compute-node collection.`);
       } else notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
@@ -211,8 +214,8 @@ if (root) {
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' ');
     if (enabled.has('bcm')) {
-      const link = document.createElement('a'); link.href = state.bcmMode === 'external' ? 'bcm-external.html' : 'installation.html#base-command-manager';
-      link.textContent = state.bcmMode === 'external' ? 'Head-node MCP installation guide' : 'Base Command Manager installation guide';
+      const link = document.createElement('a'); link.href = state.bcmMode !== 'ssh-adapter' ? 'installation.html#use-a-head-node-mcp-server' : 'installation.html#use-an-ssh-key';
+      link.textContent = state.bcmMode !== 'ssh-adapter' ? 'Head-node MCP installation guide' : 'Base Command Manager installation guide';
       prerequisites.append(' ', link);
     }
     code.textContent = buildCommand(state); status.textContent = '';
@@ -235,7 +238,7 @@ export function selectedComponents(catalog, state, enabled) {
       }
     }
   }
-  return Object.values(components).filter(component => !(state.bcmMode === 'external' && component.kind === 'Deployment' && component.name === 'bcm-mcp-tools'));
+  return Object.values(components).filter(component => !(state.bcmMode !== 'ssh-adapter' && component.kind === 'Deployment' && component.name === 'bcm-mcp-tools'));
 }
 
 export function quantity(value, resource) {

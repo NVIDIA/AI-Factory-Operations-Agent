@@ -518,53 +518,110 @@ server exposes only read tools. For a private CA, set
 
 ### Base Command Manager
 
-Choose how AFOA connects to Base Command Manager:
+Use a head-node MCP service over authenticated HTTPS. This is the recommended
+connection: AFOA needs the service's bearer token and trusts its TLS certificate,
+without holding a head-node SSH key. The service includes the same CMSH,
+diagnostic, Slurm evidence, Redfish, and Hardware Agent interfaces as the SSH
+adapter, with commands executed locally on the head node.
 
-- **Use an SSH key:** the chart runs an adapter that connects to the head node.
-- **Use a head-node MCP server:** install the MCP server on the head node and
-  connect AFOA to its authenticated HTTPS endpoint. AFOA does not need a
-  head-node SSH key for this option.
-
-The [installation builder](installation_builder.md) offers both connection options.
-
-#### Use an SSH key
-
-Provide the Base Command Manager head host and SSH key:
-
-```bash
-export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
-export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
-test -r "$CLUSTER_MANAGER_SSH_KEY_PATH"
-
-kubectl -n aifoa create secret generic bcm-host-ssh-key \
-  --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-helm upgrade aifoa "$MOSAIC_CHART" \
-  --devel \
-  -n aifoa \
-  --reuse-values \
-  --set modules.bcm.enabled=true \
-  --set bcmMcp.enabled=true \
-  --set bcmMcp.mode=ssh-adapter \
-  --set bcmMcp.mcpUrl=http://bcm-mcp-tools:3001/mcp \
-  --set bcmMcp.authTokenCreate=true \
-  --set bcmMcp.authTokenSecretName=bcm-mcp-auth \
-  --set bcmMcp.authTokenSecretKey=token \
-  --set bcmMcp.networkPolicy.enabled=false \
-  --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
-  --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
-  --wait \
-  --timeout 12m
-```
-
-The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+The [installation builder](installation_builder.md) selects this connection by
+default. The SSH adapter remains available under the alternative toggle below.
 
 #### Use a head-node MCP server
 
-First follow [Install the MCP server on the head node](bcm-external.md).
-That guide installs the server as a system service and explains its listening
-address, TLS certificate, bearer token, and firewall configuration.
+Install the service on the head node first, then connect AFOA from your
+Kubernetes administration host.
+
+##### Prerequisites
+
+Run the installation as `root` on the head node. It requires Docker, Helm 3,
+[uv](https://docs.astral.sh/uv/getting-started/installation/), and the NGC registry
+access configured in the [namespace and registry setup](#1-create-the-namespace-and-registry-access).
+The head node must have working CMSH and access to the compute-node and BMC
+networks used by your enabled integrations.
+
+Provide a TLS server certificate and private key. The certificate must cover
+the hostname used in the MCP URL. Keep its signing CA certificate for AFOA if
+it is privately issued. Choose an unused listening port and a head-node address
+reachable from the Kubernetes cluster.
+
+##### Install the service files and Python environment
+
+The commands below install the server shipped with this chart and the Base
+Command Manager package from its pinned container image. Docker creates a
+stopped container solely to copy the package; the service runs directly on the
+head node. These commands do not modify the image.
+
+```bash
+export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
+export CLUSTER_MANAGER_IMAGE='nvcr.io/0948643769302270/afoa-release/bcm-mcp-tools:3c2280ff'
+export CLUSTER_MANAGER_TLS_CERT='/path/to/server.crt'
+export CLUSTER_MANAGER_TLS_KEY='/path/to/server.key'
+CLUSTER_MANAGER_CHART_DIR=$(mktemp -d)
+
+# Use the same chart version selected for AFOA; replace --devel with --version when pinning.
+helm pull "$MOSAIC_CHART" --devel --untar --untardir "$CLUSTER_MANAGER_CHART_DIR"
+install -d -m 0755 /opt/afoa-bcm/vendor
+install -d -m 0700 /etc/afoa-bcm /var/lib/bcm-mcp/notes
+
+read -rsp 'NGC API key: ' NGC_API_KEY; echo
+printf '%s' "$NGC_API_KEY" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+unset NGC_API_KEY
+docker pull "$CLUSTER_MANAGER_IMAGE"
+CLUSTER_MANAGER_CONTAINER=$(docker create "$CLUSTER_MANAGER_IMAGE")
+docker cp "$CLUSTER_MANAGER_CONTAINER:/opt/venv/lib/python3.12/site-packages/bcm_mcp_tools" /opt/afoa-bcm/vendor/
+docker cp "$CLUSTER_MANAGER_CONTAINER:/opt/venv/lib/python3.12/site-packages/bcm_mcp_tools-1.2.9.dist-info" /opt/afoa-bcm/vendor/
+docker rm "$CLUSTER_MANAGER_CONTAINER"
+
+uv venv --python 3.12 /opt/afoa-bcm/venv
+uv pip install --python /opt/afoa-bcm/venv/bin/python \
+  'mcp[cli]>=1,<2' 'uvicorn>=0.30' 'httpx>=0.27' \
+  'scikit-learn>=1.3' 'cryptography>=41'
+
+install -m 0644 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/files/bcm-mcp-ssh-server.py" /opt/afoa-bcm/
+install -m 0600 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/examples/bcm-head.env.example" /etc/afoa-bcm/server.env
+install -m 0644 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/files/bcm-head.service" /etc/systemd/system/afoa-bcm-mcp.service
+install -m 0644 "$CLUSTER_MANAGER_TLS_CERT" /etc/afoa-bcm/server.crt
+install -m 0600 "$CLUSTER_MANAGER_TLS_KEY" /etc/afoa-bcm/server.key
+```
+
+The pinned image contains `bcm-mcp-tools` 1.2.9 and uses MCP Python SDK 1.x.
+Keep the image, package path, and Python dependencies aligned when changing the
+server version.
+
+##### Configure and start the server
+
+Edit `/etc/afoa-bcm/server.env` using the installed
+[environment example](../helm/mosaic-stack/examples/bcm-head.env.example):
+
+- Set the listening IP to the head-node interface reachable from AFOA.
+- Set the listening port and public HTTPS URL to the same endpoint.
+- Set the certificate and key paths to the files installed above.
+- Replace the bearer-token placeholder with a secret generated with `openssl rand -hex 32`.
+  Use the same token when creating AFOA's Kubernetes Secret.
+- Enable the optional Redfish and Hardware Agent settings only when those modules
+  are enabled in AFOA. For Hardware Agent compatibility, match its webhook token
+  in the namespace's Hardware Agent auth Secret. Match the admin CMSH setting to
+  the Base Command Manager edit module.
+
+Local execution requires both a bearer token and TLS certificate/key. The service
+needs local administrator privileges for CMSH readonly-user setup and the optional
+administration and hardware integrations. AFOA's existing approval gates remain
+in effect for agent-initiated edits.
+
+```bash
+systemctl daemon-reload
+systemctl enable --now afoa-bcm-mcp.service
+systemctl status afoa-bcm-mcp.service --no-pager
+ss -ltnp 'sport = :3002'
+```
+
+Use your configured port in the last command. The service implements the same
+CMSH, diagnostic, Slurm evidence, Redfish, and Hardware Agent interfaces as the
+SSH adapter. A stock standalone MCP release must provide those same interfaces
+before it can replace this service for all optional integrations.
+
+##### Connect AFOA
 
 Once the server is running, configure AFOA from your Kubernetes administration
 host. Use the same bearer token as the server and the CA certificate that signed
@@ -607,9 +664,73 @@ unset CLUSTER_MANAGER_MCP_TOKEN
 For a publicly trusted server certificate, omit the CA Secret creation and set
 `bcmMcp.caCertificateSecret=''`. A separate compute-node SSH identity can still
 be configured with `diagnosticAgent.hostSshKeySecretName` when hardware collection
-requires it. The [head-node guide](bcm-external.md#restrict-head-node-network-access)
-also explains the optional Helm network policy for restricting direct head-node
-connections.
+requires it.
+
+##### Restrict head-node network access
+
+The head-node administrator configures its firewall to permit the MCP TCP port
+from the cluster's actual source addresses. Depending on cluster routing, these
+can be pod or node addresses. Keep the rule in the system that manages the
+head-node firewall, including Base Command Manager-managed Shorewall where used.
+The Helm chart does not configure the host firewall or grant network reachability
+merely by setting the MCP URL.
+
+For a dedicated AFOA namespace, the
+[external endpoint values example](../helm/mosaic-stack/examples/bcm-external-values.yaml)
+also enables a Kubernetes NetworkPolicy. Replace its documentation addresses with
+every address of the head node, including any VIP and reachable alternate
+interfaces, and set the MCP port to match the URL. This policy selects all pods
+in the namespace, including dynamically created sandboxes, and permits only the
+MCP TCP port at those head-node addresses. Other destinations remain permitted.
+Administrator SSH access from outside the namespace is unaffected.
+
+NetworkPolicies are additive: other policies can reopen access, and this policy
+can broaden existing egress restrictions for other destinations. Use a dedicated
+namespace and inspect its existing policies. Enforcement requires a compatible
+CNI. Node-local traffic, host networking, and service address translation can
+behave differently across CNIs. If the CNI exempts traffic to the hosting node,
+apply the corresponding source/port restriction in the head-node firewall.
+
+<details>
+<summary id="use-an-ssh-key">Alternative: use an SSH key (not recommended)</summary>
+
+Use the SSH adapter when you need Helm to manage the MCP server inside Kubernetes
+and cannot install the head-node service. This gives the adapter a head-node SSH
+identity; the HTTPS service above is recommended to avoid storing that identity
+in AFOA.
+
+Provide the Base Command Manager head host and SSH key:
+
+```bash
+export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
+export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
+test -r "$CLUSTER_MANAGER_SSH_KEY_PATH"
+
+kubectl -n aifoa create secret generic bcm-host-ssh-key \
+  --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade aifoa "$MOSAIC_CHART" \
+  --devel \
+  -n aifoa \
+  --reuse-values \
+  --set modules.bcm.enabled=true \
+  --set bcmMcp.enabled=true \
+  --set bcmMcp.mode=ssh-adapter \
+  --set bcmMcp.mcpUrl=http://bcm-mcp-tools:3001/mcp \
+  --set bcmMcp.authTokenCreate=true \
+  --set bcmMcp.authTokenSecretName=bcm-mcp-auth \
+  --set bcmMcp.authTokenSecretKey=token \
+  --set bcmMcp.networkPolicy.enabled=false \
+  --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
+  --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
+  --wait \
+  --timeout 12m
+```
+
+The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+</details>
 
 ### Read-only Redfish
 

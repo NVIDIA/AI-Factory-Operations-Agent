@@ -26,6 +26,7 @@ for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['bcm'],redfish:true},
   {modules:['bcm'],bcmMode:'external'},
+  {modules:['bcm'],bcmMode:'ssh-adapter'},
   {modules:['slurm','diagnostics'],bcmMode:'external',redfish:true,bcmCaSecret:'head-ca'},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
   ...Object.keys(inferenceProfiles).map(inference => ({inference,modules:['terminal']})),
@@ -46,8 +47,8 @@ test('dependencies are derived without changing requested modules', () => {
   assert.deepEqual(state.modules,['diagnostics','terminal']);
 });
 
-test('head-node MCP selection uses the endpoint and token without a head SSH identity', () => {
-  const state = {...example, modules:['diagnostics'], bcmMode:'external', bcmTokenSecret:'head-token', bcmCaSecret:'head-ca'};
+test('BCM defaults to the head-node endpoint and token without a head SSH identity', () => {
+  const state = {...example, modules:['diagnostics'], bcmTokenSecret:'head-token', bcmCaSecret:'head-ca'};
   const args = argumentsFor(state);
   for (const setting of ['bcmMcp.enabled=false', 'bcmMcp.mode=external', `bcmMcp.mcpUrl=${example.bcmUrl}`,
     'bcmMcp.authTokenCreate=false', 'bcmMcp.authTokenSecretName=head-token', 'bcmMcp.authTokenSecretKey=token',
@@ -177,7 +178,7 @@ cases=[]
 for inference in ['external', *json.loads(sys.argv[1])]:
  for backend in ['bcm','vanilla']:
   for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
-   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
+   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','bcmUrl':'https://head.example.com:3002/mcp','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
    cases.append({'state':state,'components':list(render_footprint(state).values())})
 for modules in [['bcm'], ['slurm'], ['diagnostics'], ['bcm','slurm','diagnostics']]:
  state={'inference':'external','modules':modules,'bcmMode':'external','bcmUrl':'https://head.example.com:3002/mcp','baseUrl':'https://inference.example.com/v1','model':'served-model'}

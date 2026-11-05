@@ -96,7 +96,8 @@ def render_footprint(state):
 
 
 def generate():
-    defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus"}
+    # Include the adapter in the catalog so either connection can be sized.
+    defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "bcmMode": "ssh-adapter", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus"}
     base = render_footprint(defaults)
     variants = {}
     profiles = json.loads(subprocess.check_output([

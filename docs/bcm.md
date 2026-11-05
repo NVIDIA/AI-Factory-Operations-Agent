@@ -1,15 +1,13 @@
 # Base Command Manager Installation Without Kubernetes
 
-This guide installs AI Factory Operations Agent on a Base Command Manager
-head node when Base Command Manager does not manage a Kubernetes cluster. It creates a
-single-node Kind cluster on the head node and enables read-only Base Command Manager access over
-SSH. Kind remains independent of Base Command Manager's `cm-kubernetes-setup` inventory.
+For the recommended Base Command Manager connection, install the head-node MCP
+service and connect AFOA over authenticated HTTPS using the
+[main installation section](installation.md#use-a-head-node-mcp-server).
 
-For upgrades, UI access, and module configuration, see the
-[shared Helm guide](installation.md).
-
-To connect to an independently operated HTTPS Base Command Manager MCP endpoint without giving
-AFOA head-node SSH access, see [External Base Command Manager MCP](bcm-external.md).
+The SSH alternative below is not recommended for new installations. It creates a
+single-node Kind cluster on the head node and uses an SSH adapter. Kind remains independent of Base Command Manager's
+`cm-kubernetes-setup` inventory. For upgrades, UI access, and module configuration,
+see the [shared Helm guide](installation.md).
 
 ## 1. Prerequisites
 
