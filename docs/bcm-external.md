@@ -4,7 +4,7 @@ External mode connects AFOA to an independently operated HTTPS Base Command Mana
 The chart does not deploy an SSH adapter or mount the Base Command Manager head-node SSH key.
 Existing installations retain their current behavior until external mode is selected.
 
-## Trial values
+## Configuration
 
 Use a dedicated AFOA namespace. Create `bcm-mcp-auth` in that namespace with
 the token key specified in the values example matching the server's bearer token. If the server uses a private
@@ -27,7 +27,7 @@ separate SSH identity, `diagnosticAgent.hostSshKeySecretName` can still referenc
 that identity; do not reuse the head-node root key.
 
 Kubernetes NetworkPolicies are additive. Another policy granting broader egress
-can reopen access. This trial policy permits other destinations and can broaden
+can reopen access. This policy permits other destinations and can broaden
 existing egress restrictions, so use a dedicated namespace and inspect its other
 policies before deployment. Enforcement requires a compatible CNI; node-local traffic,
 host networking, and service address translation can behave differently across
@@ -45,7 +45,7 @@ Redfish tools, `execute_cmsh_admin`, `slurm_job_evidence`, and Hardware Agent
 a compatible server implementation. Merely changing the URL does not add these
 features to a stock Base Command Manager MCP release.
 
-For trials requiring these interfaces, the chart's
+For these interfaces, the chart's
 `files/bcm-mcp-ssh-server.py` can also run directly on the head node using the
 same Base Command Manager Python package version as the chart image (`bcm-mcp-tools` 1.2.9
 with MCP Python SDK 1.x for image tag `3c2280ff`). Set these service environment
@@ -64,17 +64,3 @@ The environment example also lists the optional Redfish and Hardware Agent
 settings. Match the Hardware Agent token to its webhook token in the namespace's
 Hardware Agent auth Secret. Match the CMSH admin setting to the explicitly
 enabled Base Command Manager edit module; existing approval gates remain in AFOA.
-
-## Trial acceptance
-
-Verify certificate validation, rejection without a token, and a successful
-authenticated MCP tool request. Exercise CMSH, a discovered diagnostic command,
-Slurm evidence, and each enabled optional integration. Test head-node SSH
-connectivity from both the runtime pod and a sandbox and confirm it fails while
-the MCP request succeeds. Check unrelated Kubernetes, inference, observability,
-and compute-node workflows remain reachable.
-
-AFOA's external configuration and the rendered NetworkPolicy have automated
-tests in `helm/mosaic-stack/tests/test_bcm_external.py` (requires PyYAML). These
-checks validate policy semantics; live CNI enforcement is a separate acceptance
-requirement.
