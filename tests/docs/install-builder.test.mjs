@@ -7,13 +7,14 @@ import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {buildCommand, enabledModules, footprint, modules, quantity, selectedComponents} from '../../docs/_static/install-builder.mjs';
+import {buildCommand, enabledModules, footprint, inferenceProfiles, modules, quantity, selectedComponents} from '../../docs/_static/install-builder.mjs';
 const chart = fileURLToPath(new URL('../../helm/mosaic-stack', import.meta.url));
 function argumentsFor(state) {
   const shell = `trap '[ -z "\${MOSAIC_CHART_WORKDIR:-}" ] || rm -rf "$MOSAIC_CHART_WORKDIR"' EXIT; helm() { if [ "$1" = pull ]; then ln -s '${chart}' "$MOSAIC_CHART_WORKDIR/mosaic-stack"; else printf '%s\\0' "$@"; fi; };\n${buildCommand(state)}\nprintf '%s\\0' "\${MOSAIC_CHART_WORKDIR:-}"`;
   const result = spawnSync('bash', ['-c', shell], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   const args = result.stdout.split('\0');
+  assert.deepEqual(args.slice(0, 3), ['upgrade', '--install', 'aifoa']);
   args.pop();
   const workdir = args.pop();
   return args.slice(4).map(arg => workdir ? arg.replace(`${workdir}/mosaic-stack`, chart) : arg);
@@ -25,7 +26,7 @@ for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['bcm'],redfish:true},
   {modules:['kubernetes','prometheus','alertmanager','loki','grafana','bcm','slurm','diagnostics','research','terminal','edit','clusters']},
-  {inference:'super',modules:['terminal']}, {inference:'ultra',modules:['grafana']},
+  ...Object.keys(inferenceProfiles).map(inference => ({inference,modules:['terminal']})),
 ]) test(`generated selection renders in Helm: ${JSON.stringify(state)}`, () => {
   const args = argumentsFor({...example, ...state});
   const renderArgs = [];
@@ -34,7 +35,7 @@ for (const state of [
     if (['--timeout','--version'].includes(args[i])) {i++; continue;}
     renderArgs.push(args[i]);
   }
-  const result = spawnSync('helm', ['template','mosaic',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
+  const result = spawnSync('helm', ['template','aifoa',chart,...renderArgs], {encoding:'utf8',maxBuffer:8*1024*1024});
   assert.equal(result.status,0,result.stderr);
 });
 test('dependencies are derived without changing requested modules', () => {
@@ -147,16 +148,16 @@ sys.path.insert(0,'docs')
 from conf import generate,render_footprint,MODULES
 catalog=generate()
 cases=[]
-for inference in ['external','super','ultra']:
+for inference in ['external', *json.loads(sys.argv[1])]:
  for backend in ['bcm','vanilla']:
   for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
    state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
    cases.append({'state':state,'components':list(render_footprint(state).values())})
 print(json.dumps({'catalog':catalog,'cases':cases}))`;
-  const result = spawnSync('uv', ['run', '--project', 'docs', '--locked', 'python', '-c', script], {cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024});
+  const result = spawnSync('uv', ['run', '--project', 'docs', '--locked', 'python', '-c', script, JSON.stringify(Object.keys(inferenceProfiles))], {cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024});
   assert.equal(result.status, 0, result.stderr);
   const {catalog, cases} = JSON.parse(result.stdout);
-  assert.deepEqual(Object.keys(catalog.variants).filter(name => !['sandbox', 'super', 'ultra', 'slurm-vanilla'].includes(name)).sort(),
+  assert.deepEqual(Object.keys(catalog.variants).filter(name => !['sandbox', ...Object.keys(inferenceProfiles), 'slurm-vanilla'].includes(name)).sort(),
     [...enabledModules({modules: Object.keys(modules)})].sort());
   const normalize = components => Object.fromEntries(components.map(component => [`${component.kind}/${component.name}`, {...component,
     containers: [...(component.containers || [])].sort((left, right) => left.name.localeCompare(right.name)),
@@ -169,4 +170,11 @@ for (const grafanaType of [undefined, 'victoriametrics-metrics-datasource']) tes
   const args = argumentsFor({...example, modules:['grafana'], grafanaType, grafanaUid:'metrics'});
   assert.ok(args.includes(`observability.grafanaDatasourceType=${grafanaType || 'prometheus'}`));
   assert.ok(args.includes('observability.grafanaDatasourceUid=metrics'));
+});
+
+test('namespace selection defaults to aifoa and preserves custom installations', () => {
+  for (const namespace of [undefined, 'existing-agent']) {
+    const args = argumentsFor({...example, modules:[], namespace});
+    assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
+  }
 });

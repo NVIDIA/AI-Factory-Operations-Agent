@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const chart = 'oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack';
+export const inferenceProfiles = {
+  super: {label: 'Nemotron 3.5 Super VL (1 GPU)', file: 'vllm-super-1gpu.yaml', model: 'nemotron-3.5-super-vl'},
+  qwen: {label: 'Qwen3.8 Flash-Next (1 B200)', file: 'vllm-qwen-1gpu.yaml', model: 'qwen3.8-flash-next'},
+};
 export const modules = {
   kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
@@ -10,7 +14,7 @@ export const modules = {
 };
 const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
-  namespace: ['Namespace', 'mosaic'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
+  namespace: ['Namespace', 'aifoa'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
   version: ['Pinned chart version (optional)', '', 'e.g. 0.0.1'],
   baseUrl: ['Inference API base URL', '', 'https://inference.example.com/v1'],
   model: ['Inference model', '', 'Your served model name'], llmSecret: ['Inference Secret (apiKey)', 'mosaic-external-llm'],
@@ -75,7 +79,7 @@ export function buildCommand(state) {
   }
   if (enabled.has('research')) {
     set('modules.research.secrets.create', false);
-    set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : state.inference === 'ultra' ? 'nemotron-ultra-550b' : 'nemotron-3.5-super-vl', true);
+    set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : inferenceProfiles[state.inference].model, true);
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
@@ -83,19 +87,19 @@ export function buildCommand(state) {
   let target = quote(chart);
   let prefix = '';
   if (state.inference !== 'external') {
-    const profile = state.inference === 'ultra' ? 'vllm-ultra-4gpu.yaml' : 'vllm-super-1gpu.yaml';
+    const profile = inferenceProfiles[state.inference].file;
     prefix = `MOSAIC_CHART_WORKDIR=$(mktemp -d)\nhelm pull ${quote(chart)} ${version} --untar --untardir "$MOSAIC_CHART_WORKDIR"\n\n`;
     target = '"$MOSAIC_CHART_WORKDIR/mosaic-stack"';
     if (version) args.shift();
     args.unshift(`-f "$MOSAIC_CHART_WORKDIR/mosaic-stack/profiles/${profile}"`);
   }
   args.push('--atomic', '--wait', `--timeout ${state.inference === 'external' ? '12m' : '30m'}`);
-  return prefix + `helm upgrade --install mosaic ${target} \\\n  ${args.join(' \\\n  ')}`;
+  return prefix + `helm upgrade --install aifoa ${target} \\\n  ${args.join(' \\\n  ')}`;
 }
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');
 if (root) {
-  const state = {inference: 'external', channel: 'devel', slurmBackend: 'bcm', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
+  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
   const form = document.createElement('form'); form.addEventListener('submit', event => event.preventDefault());
   const options = document.createElement('fieldset'); options.innerHTML = '<legend>Installation options</legend>';
   function select(key, label, choices) {
@@ -106,7 +110,7 @@ if (root) {
     wrapper.append(input); return wrapper;
   }
   const optionBody = document.createElement('div'); optionBody.className = 'builder-settings'; options.append(optionBody);
-  optionBody.append(select('inference', 'Inference', [['external', 'Existing endpoint'], ['super', 'On-prem: Nemotron 3.5 Super VL (1 GPU)'], ['ultra', 'On-prem: Nemotron Ultra (4 Blackwell GPUs)']]),
+  optionBody.append(select('inference', 'Inference', [['external', 'Existing endpoint'], ...Object.entries(inferenceProfiles).map(([id, profile]) => [id, `On-prem: ${profile.label}`])]),
     select('channel', 'Chart channel', [['devel', 'Latest development'], ['stable', 'Latest stable']]));
   form.append(options);
   const moduleGroup = document.createElement('fieldset'); moduleGroup.innerHTML = '<legend>Modules</legend><p>UI and execution are always enabled. Required dependencies are selected automatically.</p>';

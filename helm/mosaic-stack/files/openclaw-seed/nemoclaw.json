@@ -1,3 +1,11 @@
+{{- $modelOptions := dict "reasoning" false "contextWindow" 262144 "maxTokens" 8192 -}}
+{{- $thinkingDefault := "off" -}}
+{{- if eq .Values.llm.mode "vllm" -}}
+{{- $modelOptions = mergeOverwrite $modelOptions .Values.llm.vllm.modelOptions -}}
+{{- $thinkingDefault = .Values.llm.vllm.thinkingDefault -}}
+{{- end -}}
+{{- $modelOptions = mergeOverwrite $modelOptions .Values.llm.modelOptions -}}
+{{- $thinkingDefault = default $thinkingDefault .Values.openclaw.thinkingDefault -}}
 {{- if hasKey .Values.openclaw.additionalModelProviders "llm" -}}
 {{- fail "openclaw.additionalModelProviders: llm is reserved for the primary inference provider" -}}
 {{- end -}}
@@ -75,7 +83,7 @@
         "observability",
         "slurm"
       ],
-      "thinkingDefault": "off",
+      "thinkingDefault": {{ $thinkingDefault | quote }},
       "reasoningDefault": "off",
       {{- if .Values.openclaw.slack.enabled }}
       "maxConcurrent": {{ .Values.openclaw.slack.maxConcurrent }},
@@ -97,7 +105,7 @@
         },
         {{- end }}
         "workspace": "~/.openclaw/workspace",
-        "thinkingDefault": "off",
+        "thinkingDefault": {{ $thinkingDefault | quote }},
         "reasoningDefault": "off"
       }
     ]
@@ -200,7 +208,7 @@
           {
             "id": {{ include "mosaic-stack.llmModel" . | quote }},
             "name": {{ include "mosaic-stack.llmModel" . | quote }},
-            "reasoning": false,
+            "reasoning": {{ $modelOptions.reasoning | toJson }},
             "input": [
               "text"
             ],
@@ -210,8 +218,11 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 262144,
-            "maxTokens": 8192
+            "contextWindow": {{ $modelOptions.contextWindow }},
+            {{- with $modelOptions.thinkingLevelMap }}
+            "thinkingLevelMap": {{ . | toJson }},
+            {{- end }}
+            "maxTokens": {{ $modelOptions.maxTokens }}
           }
         ]
       }
