@@ -217,6 +217,10 @@ if (root) {
       const link = document.createElement('a'); link.href = state.bcmMode !== 'ssh-adapter' ? 'installation.html#use-a-head-node-mcp-server' : 'installation.html#use-an-ssh-key';
       link.textContent = state.bcmMode !== 'ssh-adapter' ? 'Head-node MCP installation guide' : 'Base Command Manager installation guide';
       prerequisites.append(' ', link);
+      if (state.bcmMode !== 'ssh-adapter') {
+        const setup = document.createElement('a'); setup.href = 'bcm.html#install-with-one-script';
+        setup.textContent = 'Set up MCP and Kind together'; prerequisites.append(' ', setup);
+      }
     }
     code.textContent = buildCommand(state); status.textContent = '';
     if (catalog) renderSizing(sizing, catalog, state, enabled);

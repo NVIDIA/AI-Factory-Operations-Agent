@@ -518,39 +518,29 @@ server exposes only read tools. For a private CA, set
 
 ### Base Command Manager
 
-Use a head-node MCP service over authenticated HTTPS. This is the recommended
-connection: AFOA needs the service's bearer token and trusts its TLS certificate,
-without holding a head-node SSH key. The service includes the same CMSH,
-diagnostic, Slurm evidence, Redfish, and Hardware Agent interfaces as the SSH
-adapter, with commands executed locally on the head node.
-
-The [installation builder](installation_builder.md) selects this connection by
-default. The SSH adapter remains available under the alternative toggle below.
+Connect to a head-node MCP service over authenticated HTTPS without a head-node
+SSH key. The [installation builder](installation_builder.md) uses this connection
+by default; the SSH adapter is available below as an alternative.
 
 #### Use a head-node MCP server
 
-Install the service on the head node first, then connect AFOA from your
-Kubernetes administration host.
+For a head node without Kubernetes, the [combined installer](bcm.md#install-with-one-script)
+sets up both this service and a local Kind cluster in one run. For an existing
+Kubernetes cluster, install the service on the head node first, then connect AFOA
+from your Kubernetes administration host using the steps below.
 
 ##### Prerequisites
 
-Run the installation as `root` on the head node. It requires Docker, Helm 3,
-[uv](https://docs.astral.sh/uv/getting-started/installation/), and the NGC registry
-access configured in the [namespace and registry setup](#1-create-the-namespace-and-registry-access).
-The head node must have working CMSH and access to the compute-node and BMC
-networks used by your enabled integrations.
-
-Provide a TLS server certificate and private key. The certificate must cover
-the hostname used in the MCP URL. Keep its signing CA certificate for AFOA if
-it is privately issued. Choose an unused listening port and a head-node address
-reachable from the Kubernetes cluster.
+Run as `root` on a head node with Docker, Helm 3, [uv](https://docs.astral.sh/uv/getting-started/installation/),
+working CMSH, and [NGC access](#1-create-the-namespace-and-registry-access).
+Provide a TLS certificate/key for the endpoint hostname and allow the Kubernetes
+cluster to reach its listening port. Keep the signing CA certificate for AFOA
+when using a private CA.
 
 ##### Install the service files and Python environment
 
-The commands below install the server shipped with this chart and the Base
-Command Manager package from its pinned container image. Docker creates a
-stopped container solely to copy the package; the service runs directly on the
-head node. These commands do not modify the image.
+Install the chart's server script and the package from its pinned container image.
+The service runs directly on the head node.
 
 ```bash
 export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
@@ -585,9 +575,7 @@ install -m 0644 "$CLUSTER_MANAGER_TLS_CERT" /etc/afoa-bcm/server.crt
 install -m 0600 "$CLUSTER_MANAGER_TLS_KEY" /etc/afoa-bcm/server.key
 ```
 
-The pinned image contains `bcm-mcp-tools` 1.2.9 and uses MCP Python SDK 1.x.
-Keep the image, package path, and Python dependencies aligned when changing the
-server version.
+The pinned image contains `bcm-mcp-tools` 1.2.9 with MCP Python SDK 1.x.
 
 ##### Configure and start the server
 
@@ -604,10 +592,8 @@ Edit `/etc/afoa-bcm/server.env` using the installed
   in the namespace's Hardware Agent auth Secret. Match the admin CMSH setting to
   the Base Command Manager edit module.
 
-Local execution requires both a bearer token and TLS certificate/key. The service
-needs local administrator privileges for CMSH readonly-user setup and the optional
-administration and hardware integrations. AFOA's existing approval gates remain
-in effect for agent-initiated edits.
+The service requires TLS and a bearer token. AFOA's approval gates still apply
+to agent-initiated edits.
 
 ```bash
 systemctl daemon-reload
@@ -616,17 +602,13 @@ systemctl status afoa-bcm-mcp.service --no-pager
 ss -ltnp 'sport = :3002'
 ```
 
-Use your configured port in the last command. The service implements the same
-CMSH, diagnostic, Slurm evidence, Redfish, and Hardware Agent interfaces as the
-SSH adapter. A stock standalone MCP release must provide those same interfaces
-before it can replace this service for all optional integrations.
+Use your configured port in the last command. This server includes the added
+CMSH, Slurm evidence, Redfish, and Hardware Agent interfaces.
 
 ##### Connect AFOA
 
-Once the server is running, configure AFOA from your Kubernetes administration
-host. Use the same bearer token as the server and the CA certificate that signed
-its TLS certificate. Keep this token in a separate Secret from the chart-managed
-SSH adapter credentials, as shown below:
+On the Kubernetes administration host, create the token and CA Secrets, then
+connect AFOA. Use the server's token and a separate Secret from SSH adapter credentials:
 
 ```bash
 export CLUSTER_MANAGER_MCP_URL='https://bcm-head.example.com:3002/mcp'
@@ -665,31 +647,6 @@ For a publicly trusted server certificate, omit the CA Secret creation and set
 `bcmMcp.caCertificateSecret=''`. A separate compute-node SSH identity can still
 be configured with `diagnosticAgent.hostSshKeySecretName` when hardware collection
 requires it.
-
-##### Restrict head-node network access
-
-The head-node administrator configures its firewall to permit the MCP TCP port
-from the cluster's actual source addresses. Depending on cluster routing, these
-can be pod or node addresses. Keep the rule in the system that manages the
-head-node firewall, including Base Command Manager-managed Shorewall where used.
-The Helm chart does not configure the host firewall or grant network reachability
-merely by setting the MCP URL.
-
-For a dedicated AFOA namespace, the
-[external endpoint values example](../helm/mosaic-stack/examples/bcm-external-values.yaml)
-also enables a Kubernetes NetworkPolicy. Replace its documentation addresses with
-every address of the head node, including any VIP and reachable alternate
-interfaces, and set the MCP port to match the URL. This policy selects all pods
-in the namespace, including dynamically created sandboxes, and permits only the
-MCP TCP port at those head-node addresses. Other destinations remain permitted.
-Administrator SSH access from outside the namespace is unaffected.
-
-NetworkPolicies are additive: other policies can reopen access, and this policy
-can broaden existing egress restrictions for other destinations. Use a dedicated
-namespace and inspect its existing policies. Enforcement requires a compatible
-CNI. Node-local traffic, host networking, and service address translation can
-behave differently across CNIs. If the CNI exempts traffic to the hosting node,
-apply the corresponding source/port restriction in the head-node firewall.
 
 <details>
 <summary id="use-an-ssh-key">Alternative: use an SSH key (not recommended)</summary>
