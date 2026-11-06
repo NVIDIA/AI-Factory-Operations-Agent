@@ -5,6 +5,7 @@
       "observability_metric_names",
       "observability_query",
       "observability_range_query",
+      "observability_metric_last_seen",
       "dashboard_list",
       "dashboard_create",
       "dashboard_open",
