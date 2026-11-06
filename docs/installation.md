@@ -649,7 +649,7 @@ be configured with `diagnosticAgent.hostSshKeySecretName` when hardware collecti
 requires it.
 
 <details>
-<summary id="use-an-ssh-key">Alternative: use an SSH key (not recommended)</summary>
+<summary id="use-an-ssh-key">Alternative: use an SSH key (experimental)</summary>
 
 Use the SSH adapter when you need Helm to manage the MCP server inside Kubernetes
 and cannot install the head-node service. This gives the adapter a head-node SSH

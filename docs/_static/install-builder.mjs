@@ -174,7 +174,7 @@ if (root) {
         const alternative = document.createElement('label'); const toggle = document.createElement('input');
         toggle.type = 'checkbox'; toggle.name = 'bcmSshAlternative'; toggle.checked = state.bcmMode === 'ssh-adapter';
         toggle.addEventListener('change', () => {state.bcmMode = toggle.checked ? 'ssh-adapter' : 'external'; update(true);});
-        alternative.append(toggle, document.createTextNode('Use SSH adapter instead (not recommended)')); settingsBody.append(alternative);
+        alternative.append(toggle, document.createTextNode('Use SSH adapter instead (experimental)')); settingsBody.append(alternative);
         if (state.bcmMode !== 'ssh-adapter') {
           keys.push('bcmUrl', 'bcmTokenSecret', 'bcmCaSecret');
           if (enabled.has('diagnostics')) keys.push('diagnosticSshSecret');
