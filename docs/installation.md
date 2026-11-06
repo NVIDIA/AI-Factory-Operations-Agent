@@ -727,6 +727,37 @@ OpenClaw `2026.6.10` does not bundle the Brave provider. When `provider=brave`, 
 
 After enabling the required plugins, use the earlier port-forward to open the UI.
 
+### Agent display name
+
+Set `openclaw.agentDisplayName` to customize the default agent's display name and
+OpenClaw identity:
+
+```yaml
+openclaw:
+  agentDisplayName: "Operations Agent"
+```
+
+Apply the setting using your installation’s release name and namespace while
+preserving its site values:
+
+```bash
+helm upgrade aifoa "$MOSAIC_CHART" \
+  --devel \
+  -n aifoa \
+  --reuse-values \
+  --set-string openclaw.agentDisplayName="Operations Agent" \
+  --wait \
+  --timeout 12m
+```
+
+The default is empty: the agent keeps the seed name `AI Factory Operations Agent`
+and no explicit identity override. A nonempty value sets both `agents.list[].name`
+and `agents.list[].identity.name`. Channels that display the agent identity can
+then show the configured name; each channel controls its message presentation.
+The internal agent ID remains `default`, preserving routing and session keys.
+The messaging platform's application or bot profile name is managed separately
+in that platform's administration console.
+
 ## Upgrade An Existing Installation
 
 Retain the working site configuration with:

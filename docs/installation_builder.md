@@ -8,6 +8,8 @@ The inference selector defaults to [Qwen3.8 Flash-Next on one B200](installation
 
 Select Base Command Manager to expose the optional **Read-only Redfish** checkbox inside its module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 
+To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```
