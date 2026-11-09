@@ -1,5 +1,7 @@
 # AI Factory Operations Agent
 
+![AI Factory Operations Agent investigates an NCCL performance alert, applies a correction, and verifies recovery in Grafana](assets/investigation-demo.gif)
+
 Deploy specialized AI agents to investigate cluster issues and streamline governed AI factory operations.
 
 ## Overview
