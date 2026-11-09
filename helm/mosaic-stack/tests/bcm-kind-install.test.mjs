@@ -107,3 +107,17 @@ for (const [label, uid, port, cluster, message] of [
   assert.ok(result.stderr.includes(message), result.stderr);
   assert.ok(!result.stdout.includes('unexpected mutation'));
 });
+
+test('Kind gateway selection uses IPv4 regardless of Docker IPAM order', () => {
+  for (const ipv4 of ['172.23.0.1', '192.0.2.17']) {
+    const entries = [{Gateway: 'fd42:abcd::1'}, {Gateway: ipv4}, {Subnet: '10.0.0.0/24'}];
+    for (const ipam of [entries, [...entries].reverse()]) {
+      const result = run('docker() { printf "%s" "$IPAM"; }; kind_gateway', {IPAM: JSON.stringify(ipam)});
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), ipv4);
+    }
+  }
+  const result = run('docker() { printf "%s" "$IPAM"; }; kind_gateway', {IPAM: JSON.stringify([{Gateway: 'fd42:abcd::1'}])});
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), '');
+});

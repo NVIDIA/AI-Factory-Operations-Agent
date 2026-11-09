@@ -7,6 +7,13 @@ umask 077
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
+kind_gateway() {
+  docker network inspect kind --format '{{json .IPAM.Config}}' | uv run --no-project python -c '
+import ipaddress, json, sys
+print(next((entry["Gateway"] for entry in json.load(sys.stdin)
+            if entry.get("Gateway") and ipaddress.ip_address(entry["Gateway"]).version == 4), ""))'
+}
+
 install_service() {
   local chart_dir=$1 service_dir=$2 config_dir=$3 gateway=$4 image=$5 container version token
   [[ ! -e "$config_dir/server.env" ]] || fail "An MCP service is already configured at $config_dir; use the existing-service instructions."
@@ -120,8 +127,8 @@ PY
   )
   export KUBECONFIG="$config_dir/kubeconfig"
   kind create cluster --name "$cluster" --wait 120s
-  gateway=$(docker network inspect kind --format '{{(index .IPAM.Config 0).Gateway}}')
-  [[ -n $gateway ]] || fail 'The Kind Docker network has no gateway address.'
+  gateway=$(kind_gateway)
+  [[ -n $gateway ]] || fail 'The Kind Docker network has no IPv4 gateway address.'
   install_service "$chart_dir" /opt/afoa-bcm "$config_dir" "$gateway" "$image"
   if systemctl is-active --quiet shorewall; then
     network_id=$(docker network inspect kind --format '{{.Id}}')
