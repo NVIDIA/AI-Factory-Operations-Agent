@@ -2,8 +2,6 @@
 
 ![AI Factory Operations Agent investigates an NCCL performance alert, applies a correction, and verifies recovery in Grafana](assets/investigation-demo.gif)
 
-Recorded investigation replay: investigate an NCCL performance alert, apply the correction, verify recovery in Grafana, and resolve the alert.
-
 Deploy specialized AI agents to investigate cluster issues and streamline governed AI factory operations.
 
 ## Overview
