@@ -10,6 +10,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/opt/afoa-bcm
 Environment=PYTHONPATH=/opt/afoa-bcm/vendor
+Environment=HOME=/root
 EnvironmentFile=/etc/afoa-bcm/server.env
 ExecStart=/opt/afoa-bcm/venv/bin/python /opt/afoa-bcm/bcm-mcp-ssh-server.py
 UMask=0077

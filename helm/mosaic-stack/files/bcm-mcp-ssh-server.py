@@ -332,7 +332,7 @@ class MosaicBCMServer(BCMServer):
                 if {cmsh} -c 'user; use {user}; get profile' 2>/dev/null | grep -qx {profile}; then
                   exit 0
                 fi
-                {cmsh} -c 'user; add --use {user}; set profile {profile}; commit' >/dev/null 2>&1
+                {cmsh} -c 'user; add --use {user}; set profile {profile}; commit' 1>&2
                 """
             ).strip()
             result = self._run_head(setup, self.cmsh_setup_timeout)
