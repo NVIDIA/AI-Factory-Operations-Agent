@@ -17,6 +17,12 @@ Supported workflows include:
 - Optional cluster-management integrations.
 - Sandboxed command execution with an auditable agent workflow.
 
+## Demo
+
+![AI Factory Operations Agent investigates an NCCL performance alert, applies a correction, and verifies recovery in Grafana](assets/investigation-demo.gif)
+
+Recorded investigation replay: investigate an NCCL performance alert, apply the correction, verify recovery in Grafana, and resolve the alert.
+
 ## Architecture
 
 ![AI Factory Operations Agent architecture](https://assets.ngc.nvidia.com/products/api-catalog/operate-ai-factories-with-agents/diagram.jpg)
