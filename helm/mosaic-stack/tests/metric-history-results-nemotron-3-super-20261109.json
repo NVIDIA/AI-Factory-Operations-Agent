@@ -1,0 +1,4531 @@
+{
+  "schema_version": 1,
+  "observed_date_utc": "2026-11-09",
+  "scope": "Five synthetic missing-metric cases, three seeds, thinking disabled. Not a broad model benchmark or native OpenClaw acceptance.",
+  "model": {
+    "checkpoint": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+    "revision": "ff433f5493e25d631c9f12b5d55c674229923d02",
+    "architecture": "aarch64",
+    "gpu": "NVIDIA GB10, 580.173.02",
+    "quantization": "Unchanged official ModelOpt MIXED_PRECISION checkpoint: 40961 NVFP4 and 139 FP8 layer entries; auto-detected modelopt_mixed",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "torch_cuda": "13.0",
+      "vllm": "0.27.1"
+    },
+    "protocol_sha256": {
+      "config.json": "14a1ad3ab6ec49e09e9c30f8686c8e3ca5b5338ee0eb0c79dff4f285fc29778d",
+      "hf_quant_config.json": "dbabb3970ad65a6cca51488db15d66d976c2486ff5448c4aee906389a02df316",
+      "tokenizer.json": "623c34567aebb18582765289fbe23d901c62704d6518d71866e0e58db892b5b7",
+      "tokenizer_config.json": "10f93eabcb9b1602fbb991d6308e787ce1df28ee9cd7a1c6d1e8c3f338b957bc",
+      "chat_template.jinja": "575fb74f54ed264df9047d0ecce3c98938aae953fb4f50356675706264cbb68a",
+      "super_v3_reasoning_parser.py": "f7fc71d1697ed79931787cf7485ee297365a41c3442cc1e05e6ebab43e0a39c1",
+      "generation_config.json": "27d520b2df55efe6b978d06fbfe8213ae93288d063d462f40b4ed94637c019bf"
+    },
+    "prefix_caching": false,
+    "inference": {
+      "temperature": 1,
+      "top_p": 0.95,
+      "enable_thinking": false,
+      "max_tokens": 8192,
+      "max_turns": 24,
+      "timeout_ms": 180000,
+      "seed": "repetition index (1, 2, 3)",
+      "cache": "normal",
+      "concurrency": 1
+    }
+  },
+  "serving": {
+    "image": {
+      "id": "sha256:2c211a1273b48e8929f893b267aeb1509e6b84654cdbde1bad56d79e3964224d",
+      "architecture": "arm64",
+      "repo_digests": [
+        "vllm/vllm-openai@sha256:1c8e60a0841b333c700488cb029d3664807249da0c071e862191b00fe34b228c"
+      ]
+    },
+    "command": [
+      "--model",
+      "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+      "--revision",
+      "ff433f5493e25d631c9f12b5d55c674229923d02",
+      "--served-model-name",
+      "nvidia/nemotron-3-super",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000",
+      "--async-scheduling",
+      "--dtype",
+      "auto",
+      "--kv-cache-dtype",
+      "fp8",
+      "--tensor-parallel-size",
+      "1",
+      "--pipeline-parallel-size",
+      "1",
+      "--data-parallel-size",
+      "1",
+      "--trust-remote-code",
+      "--gpu-memory-utilization",
+      "0.75",
+      "--enable-chunked-prefill",
+      "--max-num-seqs",
+      "1",
+      "--max-model-len",
+      "262144",
+      "--moe-backend",
+      "marlin",
+      "--mamba-ssm-cache-dtype",
+      "float16",
+      "--reasoning-parser-plugin",
+      "/root/.cache/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/snapshots/ff433f5493e25d631c9f12b5d55c674229923d02/super_v3_reasoning_parser.py",
+      "--reasoning-parser",
+      "super_v3",
+      "--enable-auto-tool-choice",
+      "--tool-call-parser",
+      "qwen3_coder"
+    ],
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1",
+      "HF_HUB_DISABLE_IMPLICIT_TOKEN": "1",
+      "VLLM_NVFP4_GEMM_BACKEND": "marlin",
+      "VLLM_FLASHINFER_ALLREDUCE_BACKEND": "trtllm",
+      "VLLM_USE_FLASHINFER_MOE_FP4": "0"
+    },
+    "effective_runtime_announcements": [
+      "(APIServer pid=1) WARNING 11-09 15:46:32 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_NVFP4_GEMM_BACKEND",
+      "(APIServer pid=1) WARNING 11-09 15:46:32 [envs.py:2128] Unknown vLLM environment variable detected: VLLM_USE_FLASHINFER_MOE_FP4",
+      "(EngineCore pid=231) INFO 11-09 15:46:52 [__init__.py:665] Selected FlashInferFP8ScaledMMLinearKernel for ModelOptFp8LinearMethod",
+      "(EngineCore pid=231) INFO 11-09 15:46:52 [__init__.py:1077] Using FlashInferCutlassNvFp4LinearKernel for NVFP4 GEMM",
+      "(EngineCore pid=231) INFO 11-09 15:46:52 [nvfp4.py:239] Using 'MARLIN' NvFp4 MoE backend out of potential backends: ['FLASHINFER_TRTLLM', 'FLASHINFER_CUTEDSL', 'FLASHINFER_CUTEDSL_BATCHED', 'FLASHINFER_CUTLASS', 'VLLM_CUTLASS', 'MARLIN', 'HUMMING', 'EMULATION'].",
+      "(EngineCore pid=231) INFO 11-09 15:46:52 [cuda.py:482] Using FLASHINFER attention backend out of potential backends: ['FLASHINFER', 'TRITON_ATTN'].",
+      "(EngineCore pid=231) INFO 11-09 15:55:38 [gpu_model_runner.py:5405] Model loading took 69.62 GiB memory and 515.902561 seconds",
+      "(EngineCore pid=231) INFO 11-09 15:56:37 [gpu_worker.py:563] Available KV cache memory: 31.87 GiB",
+      "(EngineCore pid=231) INFO 11-09 15:56:37 [kv_cache_utils.py:2235] GPU KV cache size: 7,625,306 tokens"
+    ]
+  },
+  "source_revisions": {
+    "baseline": {
+      "commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "file_sha256": {
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/grafana.ts": "4ccd76f10c41e86be37f28c1781075708c71b4c3f3308447949675c16b182236",
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/index.ts": "34fa25b3e0491c9b946a36d3990b8c1629ad527bc93be11267128aab5309ba1c",
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/loki.ts": "4948c6b18e1dc657b3a0112ae6d4bb0c8620983075be6483d3e3898848ad7b46",
+        "helm/mosaic-stack/files/openclaw-seed/skills/observability/SKILL.md": "4a53faf9612f8f996e56f3e26b6d5dfa9dd02c203e8e9f6c4336e788514b8220"
+      }
+    },
+    "candidate": {
+      "commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "file_sha256": {
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/grafana.ts": "4ccd76f10c41e86be37f28c1781075708c71b4c3f3308447949675c16b182236",
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/index.ts": "da773298a233edd6792e848dc4680d105065a135fe54bbe4e57a5a65bdfc0fd2",
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/loki.ts": "4948c6b18e1dc657b3a0112ae6d4bb0c8620983075be6483d3e3898848ad7b46",
+        "helm/mosaic-stack/files/openclaw-seed/extensions/observability/metric-history.ts": "1f7f6a3994653dc76c1243a2ed1c6bea9dfa8d65f971d51b6331477277c65bc5",
+        "helm/mosaic-stack/files/openclaw-seed/skills/observability/SKILL.md": "089c6169447ed0b123f93b31512198797abe792bfa35b597862660d0cc0c02d2"
+      }
+    }
+  },
+  "harness": {
+    "runnerSha256": "b2d2e3b59a610765f9bd20a1629643e98bbf89cab524015cd3e1f264eb7b0728",
+    "suiteSha256": "6697c43bec1636f6427900169479ac976f4247e02d09afafc2b559747241b424",
+    "fixture": {
+      "sampleCount": 30121,
+      "sha256": "87c7e049aa340047632a62c0821a12321189de80fc3ac3035fe17bb2c11a882b"
+    },
+    "fixedTime": "2026-11-06T00:00:00.000Z",
+    "node": "v25.8.1",
+    "settings": {
+      "temperature": 1,
+      "seedPolicy": "repetition-number",
+      "repetitions": 3,
+      "maxTurns": 24,
+      "maxTokens": 8192,
+      "timeoutMs": 180000,
+      "cache": "normal",
+      "modelOptions": {
+        "top_p": 0.95,
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "cases": [
+        "three-day-gap",
+        "history-unavailable",
+        "healthy-zero",
+        "two-hour-gap",
+        "three-day-gap-followup"
+      ]
+    }
+  },
+  "generated_sample_file_sha256": "9a8b53d4d92115c8917f663e21b33caa9e803bbc7f770caa28965495a2f8cba9",
+  "checkpoint_integrity": {
+    "revision": "ff433f5493e25d631c9f12b5d55c674229923d02",
+    "files": [
+      {
+        "file": ".gitattributes",
+        "expected_size": 1635,
+        "actual_size": 1635,
+        "algorithm": "git-blob-sha1",
+        "expected": "aa7aacd0134a92c3c1943fdecc75cd8b7420cce6",
+        "actual": "aa7aacd0134a92c3c1943fdecc75cd8b7420cce6",
+        "pass": true
+      },
+      {
+        "file": "README.md",
+        "expected_size": 81626,
+        "actual_size": 81626,
+        "algorithm": "git-blob-sha1",
+        "expected": "9439260819d84611797ff779da798ba1fea09125",
+        "actual": "9439260819d84611797ff779da798ba1fea09125",
+        "pass": true
+      },
+      {
+        "file": "__init__.py",
+        "expected_size": 0,
+        "actual_size": 0,
+        "algorithm": "git-blob-sha1",
+        "expected": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "actual": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "pass": true
+      },
+      {
+        "file": "accuracy_chart.png",
+        "expected_size": 79162,
+        "actual_size": 79162,
+        "algorithm": "git-blob-sha1",
+        "expected": "b02796fcc95a5b948f843088cc3bf8da96b39601",
+        "actual": "b02796fcc95a5b948f843088cc3bf8da96b39601",
+        "pass": true
+      },
+      {
+        "file": "bias.md",
+        "expected_size": 2626,
+        "actual_size": 2626,
+        "algorithm": "git-blob-sha1",
+        "expected": "6406714ae56570a4a00d16678ae7579117a97f08",
+        "actual": "6406714ae56570a4a00d16678ae7579117a97f08",
+        "pass": true
+      },
+      {
+        "file": "chat_template.jinja",
+        "expected_size": 10771,
+        "actual_size": 10771,
+        "algorithm": "git-blob-sha1",
+        "expected": "71935c3a25edcdde07a0b7c4bec26f68bbce73a4",
+        "actual": "71935c3a25edcdde07a0b7c4bec26f68bbce73a4",
+        "pass": true
+      },
+      {
+        "file": "config.json",
+        "expected_size": 7411248,
+        "actual_size": 7411248,
+        "algorithm": "git-blob-sha1",
+        "expected": "25fdfa00f468ad953fc5516aeab78a128332da1a",
+        "actual": "25fdfa00f468ad953fc5516aeab78a128332da1a",
+        "pass": true
+      },
+      {
+        "file": "configuration_nemotron_h.py",
+        "expected_size": 19822,
+        "actual_size": 19822,
+        "algorithm": "git-blob-sha1",
+        "expected": "b0577e12c52dac6d40529081c2c316b08b3b7ecf",
+        "actual": "b0577e12c52dac6d40529081c2c316b08b3b7ecf",
+        "pass": true
+      },
+      {
+        "file": "explainability.md",
+        "expected_size": 3155,
+        "actual_size": 3155,
+        "algorithm": "git-blob-sha1",
+        "expected": "24936994e396a15aa18c75dd1cd43d41d36275fd",
+        "actual": "24936994e396a15aa18c75dd1cd43d41d36275fd",
+        "pass": true
+      },
+      {
+        "file": "generation_config.json",
+        "expected_size": 210,
+        "actual_size": 210,
+        "algorithm": "git-blob-sha1",
+        "expected": "9f6546e3b99dd85a2899453a2487850007815ead",
+        "actual": "9f6546e3b99dd85a2899453a2487850007815ead",
+        "pass": true
+      },
+      {
+        "file": "hf_quant_config.json",
+        "expected_size": 6146797,
+        "actual_size": 6146797,
+        "algorithm": "git-blob-sha1",
+        "expected": "756004b69ae1a798e8cff5ffeaf0a53e46e6ddc2",
+        "actual": "756004b69ae1a798e8cff5ffeaf0a53e46e6ddc2",
+        "pass": true
+      },
+      {
+        "file": "model-00001-of-00017.safetensors",
+        "expected_size": 5000122600,
+        "actual_size": 5000122600,
+        "algorithm": "sha256",
+        "expected": "3d31c241fb777f44342ac3c298147bb82ddcaa64214c555494d8fab397218d0e",
+        "actual": "3d31c241fb777f44342ac3c298147bb82ddcaa64214c555494d8fab397218d0e",
+        "pass": true
+      },
+      {
+        "file": "model-00002-of-00017.safetensors",
+        "expected_size": 4977660672,
+        "actual_size": 4977660672,
+        "algorithm": "sha256",
+        "expected": "78d4a5ad26841e04ea92ae3d6b6b29ab9069b4ea27155b93213a5bfbeef85081",
+        "actual": "78d4a5ad26841e04ea92ae3d6b6b29ab9069b4ea27155b93213a5bfbeef85081",
+        "pass": true
+      },
+      {
+        "file": "model-00003-of-00017.safetensors",
+        "expected_size": 5001219144,
+        "actual_size": 5001219144,
+        "algorithm": "sha256",
+        "expected": "ecb72debb5d274b4beb74fb993a44e4f8ac27d640ecadaf656ed7de178942429",
+        "actual": "ecb72debb5d274b4beb74fb993a44e4f8ac27d640ecadaf656ed7de178942429",
+        "pass": true
+      },
+      {
+        "file": "model-00004-of-00017.safetensors",
+        "expected_size": 5000841128,
+        "actual_size": 5000841128,
+        "algorithm": "sha256",
+        "expected": "a7d1c68e827296ee4bfc0ca4fe2c6a545c48b7a7f5148d9ebf4872c6fb123106",
+        "actual": "a7d1c68e827296ee4bfc0ca4fe2c6a545c48b7a7f5148d9ebf4872c6fb123106",
+        "pass": true
+      },
+      {
+        "file": "model-00005-of-00017.safetensors",
+        "expected_size": 5000389560,
+        "actual_size": 5000389560,
+        "algorithm": "sha256",
+        "expected": "1d432c9c783453c6efa69d01228023b407be77e7bfea2909b2023c03df07df6a",
+        "actual": "1d432c9c783453c6efa69d01228023b407be77e7bfea2909b2023c03df07df6a",
+        "pass": true
+      },
+      {
+        "file": "model-00006-of-00017.safetensors",
+        "expected_size": 4995800552,
+        "actual_size": 4995800552,
+        "algorithm": "sha256",
+        "expected": "037ea60b87cb2b8ce12beb7164c5382f4d97723c24cdbacc9fc188ae5a28f47b",
+        "actual": "037ea60b87cb2b8ce12beb7164c5382f4d97723c24cdbacc9fc188ae5a28f47b",
+        "pass": true
+      },
+      {
+        "file": "model-00007-of-00017.safetensors",
+        "expected_size": 5000688960,
+        "actual_size": 5000688960,
+        "algorithm": "sha256",
+        "expected": "3c0527dac96fd91874427f04e92c1df43585503608a487a4c8ffcf9d5f925bd4",
+        "actual": "3c0527dac96fd91874427f04e92c1df43585503608a487a4c8ffcf9d5f925bd4",
+        "pass": true
+      },
+      {
+        "file": "model-00008-of-00017.safetensors",
+        "expected_size": 5000478392,
+        "actual_size": 5000478392,
+        "algorithm": "sha256",
+        "expected": "ef6e73f64c3d7242a50230a288811eaa56aa2d9c6da9040b90361e6b9245bc26",
+        "actual": "ef6e73f64c3d7242a50230a288811eaa56aa2d9c6da9040b90361e6b9245bc26",
+        "pass": true
+      },
+      {
+        "file": "model-00009-of-00017.safetensors",
+        "expected_size": 5000199288,
+        "actual_size": 5000199288,
+        "algorithm": "sha256",
+        "expected": "b4f598068350b93d42c486e537239dabc4661545ea2d39c8f0bb7ca23223c4f5",
+        "actual": "b4f598068350b93d42c486e537239dabc4661545ea2d39c8f0bb7ca23223c4f5",
+        "pass": true
+      },
+      {
+        "file": "model-00010-of-00017.safetensors",
+        "expected_size": 4997005048,
+        "actual_size": 4997005048,
+        "algorithm": "sha256",
+        "expected": "bf8bf1f4e2e01591c3d91f4b51f4f00252e14715132278177cab6ecc76511884",
+        "actual": "bf8bf1f4e2e01591c3d91f4b51f4f00252e14715132278177cab6ecc76511884",
+        "pass": true
+      },
+      {
+        "file": "model-00011-of-00017.safetensors",
+        "expected_size": 5000780360,
+        "actual_size": 5000780360,
+        "algorithm": "sha256",
+        "expected": "ac436f2e1af8185dc3b093e1527f3297b93fd639ab84ad208376bd82d5e94e94",
+        "actual": "ac436f2e1af8185dc3b093e1527f3297b93fd639ab84ad208376bd82d5e94e94",
+        "pass": true
+      },
+      {
+        "file": "model-00012-of-00017.safetensors",
+        "expected_size": 5000527232,
+        "actual_size": 5000527232,
+        "algorithm": "sha256",
+        "expected": "7814c9ae0dc394beb4709ebf0c7e976214e2770b322fa2422bc467446dd97023",
+        "actual": "7814c9ae0dc394beb4709ebf0c7e976214e2770b322fa2422bc467446dd97023",
+        "pass": true
+      },
+      {
+        "file": "model-00013-of-00017.safetensors",
+        "expected_size": 5001126000,
+        "actual_size": 5001126000,
+        "algorithm": "sha256",
+        "expected": "b13aa79c0879539c4a514489497bccd21e23ec597d8112ba91808767fcbd4d92",
+        "actual": "b13aa79c0879539c4a514489497bccd21e23ec597d8112ba91808767fcbd4d92",
+        "pass": true
+      },
+      {
+        "file": "model-00014-of-00017.safetensors",
+        "expected_size": 5000330504,
+        "actual_size": 5000330504,
+        "algorithm": "sha256",
+        "expected": "1d8781b2643ca6566e7bdae77c275b62785de3502c5337b8cb53558df2477eed",
+        "actual": "1d8781b2643ca6566e7bdae77c275b62785de3502c5337b8cb53558df2477eed",
+        "pass": true
+      },
+      {
+        "file": "model-00015-of-00017.safetensors",
+        "expected_size": 4996320352,
+        "actual_size": 4996320352,
+        "algorithm": "sha256",
+        "expected": "5f6c3c0f842055418b0420dbeeba6b737d892d9d849725d956603a714f44745e",
+        "actual": "5f6c3c0f842055418b0420dbeeba6b737d892d9d849725d956603a714f44745e",
+        "pass": true
+      },
+      {
+        "file": "model-00016-of-00017.safetensors",
+        "expected_size": 4998674800,
+        "actual_size": 4998674800,
+        "algorithm": "sha256",
+        "expected": "a5f795056a1ac69546ce8f5bccdcab3b6cb7142426024a81f23c15d3d45aa51e",
+        "actual": "a5f795056a1ac69546ce8f5bccdcab3b6cb7142426024a81f23c15d3d45aa51e",
+        "pass": true
+      },
+      {
+        "file": "model-00017-of-00017.safetensors",
+        "expected_size": 345784264,
+        "actual_size": 345784264,
+        "algorithm": "sha256",
+        "expected": "218355cf69f1f9d3efa1b5c8b5f531e28e1aa50a3d869ee768ba9835d936e182",
+        "actual": "218355cf69f1f9d3efa1b5c8b5f531e28e1aa50a3d869ee768ba9835d936e182",
+        "pass": true
+      },
+      {
+        "file": "model.safetensors.index.json",
+        "expected_size": 16634043,
+        "actual_size": 16634043,
+        "algorithm": "sha256",
+        "expected": "e0ca77ceed3a9511db61dc0ae6dbed2f71e6f6ee9f345fe3352f5cfe50cd094f",
+        "actual": "e0ca77ceed3a9511db61dc0ae6dbed2f71e6f6ee9f345fe3352f5cfe50cd094f",
+        "pass": true
+      },
+      {
+        "file": "modeling_nemotron_h.py",
+        "expected_size": 82338,
+        "actual_size": 82338,
+        "algorithm": "git-blob-sha1",
+        "expected": "de290021078450c4d5042f66dd74b8eecf1d3eb3",
+        "actual": "de290021078450c4d5042f66dd74b8eecf1d3eb3",
+        "pass": true
+      },
+      {
+        "file": "privacy.md",
+        "expected_size": 2688,
+        "actual_size": 2688,
+        "algorithm": "git-blob-sha1",
+        "expected": "ad6fad984525fd246ec6ba62ca2b1e34f8524d94",
+        "actual": "ad6fad984525fd246ec6ba62ca2b1e34f8524d94",
+        "pass": true
+      },
+      {
+        "file": "safety.md",
+        "expected_size": 2120,
+        "actual_size": 2120,
+        "algorithm": "git-blob-sha1",
+        "expected": "8d4a9212d934db3437e1b7e9816f679a69740b61",
+        "actual": "8d4a9212d934db3437e1b7e9816f679a69740b61",
+        "pass": true
+      },
+      {
+        "file": "special_tokens_map.json",
+        "expected_size": 563,
+        "actual_size": 563,
+        "algorithm": "git-blob-sha1",
+        "expected": "0451f37912edb7f8a4bf04d77eef13f6130f0515",
+        "actual": "0451f37912edb7f8a4bf04d77eef13f6130f0515",
+        "pass": true
+      },
+      {
+        "file": "super_v3_reasoning_parser.py",
+        "expected_size": 1909,
+        "actual_size": 1909,
+        "algorithm": "git-blob-sha1",
+        "expected": "e3ac376058bf821fce8d7482ab1c2523d6e9c801",
+        "actual": "e3ac376058bf821fce8d7482ab1c2523d6e9c801",
+        "pass": true
+      },
+      {
+        "file": "tokenizer.json",
+        "expected_size": 17077484,
+        "actual_size": 17077484,
+        "algorithm": "sha256",
+        "expected": "623c34567aebb18582765289fbe23d901c62704d6518d71866e0e58db892b5b7",
+        "actual": "623c34567aebb18582765289fbe23d901c62704d6518d71866e0e58db892b5b7",
+        "pass": true
+      },
+      {
+        "file": "tokenizer_config.json",
+        "expected_size": 177209,
+        "actual_size": 177209,
+        "algorithm": "git-blob-sha1",
+        "expected": "c96e5ad00986bfa0b666d4bc425666f1c51d6d1b",
+        "actual": "c96e5ad00986bfa0b666d4bc425666f1c51d6d1b",
+        "pass": true
+      }
+    ]
+  },
+  "grading": "Codex reviewed each complete answer and its tool evidence against the pre-run case rubric; this is not a blinded human evaluation. Binary pass requires the required finding and no material unsupported or contradictory claim. A transport failure is not an accuracy zero and is reconciled separately.",
+  "statistics": {
+    "baseline": {
+      "count": 15,
+      "completed": 15,
+      "investigated": 15,
+      "whole_answer_passes": 0,
+      "whole_answer_failures": 15,
+      "binary_success_rate": 0.0,
+      "raw_0_or_1_mean": 0.0,
+      "raw_definition": "This suite has a binary rubric only; the raw 0/1 mean equals the binary success rate. No graded partial-credit score is claimed.",
+      "elapsed_ms_distribution_in_case_order": [
+        260086.234375,
+        71130.164292,
+        121235.46570799999,
+        173526.92987500003,
+        54876.97199999995,
+        143930.376583,
+        76637.89241700002,
+        37269.4169999999,
+        53659.87624999997,
+        57634.843125000014,
+        38191.36337500007,
+        83473.820084,
+        14951.630125000025,
+        53945.77766600007,
+        18542.130292000016
+      ],
+      "elapsed_ms_sum": 1259092.893167,
+      "elapsed_ms_median": 57634.843125000014,
+      "tool_calls_distribution_in_case_order": [
+        21,
+        3,
+        9,
+        12,
+        3,
+        9,
+        5,
+        2,
+        2,
+        4,
+        2,
+        3,
+        2,
+        3,
+        1
+      ],
+      "tool_calls_sum": 81,
+      "tool_errors_sum": 4,
+      "model_turns_sum": 96,
+      "prompt_tokens_sum": 428628,
+      "completion_tokens_sum": 16480
+    },
+    "candidate": {
+      "count": 15,
+      "completed": 15,
+      "investigated": 15,
+      "whole_answer_passes": 3,
+      "whole_answer_failures": 12,
+      "binary_success_rate": 0.2,
+      "raw_0_or_1_mean": 0.2,
+      "raw_definition": "This suite has a binary rubric only; the raw 0/1 mean equals the binary success rate. No graded partial-credit score is claimed.",
+      "elapsed_ms_distribution_in_case_order": [
+        60741.11075,
+        62153.414958,
+        65861.58895800001,
+        56609.450709,
+        53374.12275000004,
+        41847.43212499999,
+        56204.36637500004,
+        172472.60320800002,
+        43697.91341600008,
+        61339.434583000024,
+        71659.88299999991,
+        60770.42316699994,
+        24349.793666000012,
+        45494.16991699999,
+        27443.519417000003
+      ],
+      "elapsed_ms_sum": 904019.2269990001,
+      "elapsed_ms_median": 56609.450709,
+      "tool_calls_distribution_in_case_order": [
+        3,
+        3,
+        4,
+        2,
+        3,
+        3,
+        3,
+        9,
+        2,
+        3,
+        4,
+        3,
+        1,
+        1,
+        1
+      ],
+      "tool_calls_sum": 45,
+      "tool_errors_sum": 0,
+      "model_turns_sum": 60,
+      "prompt_tokens_sum": 381635,
+      "completion_tokens_sum": 11130
+    }
+  },
+  "diagnostic_findings": {
+    "correct_original_last_sample_in_gap_answers": {
+      "baseline": 0,
+      "candidate": 7,
+      "denominator_per_side": 9
+    },
+    "zero_is_present_core_distinction": {
+      "baseline": 2,
+      "candidate": 3,
+      "denominator_per_side": 3
+    },
+    "note": "These diagnostics do not override the complete-answer verdicts. A correct timestamp or zero-versus-missing distinction can coexist with contradictory or unsupported prose."
+  },
+  "reconciliation": {
+    "expected_unique_ids": 30,
+    "actual_unique_ids": 30,
+    "missing": [],
+    "extra": [],
+    "duplicates": [],
+    "formal_attempts": 31,
+    "canonical_model_outcomes": 30,
+    "smoke_attempts_outside_formal": 2
+  },
+  "transport_retry_policy": "Exactly one baseline three-day-gap seed-1 fetch failure was replaced by one same-seed replay. All original records remain retained. No answer-quality failure was rerun or removed.",
+  "records": [
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 22,
+        "toolCalls": 21,
+        "toolErrors": 4,
+        "backendRequests": 19,
+        "elapsedMs": 260086.234375,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2572,
+            "completion_tokens": 100,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2638,
+            "total_tokens": 2717,
+            "completion_tokens": 79,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2808,
+            "total_tokens": 2937,
+            "completion_tokens": 129,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3069,
+            "total_tokens": 3186,
+            "completion_tokens": 117,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3318,
+            "total_tokens": 3435,
+            "completion_tokens": 117,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3689,
+            "total_tokens": 3816,
+            "completion_tokens": 127,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3948,
+            "total_tokens": 4150,
+            "completion_tokens": 202,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4181,
+            "total_tokens": 4313,
+            "completion_tokens": 132,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4445,
+            "total_tokens": 4673,
+            "completion_tokens": 228,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4805,
+            "total_tokens": 4938,
+            "completion_tokens": 133,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5070,
+            "total_tokens": 5177,
+            "completion_tokens": 107,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5309,
+            "total_tokens": 5396,
+            "completion_tokens": 87,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5528,
+            "total_tokens": 5647,
+            "completion_tokens": 119,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5779,
+            "total_tokens": 5874,
+            "completion_tokens": 95,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6006,
+            "total_tokens": 6123,
+            "completion_tokens": 117,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6255,
+            "total_tokens": 6359,
+            "completion_tokens": 104,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6491,
+            "total_tokens": 6592,
+            "completion_tokens": 101,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6846,
+            "total_tokens": 7086,
+            "completion_tokens": 240,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 7117,
+            "total_tokens": 7237,
+            "completion_tokens": 120,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 7288,
+            "total_tokens": 7424,
+            "completion_tokens": 136,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 7475,
+            "total_tokens": 7623,
+            "completion_tokens": 148,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 7755,
+            "total_tokens": 8143,
+            "completion_tokens": 388,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": " perfect！我现在可以明确回答了：\n\n## 结论\n\n根据观测数据分析，fixture-gpu-a 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标数据大约从 **2026-09-03T00:02:00Z** 开始缺失。\n\n### 时间依据：\n\n1. **最后可用数据点**：\n   - 时间戳：1793664000 (对应 2026-09-03T00:00:00Z)，数值：42\n   - 时间戳：1793664120 (对应 2026-09-03T00:02:00Z)，数值：42\n\n2. **数据缺失验证**：\n   - 在2026-09-03T00:02:00Z之后的时间范围内（即从1793664120开始），查询该时间范围内的所有后续时间点均无数据返回\n   - 最近30分钟、2小时、6小时、12小时、24小时、36小时、48小时内均无该指标数据\n\n因此可以确定，GPU 0 的利用率指标数据在 **2026-09-03T00:02:00Z** 之后停止更新，从此时开始已经约 **64天** 没有数据了（基于当前时间2026-11-06T00:00:00Z）。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-transport-retry",
+        "side": "baseline",
+        "case": "three-day-gap",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "大约从 2026-09-03T00:02:00Z 开始缺失",
+          "约64天没有数据"
+        ],
+        "reason": "After 21 tool calls, still mis-converts November evaluated timestamps into September, treats lookback-reused sample evaluations as original samples, and gives a false 64-day outage duration. This is a valid model failure, separate from the preceding transport-invalid attempt."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 3,
+        "elapsedMs": 71130.164292,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2586,
+            "completion_tokens": 114,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2677,
+            "total_tokens": 2815,
+            "completion_tokens": 138,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2948,
+            "total_tokens": 3062,
+            "completion_tokens": 114,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 9730,
+            "total_tokens": 10369,
+            "completion_tokens": 639,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以看到 fixture-gpu-a 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的历史数据：\n\n1. 最近的数据点时间戳是：1793663400（对应UTC时间：2026-11-03T14:30:00Z）\n2. 数据值一直保持在42（表示GPU利用率42%）\n3. 之后再也没有任何数据点\n\n当前时间是2026-11-06T00:00:00.000Z（对应时间戳：1793923200）\n\n因此，数据大约从 **2026-11-03T14:30:00Z** 开始缺失，已经中断约 **2天9小时30分钟**。\n\n时间依据：\n- 最新数据点：时间戳 1793663400 = 2026-11-03T14:30:00Z\n- 当前时间：2026-11-06T00:00:00.000Z\n- 数据缺失时长：约 2天9小时30分钟\n\n过去24小时和7天的范围查询证实了这一点：24小时范围内无数据，而7天范围内只有到2026-11-03T14:30:00Z的历史数据。 fixture-gpu-a 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的数据大约从 **2026-11-03T14:30:00Z** 开始缺失。目前已经没有数据约 **2天9小时30分钟**。\n\n时间依据：\n- 最新可用数据点：时间戳 1793663400 对应 UTC 时间 2026-11-03T14:30:00Z，数值为 42（GPU利用率42%）\n- 当前系统时间：2026-11-06T00:00:00.000Z\n- 查询过去24小时（1440分钟）内无任何该指标数据点\n- 查询过去7天（10080分钟）显示数据仅存在至 2026-11-03T14:30:00Z 之后即中断\n\n因此可以判定，监控数据或指标采集大约在该时间点后停止工作。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap",
+        "repetition": 2,
+        "verdict": "fail",
+        "claims": [
+          "1793663400（对应UTC时间：2026-11-03T14:30:00Z）",
+          "已经中断约 2天9小时30分钟"
+        ],
+        "reason": "Wrong UTC conversion and wrong onset. The cited evaluated/downsampled timestamp is not the original last sample 2026-11-02T23:59:00Z; required cadence-qualified first expected absence is 2026-11-03T00:00:00Z."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 10,
+        "toolCalls": 9,
+        "toolErrors": 0,
+        "backendRequests": 9,
+        "elapsedMs": 121235.46570799999,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2581,
+            "completion_tokens": 109,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2672,
+            "total_tokens": 2800,
+            "completion_tokens": 128,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2932,
+            "total_tokens": 3048,
+            "completion_tokens": 116,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3180,
+            "total_tokens": 3280,
+            "completion_tokens": 100,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3412,
+            "total_tokens": 3502,
+            "completion_tokens": 90,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3588,
+            "total_tokens": 3689,
+            "completion_tokens": 101,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3756,
+            "total_tokens": 3839,
+            "completion_tokens": 83,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3916,
+            "total_tokens": 4000,
+            "completion_tokens": 84,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4156,
+            "total_tokens": 4369,
+            "completion_tokens": 213,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 23459,
+            "total_tokens": 23922,
+            "completion_tokens": 463,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以清楚地看到fixture-gpu-a的GPU 0的DCGM_FI_DEV_GPU_UTIL指标数据情况：\n\n从返回的数据中可以看到：\n1. fixture-gpu-a的GPU 0在1793318400时间戳（对应2026-06-30T00:00:00Z）开始有持续的数据\n2. 数据显示该GPU的利用率一直稳定在42%\n3. 最后一个数据点是在1793562900时间戳（对应2026-07-02T21:15:00Z）\n4. 之后就再也没有该机器的任何DCGM指标数据\n\n因此，fixture-gpu-a的GPU 0的DCGM_FI_DEV_GPU_UTIL指标数据大约从**2026-07-02T21:15:00Z**开始缺失。\n\n时间依据：\n- 查询显示fixture-gpu-a的DCGM_FI_DEV_GPU_UTIL在1793562900时间戳（2026-07-02T21:15:00Z）后没有更多数据点\n- 而其他机器如fixture-gpu-c和fixture-gpu-d的DCGM指标持续更新到当前时间1793923200（2026-11-06T00:00:00Z）\n- 这表明是fixture-gpu-a这台机器的监控采集在2026年7月2日晚9:15左右中断了\n\n这个时间点与其他机器的数据形成鲜明对比：其他机器的DCGM指标持续报送到当前时间，而fixture-gpu-a则在7月2日停止报送。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap",
+        "repetition": 3,
+        "verdict": "fail",
+        "claims": [
+          "2026-07-02T21:15:00Z",
+          "fixture-gpu-c和fixture-gpu-d的DCGM指标持续更新到当前时间"
+        ],
+        "reason": "Dates the November gap to July using an incorrect Unix-time conversion and a compacted range point; does not establish the original last sample or cadence-qualified first absence. Also incorrectly claims the fixture-gpu-d series continues to the current time, despite its two-hour gap."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 13,
+        "toolCalls": 12,
+        "toolErrors": 0,
+        "backendRequests": 12,
+        "elapsedMs": 173526.92987500003,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2562,
+            "completion_tokens": 90,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2628,
+            "total_tokens": 2698,
+            "completion_tokens": 70,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2789,
+            "total_tokens": 2919,
+            "completion_tokens": 130,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3051,
+            "total_tokens": 3227,
+            "completion_tokens": 176,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3359,
+            "total_tokens": 3534,
+            "completion_tokens": 175,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3667,
+            "total_tokens": 3830,
+            "completion_tokens": 163,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3916,
+            "total_tokens": 3986,
+            "completion_tokens": 70,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4143,
+            "total_tokens": 4291,
+            "completion_tokens": 148,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4368,
+            "total_tokens": 4532,
+            "completion_tokens": 164,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 9618,
+            "total_tokens": 9825,
+            "completion_tokens": 207,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 9954,
+            "total_tokens": 10176,
+            "completion_tokens": 222,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 10272,
+            "total_tokens": 10351,
+            "completion_tokens": 79,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 10426,
+            "total_tokens": 10927,
+            "completion_tokens": 501,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": " fixture-gpu-b 主机完全没有任何监控指标数据返回。这表明该主机可能已经：\n\n1. 完全停止向监控系统报告metrics\n2. 监控系统无法从该主机采集metrics\n3. 主机可能已经下线或网络不可达\n\n基于我的检查：\n- fixture-gpu-c 主机的 GPU 0 目前正常报告DCGM_FI_DEV_GPU_UTIL指标（值为0）\n- fixture-gpu-b 主机在最近24小时内没有任何监控指标数据\n- 具体来说，DCGM_FI_DEV_GPU_UTIL{Hostname=\"fixture-gpu-b\", gpu=\"0\"} 在最近24小时内没有任何数据点\n\n由于我没有看到 fixture-gpu-b 主机在任何时间范围内有数据返回（即使是24小时范围），我无法确定确切的数据中断时间点。然而，根据可用的证据：\n\n**时间依据：**\n1. 目前时间是2026-11-06T00:00:00.000Z\n2. fixture-gpu-c 主机的 GPU 0 在最近30分钟内有持续数据流（所有值为0）\n3. fixture-gpu-b 主机在最近24小时内完全没有任何监控指标数据返回\n4. 这表明 fixture-gpu-b 主机的监控数据中断很可能发生在2026-11-05T00:00:00.000Z之前（至少24小时前）\n\n然而，由于即使在24小时范围内也没有数据点，我不能精确的确定数据是什么时候开始缺失的。我只能说数据已经缺失了至少24小时。\n\n根据我的分析，**fixture-gpu-b 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标数据已经缺失了至少24小时**，可能更长时间。数据中断很可能开始于2026-11-05T00:00:00.000Z之前。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "history-unavailable",
+        "repetition": 1,
+        "verdict": "fail",
+        "claims": [
+          "监控数据中断很可能发生在2026-11-05T00:00:00.000Z之前",
+          "数据已经缺失了至少24小时"
+        ],
+        "reason": "Reports unknown exact onset but nevertheless infers an outage predating the 24-hour search and a minimum outage duration from entirely empty history. The fixture provides no evidence the series ever existed."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 3,
+        "elapsedMs": 54876.97199999995,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2586,
+            "completion_tokens": 114,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2677,
+            "total_tokens": 2841,
+            "completion_tokens": 164,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2974,
+            "total_tokens": 3112,
+            "completion_tokens": 138,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3244,
+            "total_tokens": 3619,
+            "completion_tokens": 375,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "过去 6 小时内仍然没有任何数据点。这表明 fixture-gpu-b 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上至少在最近 6 小时内没有上报数据。\n\n由于当前时间是 2026-11-06T00:00:00.000Z，往前推 6 小时就是 2026-11-05T18:00:00.000Z。因此，可以判断该指标的数据大约从 **2026-11-05T18:00:00.000Z 之前开始缺失**，且在截至当前时间的观测窗口内均未恢复。\n\n> 注意：这是基于可用的观测工具和只读查询得出的结论；未更改任何配置。若需要更早时间的历史数据，需要进一步扩大 rangeMinutes 的范围，但根据已有查询，最近 6 小时内均无数据。\n\n**结论**：fixture-gpu-b 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的数据大约从 **2026-11-05T18:00:00.000Z 起开始缺失**，直至当前时间（2026-11-06T00:00:00.000Z）均未恢复。时间依据是最近 6 小时的范围查询均未返回任何样本点。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "history-unavailable",
+        "repetition": 2,
+        "verdict": "fail",
+        "claims": [
+          "数据大约从 2026-11-05T18:00:00.000Z 起开始缺失"
+        ],
+        "reason": "Dates onset to the six-hour query boundary and asserts continuing non-recovery from empty history; prior existence and incident onset are unknown."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 10,
+        "toolCalls": 9,
+        "toolErrors": 0,
+        "backendRequests": 9,
+        "elapsedMs": 143930.376583,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2559,
+            "completion_tokens": 87,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2650,
+            "total_tokens": 2778,
+            "completion_tokens": 128,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2910,
+            "total_tokens": 3038,
+            "completion_tokens": 128,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3170,
+            "total_tokens": 3343,
+            "completion_tokens": 173,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3476,
+            "total_tokens": 3639,
+            "completion_tokens": 163,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3725,
+            "total_tokens": 3843,
+            "completion_tokens": 118,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3929,
+            "total_tokens": 4001,
+            "completion_tokens": 72,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4086,
+            "total_tokens": 4221,
+            "completion_tokens": 135,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4388,
+            "total_tokens": 4578,
+            "completion_tokens": 190,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4706,
+            "total_tokens": 5508,
+            "completion_tokens": 802,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据我的检查，fixture-gpu-b 的 GPU 0 状态指标 DCGM_FI_DEV_GPU_UTIL 的数据已经缺失较长时间。具体情况如下：\n\n**查询结果：**\n- 当前查询 fixture-gpu-b 的 DCGM_FI_DEV_GPU_UTIL{Hostname=\"fixture-gpu-b\", gpu=\"0\"} 返回无数据\n- 过去 24 小时范围查询：无数据\n- 过去 7 天范围查询：无数据\n- 过去 30 天范围查询：无数据\n- 过去 60 天范围查询：无数据\n\n**对比验证：**\n- 其他机器（如 fixture-gpu-c）的相同指标仍在正常收集数据\n- 这表明问题不是监控系统全局性故障，而是特定于 fixture-gpu-b 这台机器\n\n**时间判断：**\n由于过去 60 天（约两个月）内均未查询到 fixture-gpu-b 的任何 DCGM 指标数据（包括 GPU 利用率、温度、功耗等），可以得出结论：\n\n**fixture-gpu-b 的 GPU 0 状态指标 DCGM_FI_DEV_GPU_UTIL 的数据大约从 2026 年 9 月 7 日左右开始缺失。**\n\n**时间依据：** 基于当前时间 2026-11-06T00:00:00.000Z 往前推 60 天得到的近似时间点，以及过去 60 天范围查询均未返回任何该机器的 DCGM 指标数据这一事实。其他机器的 DCGM 指标正常收集进一步确认了这是 fixture-gpu-b 特有的问题。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "history-unavailable",
+        "repetition": 3,
+        "verdict": "fail",
+        "claims": [
+          "过去 60 天范围查询：无数据",
+          "数据大约从 2026 年 9 月 7 日左右开始缺失"
+        ],
+        "reason": "Invents onset from a requested 60-day window. Actual returned range-query bounds remained 1793318400 through 1793923200 (7 days) because the tool clamps the range. Empty history establishes neither prior existence nor a dated outage; also overstates checked coverage as 30 and 60 days."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 6,
+        "toolCalls": 5,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 76637.89241700002,
+        "usages": [
+          {
+            "prompt_tokens": 2467,
+            "total_tokens": 2570,
+            "completion_tokens": 103,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2636,
+            "total_tokens": 2718,
+            "completion_tokens": 82,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2889,
+            "total_tokens": 3017,
+            "completion_tokens": 128,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4052,
+            "total_tokens": 4151,
+            "completion_tokens": 99,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4317,
+            "total_tokens": 4400,
+            "completion_tokens": 83,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4555,
+            "total_tokens": 5100,
+            "completion_tokens": 545,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据我的调查，我可以得出以下结论：\n\n** fixture-gpu-c 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标确实持续为 0 **：\n\n1. 最新值为 0（时间戳：1793923200，对应于 2026-11-06T00:00:00Z）\n2. 过去 15 分钟内（以 30 秒间隔采样）的所有 31 个数据点均为 0\n3.  fixture-gpu-c 只有一个 GPU（gpu=\"0\"），没有其他 GPU 可以进行比较\n4. 更令人担忧的是，整个监控系统中似乎只有这个单一的时间序列：在查询所有 DCGM_FI_DEV_GPU_UTIL 指标时，只返回了这个单一系列（来自 fixture-gpu-c 的 GPU 0）\n\n这种模式强烈表明存在采集问题，因为：\n- 在正常运行的 GPU 系统中，即使是空闲状态，GPU 利用率也应该偶尔显示非零值（即使只是个位数的百分比）\n- 完全没有其他 GPU 指标被报告（无论是来自 fixture-gpu-c 还是其他主机）表明 DCGM 指标的采集可能已经中断或配置存在问题\n- 持续多个采样周期的完全零值（在15分钟内超过30个连续采样点）极不可能是真实的GPU行为\n\n然而，基于只读可观测性工具，我无法区分这是以下哪种情况：\n- fixture-gpu-c 上的 DCGM 代理已停止或无法运行\n- 从 fixture-gpu-c 收集指标的 Prometheus/VictoriaMetrics 抓取已失败\n- 指标端点本身返回了零值或没有数据\n- 更广泛的基础设施问题影响了度量采集\n\n数据明确表明， fixture-gpu-c 的 GPU 0 在所检查的时间窗口内一直报告零利用率，并且整个 DCGM_FI_DEV_GPU_UTIL 指标域似乎只有这一个时间序列，这高度暗示了采集中断。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "healthy-zero",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "持续多个采样周期的完全零值极不可能是真实的GPU行为",
+          "这高度暗示了采集中断"
+        ],
+        "reason": "Confuses a fresh, continuously present zero-valued series with collection failure; invents a requirement for utilization to occasionally be nonzero and infers physical GPU inventory from observed metric series."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 37269.4169999999,
+        "usages": [
+          {
+            "prompt_tokens": 2467,
+            "total_tokens": 2558,
+            "completion_tokens": 91,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2729,
+            "total_tokens": 2878,
+            "completion_tokens": 149,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6344,
+            "total_tokens": 6596,
+            "completion_tokens": 252,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "**结论**： fixture-gpu-c 的 GPU 0 在最近一小时内，DCGM_FI_DEV_GPU_UTIL 指标持续为 0（所有 121 个采样点均为 0）。这表明在此期间 GPU 完全未被利用，但**并不等同于采集中断**——若采集真的中断，监控系统通常会返回无数据（即查询结果为空），而这里我们能够成功获取到数值序列且均为 0，说明采集器（如 DCGM Exporter）仍在正常工作，只是该 GPU 当前没有运行任何任务。\n\n因此，**最近的值为 0 并不说明采集已经中断**，而是真实反映了 GPU 0 在观测窗口内的空闲状态。如果需要进一步确认采集器健康状态，可检查其他 GPU 或其它 DCGM 指标（如温度、功率等）是否有更新；但基于当前查询，无证据表明采集中断。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "healthy-zero",
+        "repetition": 2,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "并不等同于采集中断",
+          "采集器仍在正常工作，只是该 GPU 当前没有运行任何任务"
+        ],
+        "reason": "Correctly distinguishes present zero samples from absence, but overstates collector health and asserts no workload is running from utilization alone. Overall-answer review fails on those unsupported claims; the central zero-versus-missing distinction is correct."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 53659.87624999997,
+        "usages": [
+          {
+            "prompt_tokens": 2467,
+            "total_tokens": 2566,
+            "completion_tokens": 99,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2737,
+            "total_tokens": 2868,
+            "completion_tokens": 131,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6334,
+            "total_tokens": 6869,
+            "completion_tokens": 535,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以明确回答您的问题：\n\n**结论：fixture-gpu-c 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标最近的值确实一直是 0。**\n\n**证据：**\n1. 当前瞬时值（时间戳 1793923200，对应 2026-11-06T00:00:00Z）为 0\n2. 过去 60 分钟内（从 1793919600 到 1793923200），共采集了 121 个数据点（每 30 秒一个点），**所有数据点的值均为 0**\n\n**分析：**\n这种持续性的零值表明 GPU 0 在过去一小时内完全没有被利用（GPU 利用率持续为 0%）。虽然这本身不一定表示采集中断——它可能真实反映了 GPU 处于完全空闲状态——但持续一小时完全为零在实际生产环境中较为少见，除非该GPU被明确关闭或未被调度任何工作负载。\n\n然而，基于可用的监控数据，**无法仅凭该指标的持续零值确定采集是否中断**，因为：\n- 指标本身在持续返回值（全为0），说明采集机制似乎仍在工作\n- 如果采集真正中断，我们通常会看到指标完全消失或返回NaN/错误值，而不是持续返回有效的零值\n\n要更 definitively 判断采集状态，建议：\n1. 检查同一主机上其他GPU的利用率指标，看是否也全为零\n2. 查看DCGM相关的采集健康指标（如DCGM_FI_DEV_GPU_TEMP是否有合理变化）\n3. 检查该主机其他DCGM指标是否也出现异常模式\n\n但根据您提供的信息和查询结果，**该指标的采集似乎仍在正常工作**，只是持续返回零值，表明GPU 0在此期间未被使用。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "healthy-zero",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "采集似乎仍在正常工作",
+          "表明GPU 0在此期间未被使用"
+        ],
+        "reason": "Recognizes fresh zero samples and qualifies collection health, but concludes the GPU was unused from utilization alone. Also describes 121 evaluated 30-second query points as collected samples although the supplied source cadence is 60 seconds. Overall-answer review fails on unsupported workload inference."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 5,
+        "toolCalls": 4,
+        "toolErrors": 0,
+        "backendRequests": 4,
+        "elapsedMs": 57634.843125000014,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2562,
+            "completion_tokens": 90,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2628,
+            "total_tokens": 2698,
+            "completion_tokens": 70,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2789,
+            "total_tokens": 2919,
+            "completion_tokens": 130,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3340,
+            "total_tokens": 3517,
+            "completion_tokens": 177,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 7300,
+            "total_tokens": 7600,
+            "completion_tokens": 300,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以确定fixture-gpu-d上GPU 0的DCGM_FI_DEV_GPU_UTIL指标数据缺失的时间点。\n\n最后一个数据点出现在时间戳1793916210，对应的UTC时间是：\n2026-09-05T09:37:00Z\n\n之后（从1793916240开始，即2026-09-05T09:40:00Z）就没有再收到任何数据点。这表明数据大约是在**2026年9月5日09:40左右开始缺失的**。\n\n当前时间是2026-11-06T00:00:00.000Z，所以数据已经缺失大约1个半月左右。\n\n时间依据：通过观察范围查询结果，可以看到从时间戳1793912400到1793916210（每30秒一个点）都有持续的数据值23，但在那之后就没有更多的数据点了，说明监控或数据采集在大约09:40:00Z时中断了。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "two-hour-gap",
+        "repetition": 1,
+        "verdict": "fail",
+        "claims": [
+          "1793916210，对应的UTC时间是：2026-09-05T09:37:00Z",
+          "2026年9月5日09:40左右开始缺失",
+          "数据已经缺失大约1个半月左右"
+        ],
+        "reason": "Incorrect Unix-to-UTC conversion and duration; treats a lookback-evaluated point as the original last sample. Required original sample is 2026-11-05T21:59:00Z and cadence-qualified first expected absence is 22:00:00Z."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 38191.36337500007,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2590,
+            "completion_tokens": 118,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2681,
+            "total_tokens": 2821,
+            "completion_tokens": 140,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6436,
+            "total_tokens": 6687,
+            "completion_tokens": 251,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "从返回的历史数据可以看到，DCGM_FI_DEV_GPU_UTIL 指标在 fixture-gpu-d 的 GPU 0 上，从时间戳 1793901600（对应 UTC 时间 2026-11-05 20:00:00）开始持续上报，数值稳定在 23 左右，直到时间戳 1793916120（对应 UTC 时间 2026-11-06 00:02:00）之后便不再有任何数据点。\n\n换言之，**该指标大约从 2026-11-06 00:02:00 UTC 开始缺失**，这一点由范围查询中最后一个数据点的时间戳直接得出。\n\n（注：当前系统时间为 2026-11-06T00:00:00.000Z，因此缺失大约开始于当前时间约 2 分钟前。）",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "two-hour-gap",
+        "repetition": 2,
+        "verdict": "fail",
+        "claims": [
+          "该指标大约从 2026-11-06 00:02:00 UTC 开始缺失",
+          "当前时间约 2 分钟前"
+        ],
+        "reason": "Mis-converts a lookback-evaluated point into 00:02 UTC, which is after the stated investigation time, then calls it two minutes earlier. Does not establish original last sample 21:59 or first expected absence 22:00 on November 5."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 3,
+        "elapsedMs": 83473.820084,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2559,
+            "completion_tokens": 87,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2650,
+            "total_tokens": 2766,
+            "completion_tokens": 116,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 9154,
+            "total_tokens": 9323,
+            "completion_tokens": 169,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 9436,
+            "total_tokens": 10218,
+            "completion_tokens": 782,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "让我使用更直接的方式来理解这个时间戳。当前时间是2026-11-06T00:00:00.000Z，我来计算一下这个时间戳对应的时间。\n\n1793915640 是 Unix 时间戳（秒）。让我计算一下这是从1970-01-01开始的秒数对应的日期。\n\n实际上，我可以通过查看数据点的时间间隔来判断。数据点是每5分钟（300秒）一个点，因为：\n- 1793836800, 1793837160, 1793837520... 每次增加360秒（6分钟）\n\n等等，让我重新看看时间间隔：\n1793837160 - 1793836800 = 360秒（6分钟）\n1793837520 - 1793837160 = 360秒（6分钟）\n\n所以数据点是每6分钟一个。\n\n最后一个数据点是1793915640，对应的值是23。\n当前时间大约是1793923200（基于range查询的end参数）。\n\n让我计算一下时间差：\n1793923200 - 1793915640 = 7560秒 = 126分钟 = 2小时6分钟\n\n这意味着最后一个数据点是在当前时间之前大约2小时6分钟。\n\n不过，让我更精确地计算一下。根据range查询：\n- start: 1793836800 \n- end: 1793923200\n- 这是24小时的范围（1440分钟）\n\n所以end时间1793923200对应的是查询时的当前时间。\n\n最后一个数据点时间戳: 1793915640\n查询的end时间: 1793923200\n时间差: 1793923200 - 1793915640 = 7560秒 = 126分钟 = 2小时6分钟\n\n因此，数据大约在当前时间之前2小时6分钟停止更新。\n\n当前时间是2026-11-06T00:00:00.000Z，所以数据中断大约发生在：\n2026-11-05T21:54:00.000Z\n\n让我验证一下这个时间点：\n1793915640 时间戳 = 2026-11-05T21:54:00Z\n\n所以，fixture-gpu-d 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标数据大约从2026-11-05T21:54:00.000Z开始缺失，即当前时间（2026-11-06T00:00:00.000Z）之前大约2小时6分钟。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "two-hour-gap",
+        "repetition": 3,
+        "verdict": "fail",
+        "claims": [
+          "2026-11-05T21:54:00.000Z开始缺失"
+        ],
+        "reason": "Correctly converts the compacted returned point to 21:54 UTC but treats that evaluated/downsampled point as the incident onset. The original last sample is 21:59 UTC and first expected missing sample at known cadence is 22:00 UTC."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 3,
+        "elapsedMs": 14951.630125000025,
+        "usages": [
+          {
+            "prompt_tokens": 2728,
+            "total_tokens": 2765,
+            "completion_tokens": 37,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2831,
+            "total_tokens": 2907,
+            "completion_tokens": 76,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2996,
+            "total_tokens": 3045,
+            "completion_tokens": 49,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": " fixture-gpu-a 在最近两小时内（以及更早）没有报告 DCGM_FI_DEV_GPU_UTIL 指标。目前无法查看此 GPU 利用率数据的时间序列。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "verdict": "fail",
+        "claims": [
+          "在最近两小时内（以及更早）没有报告",
+          "目前无法查看此 GPU 利用率数据的时间序列"
+        ],
+        "reason": "Does not recover accessible older history or establish the last original sample and first expected absence; merely restates the recent lack of data and an unsupported claim about earlier history."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 4,
+        "elapsedMs": 53945.77766600007,
+        "usages": [
+          {
+            "prompt_tokens": 2728,
+            "total_tokens": 2765,
+            "completion_tokens": 37,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2831,
+            "total_tokens": 2866,
+            "completion_tokens": 35,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3022,
+            "total_tokens": 3128,
+            "completion_tokens": 106,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6767,
+            "total_tokens": 7333,
+            "completion_tokens": 566,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "**回答**\n\n fixture-gpu-a 的 GPU 0 在最近两小时内没有任何 DCGM_FI_DEV_GPU_UTIL 样本，这意味着监控数据在**约两小时前（2026-11-05 22:00:00 UTC 之前）就已经中止**。\n\n**时间依据**：\n\n1. 查询 fixture-gpu-a、gpu=0 的过去两小时（`start=1793916000` → `end=1793923200`）返回空结果（`result=[]`），说明该时间窗口内根本没有任何样本点被采集到。  \n2. 为了确认该指标本身仍在被其他主机上报，我做了两个检查：  \n   - `observability_metric_names` 确认 `DCGM_FI_DEV_GPU_UTIL` 仍然是一个有效的监控指标。  \n   - 全局瞬时查询 `DCGM_FI_DEV_GPU_UTIL` 只返回 fixture-gpu-c 的一个样本（当前值为 0），说明采集器仍在工作，只是 fixture-gpu-a 不再上报。  \n3. 进一步查询所有匹配 `fixture-gpu-.` 的主机（`observability_range_query`），得到：  \n   - fixture-gpu-c：在整个两小时窗口内持续返回 0（每分钟一个点，共 121 个点）。  \n   - fixture-gpu-d：仅在窗口开始的前 4 分钟返回值 23，之后同样没有更多样本。  \n   - fixture-gpu-a：根本没有出现在结果中，说明它在窗口开始时就已经停止上报。\n\n**结论**  \n从结果看，fixture-gpu-a 的 GPU 0 监控数据在本次查询窗口开始之前（即 **2026-11-05 22:00:00 UTC**）就已经停止上报；随后两小时内一直没有恢复。若想更精确地定位中止时间，需要查看更早的历史数据（比如查看前 4–6 小时的样本），但基于现有两小时窗口，可以断定问题是在该窗口开始之前就已经存在的。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap-followup",
+        "repetition": 2,
+        "verdict": "fail",
+        "claims": [
+          "约两小时前（2026-11-05 22:00:00 UTC 之前）就已经中止",
+          "若想更精确地定位中止时间，需要查看更早的历史数据"
+        ],
+        "reason": "Stops at the recent empty window and suggests historical queries that are still available rather than executing them; does not recover the three-day original-sample evidence."
+      }
+    },
+    {
+      "side": "baseline",
+      "source_commit": "307afa7e485a334389b4f2c8c68128fbf84ff007",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 2,
+        "toolCalls": 1,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 18542.130292000016,
+        "usages": [
+          {
+            "prompt_tokens": 2728,
+            "total_tokens": 2837,
+            "completion_tokens": 109,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2969,
+            "total_tokens": 3107,
+            "completion_tokens": 138,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "在过去 24 小时内（截至当前时间 2026-11-06 00:00:00），该系列一直没有样本。这说明问题至少在这段时间内一直存在。若需更精准的起点，可进一步拉长查询窗口或结合主机/GPU 可用性其他指标（如 up、心跳）进行对比。当前基于 DCGM_FI_DEV_GPU_UTIL 的只读数据表明，该 GPU 在最近 24 小时内未产生利用率样本。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap-followup",
+        "repetition": 3,
+        "verdict": "fail",
+        "claims": [
+          "过去 24 小时内该系列一直没有样本",
+          "可进一步拉长查询窗口"
+        ],
+        "reason": "Only widens to 24 hours, then suggests further investigation without recovering accessible original last-sample evidence for the three-day gap."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 7,
+        "elapsedMs": 60741.11075,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4133,
+            "completion_tokens": 99,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4199,
+            "total_tokens": 4289,
+            "completion_tokens": 90,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4380,
+            "total_tokens": 4507,
+            "completion_tokens": 127,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6060,
+            "total_tokens": 6565,
+            "completion_tokens": 505,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以得到以下结论：\n\n** fixture-gpu-a 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标数据缺失情况：**\n\n1. **最后观测到的数据时间**：2026年11月2日23:59:00 UTC（ISO格式：2026-11-02T23:59:00.000Z），当时数值为42（代表GPU利用率42%）\n\n2. **数据缺失开始时间**：从2026年11月3日00:00:00 UTC开始（紧接最后一个样本之后）\n\n3. **缺失持续时间**：截至当前时间（2026年11月6日00:00:00 UTC），数据已经缺失了大约3小时1分钟（确切地说是3 days, 0 hours, 1 minutes, 0 seconds）\n\n4. **时间依据**：通过系统atic地搜索了最近79小时的历史数据窗口（从2026年11月2日17:00:00到2026年11月6日00:00:00），发现：\n   - 在时间窗口(2026-11-02T17:00:00.000Z, 2026-11-03T17:00:00.000Z]内有419个样本点\n   - 在之后的所有时间窗口中（2026-11-03T17:00:00.000Z以后）没有找到任何样本点\n   - 最后一个样本的确切时间是2026-11-02T23:59:00.000Z\n\n因此，可以确定 fixture-gpu-a 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标大约从 **2026年11月3日00:00:00 UTC** 开始出现数据缺失。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "2026-11-02T23:59:00.000Z",
+          "从2026年11月3日00:00:00 UTC开始",
+          "大约3小时1分钟（确切地说是3 days, 0 hours, 1 minutes, 0 seconds）"
+        ],
+        "reason": "Recovers the correct original last sample and cadence-qualified first absence, but the full answer contradicts itself on elapsed age: Chinese says 3 hours 1 minute while the evidence and English phrase say 3 days 1 minute. Whole-answer consistency gate fails."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 7,
+        "elapsedMs": 62153.414958,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4125,
+            "completion_tokens": 91,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4191,
+            "total_tokens": 4270,
+            "completion_tokens": 79,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4361,
+            "total_tokens": 4466,
+            "completion_tokens": 105,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6019,
+            "total_tokens": 6584,
+            "completion_tokens": 565,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据 observability_metric_last_seen 的结果，我可以为您提供关于 fixture-gpu-a 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标数据缺失情况的确切信息：\n\n## 数据缺失情况\n\n**最后观测到的数据时间**：2026-11-02T23:59:00.000Z（UTC时间）\n**数值**：42（表示GPU利用率为42%）\n\n**数据开始缺失的时间**：从 2026-11-03T00:00:00.000Z 开始（紧随最后一次观测之后）\n\n**缺失时长**：截至当前时间（2026-11-06T00:00:00.000Z），数据已经缺失了大约 **3天0小时1分钟**\n\n## 时间依据说明\n\n1. 系统通过向前搜索原始样本窗口的方式确定了最后一个真实数据点\n2. 在 2026-11-02T17:00:00.000Z 到 2026-11-03T17:00:00.000Z 这个时间窗口内，发现了419个原始样本\n3. 最后一个样本的时间戳是 2026-11-02T23:59:00.000Z，数值为42\n4. 在所有更晚的时间窗口（从2026-11-03T00:00:00.000Z开始）中，均未发现任何该指标的样本\n5. 因此可以确定数据从最后一个样本时间之后开始缺失\n\n这是基于实际原始样本搜索的确定时间点，而不仅仅是查询窗口的边界。根据系统报告，已经完成了79小时的实际搜索（从2026-11-02T17:00:00.000Z到2026-11-06T00:00:00.000Z），在其中只有最早的时间窗口包含数据，更晚的时间窗口均无数据。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap",
+        "repetition": 2,
+        "verdict": "pass",
+        "core_finding_correct": true,
+        "claims": [
+          "最后观测到的数据时间：2026-11-02T23:59:00.000Z",
+          "从 2026-11-03T00:00:00.000Z 开始",
+          "完成了79小时的实际搜索"
+        ],
+        "reason": "Correct original last sample, following expected sample time using the prompt-supplied 60-second cadence, and actual 79-hour search coverage. Does not attribute a hardware cause. The optional cadence was omitted from the tool call, so the estimate is supported by the system prompt plus the original timestamp rather than the helper firstExpectedMissing field.",
+        "precision_note": "Calls approximately 3 days 1 minute the missing duration; that is sample age, one cadence interval longer than the first-expected-absence duration. Accepted as approximate wording here because both boundary timestamps are correct and no physical failure time is asserted."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 5,
+        "toolCalls": 4,
+        "toolErrors": 0,
+        "backendRequests": 8,
+        "elapsedMs": 65861.58895800001,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4110,
+            "completion_tokens": 76,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4176,
+            "total_tokens": 4225,
+            "completion_tokens": 49,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4316,
+            "total_tokens": 4380,
+            "completion_tokens": 64,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4699,
+            "total_tokens": 4764,
+            "completion_tokens": 65,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6317,
+            "total_tokens": 6913,
+            "completion_tokens": 596,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据观测数据，fixture-gpu-a 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标最近的数据缺失大约开始于 **2026-11-02T23:59:00.000Z**。\n\n**时间依据：**\n- 通过 `observability_metric_last_seen` 工具在最近 168 小时（7 天）的历史窗口中搜索原始样本，发现最后一个实际数据点的时间戳为 1793663940（即 **2026-11-02T23:59:00.000Z**），此时数值为 42。\n- 在该时间之后（从 2026-11-02T23:59:00.000Z 起至当前时间 2026-11-06T00:00:00.000Z），未检测到任何新的原始样本。\n- 搜索覆盖了从 2026-11-02T17:00:00.000Z 到 2026-11-06T00:00:00.000Z 的时间窗口（共 79 小时），在最早的一段（2026-11-02T17:00:00.000Z 到 2026-11-03T17:00:00.000Z）中发现了 419 个样本，证明采集在此时间窗口内曾正常工作；而之后的时间段（2026-11-03T17:00:00.000Z 起）所有窗口均无样本，确认数据在此之后中断。\n\n因此，可判定该指标的数据大约从 **2026-11-02T23:59:00.000Z** 开始缺失，已持续约 **3 天 0 小时 1 分钟**。此结论基于实际样本的时间戳，而非查询窗口边界，具有时序依据。后续若需更早的历史溯源，可考虑扩展 `lookbackHours` 参数（当前受限于 7 天），但已足够定位最近的中断时间点。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "大约从 2026-11-02T23:59:00.000Z 开始缺失",
+          "lookbackHours 参数（当前受限于 7 天）"
+        ],
+        "reason": "Finds the correct original last sample but calls that present-sample timestamp the beginning of missing data and omits the cadence-qualified 00:00 first expected absence. Also misstates the tool maximum as 7 days despite evidence reporting a 720-hour maximum and 168-hour requested budget."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 10,
+        "elapsedMs": 56609.450709,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4142,
+            "completion_tokens": 108,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4233,
+            "total_tokens": 4333,
+            "completion_tokens": 100,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6367,
+            "total_tokens": 6952,
+            "completion_tokens": 585,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据检查结果，我可以得出以下结论：\n\n fixture-gpu-b 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标在最近的图表上没有数据，这是由于在检查的时间窗口内完全没有找到该指标的任何样本数据。\n\n**时间依据：**\n- 检查时间窗口：2026-10-30T00:00:00.000Z 到 2026-11-06T00:00:00.000Z（共168小时，即7天）\n- 在该完整时间窗口内，所有针对指标 `DCGM_FI_DEV_GPU_UTIL{gpu=\"0\",Hostname=\"fixture-gpu-b\"}` 的范围查询都返回了0个样本\n- 系统明确指出：`status: \"not_found_in_checked_history\"` 和 `conclusion: \"No matching source samples were found in (2026-10-30T00:00:00.000Z, 2026-11-06T00:00:00.000Z].\"`\n\n**重要限制声明：**\n由于在7天的检查窗口内完全没有找到任何该指标的样本数据，我们无法确定数据究竟是从什么时候开始缺失的。系统明确指出：\n- \"It is unknown whether this exact series ever existed.\"（未知此精确序列是否曾经存在）\n- \"The onset is unknown, not established to predate this window.\"（ onset 未知，未确定早于此窗口）\n- \"Do not infer an outage duration from empty history.\"（不要从空历史中推断故障持续时间）\n\n因此，基于可用的观测数据，**无法确定该指标数据缺失的具体开始时间**。只能确定的是，在最近7天（从2026-10-30T00:00:00.000Z开始）内，该指标从未出现过任何数据样本。更早的历史数据可能存在，但超出了当前工具的检查范围（默认7天，最大可扩展至30天）。如果需要进一步调查更早时间的情况，需要用户明确指定更早的时间范围进行检查。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "history-unavailable",
+        "repetition": 1,
+        "verdict": "pass",
+        "core_finding_correct": true,
+        "claims": [
+          "无法确定该指标数据缺失的具体开始时间",
+          "未知此精确序列是否曾经存在",
+          "默认7天，最大可扩展至30天"
+        ],
+        "reason": "Correctly keeps onset and prior existence unknown, reports the actual complete 168-hour search, and does not date an outage from the query boundary or claim backend retention."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 11,
+        "elapsedMs": 53374.12275000004,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4125,
+            "completion_tokens": 91,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4191,
+            "total_tokens": 4277,
+            "completion_tokens": 86,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4368,
+            "total_tokens": 4475,
+            "completion_tokens": 107,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6509,
+            "total_tokens": 6924,
+            "completion_tokens": 415,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据观测性工具的分析结果，我可以得出以下结论：\n\n**发现：**\n在 fixture-gpu-b 主机上的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标最近没有数据。\n\n**时间依据：**\n系统在检查了从2026年10月30日00:00:00 UTC到2026年11月6日00:00:00 UTC（共168小时，即7天）的历史数据窗口内，均未找到该指标的任何样本数据。所有检查的时间窗口都返回了0个样本。\n\n**结论：**\n根据可用的观测数据，**无法确定数据缺失的确切开始时间**。系统明确指出：\n- 在检查的7天窗口内(2026-10-30T00:00:00.000Z到2026-11-06T00:00:00.000Z)未发现任何匹配的源样本\n- 未知该指标序列是否曾经存在过\n- 无法确定缺失是否早于此检查窗口之前\n- 查询边界(开始或结束时间)都不应被视为故障开始时间\n- 无法从空历史记录推断出故障持续时间\n\n因此，基于目前可观测到的7天历史数据，可以确定的是：**在最近的7天时间内(从2026年10月30日起)，该GPU的利用率指标一直没有数据报告**。更早时间的情况无法从现有数据中确定。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "history-unavailable",
+        "repetition": 2,
+        "verdict": "pass",
+        "core_finding_correct": true,
+        "claims": [
+          "未知该指标序列是否曾经存在过",
+          "无法从空历史记录推断出故障持续时间",
+          "共168小时，即7天"
+        ],
+        "reason": "Correctly keeps onset and prior existence unknown, reports the actual complete 168-hour search, and does not date an outage from the query boundary or claim backend retention."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "history-unavailable",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 11,
+        "elapsedMs": 41847.43212499999,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4071,
+            "completion_tokens": 37,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4137,
+            "total_tokens": 4186,
+            "completion_tokens": 49,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4277,
+            "total_tokens": 4342,
+            "completion_tokens": 65,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6376,
+            "total_tokens": 6722,
+            "completion_tokens": 346,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据当前可观测数据，**DCGM_FI_DEV_GPU_UTIL{Hostname=\"fixture-gpu-b\",gpu=\"0\"}** 在过去 7 天（即自 2026-10-30T00:00:00.000Z 起）内未出现任何样本。工具在逐步扩大的历史窗口中进行了检查，最终确认在该时间范围内没有任何原始样本被记录。\n\n由于在检查窗口内根本未发现该指标系列的任何样本，**无法确定该指标何时开始缺失**——也不能断定该系列此前曾经存在过。工具明确结论为：“无法判断此精确系列是否曾经存在；缺失 onset 未知，不能确定其早于已检查窗口。”\n\n因此，基于目前可用的 7 天历史数据，**只能说该指标在此窗口之前就已经缺失（或从未存在）**，但无法给出更具体的时间点。若需进一步追溯，需要更长的后端保留时间（当前工具支持最多 30 天回溯），但需用户明确授权扩大 `lookbackHours`（目前未更改配置）。在不更改配置的前提下，只能报告已检查窗口内的观察结果。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "history-unavailable",
+          "host": "fixture-gpu-b",
+          "last": null,
+          "missing": null,
+          "value": 42,
+          "count": 0,
+          "lastIso": null,
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "history-unavailable",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "不能确定其早于已检查窗口",
+          "只能说该指标在此窗口之前就已经缺失（或从未存在）",
+          "需要更长的后端保留时间"
+        ],
+        "reason": "Initially states the correct unknown-onset limitation, then contradicts it by asserting absence predates the checked window (or never existed). Also implies insufficient backend retention without evidence; the actual tool reports retention unknown and supports longer searches."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 3,
+        "elapsedMs": 56204.36637500004,
+        "usages": [
+          {
+            "prompt_tokens": 4029,
+            "total_tokens": 4124,
+            "completion_tokens": 95,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4190,
+            "total_tokens": 4268,
+            "completion_tokens": 78,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4439,
+            "total_tokens": 4560,
+            "completion_tokens": 121,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6724,
+            "total_tokens": 7170,
+            "completion_tokens": 446,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据我的检查，我可以告诉您：\n\n**结论：fixture-gpu-c 上 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标最近的值一直是 0，但这** **不一定** **表明采集已经中断。**\n\n**证据：**\n\n1. **指标存在且可查询**：DCGM_FI_DEV_GPU_UTIL 指标确实存在于系统中，并且我们能够成功查询到 fixture-gpu-c 上 GPU 0 的数据。\n\n2. **数据持续更新**：在过去60分钟内（从2026-11-05T23:00:00.000Z到2026-11-06T00:00:00.000Z），该指标有61个数据点，每个数据点都成功返回了值（0），没有任何缺失或错误。\n\n3. **时间戳正常**：所有数据点的时间戳都是连续且正常的，表明监控系统正在定期采集并更新这个指标。\n\n4. **值解释**：DCGM_FI_DEV_GPU_UTIL 表示GPU利用率百分比。持续为0意味着GPU在这段时间内没有被使用（空闲状态），而不是监控中断。\n\n**区分采集中断 vs 实际零值：**\n- 如果采集中断，我们会看到数据点缺失、时间戳停滞或查询返回错误\n- 而这里我们看到的是持续的、时间戳正常的零值序列，这更符合GPU确实处于空闲状态的情况\n\n因此，**最近的值一直是0更可能表示GPU 0在这段时间内确实没有被利用（空闲），而不是采集中断。** 监控系统似乎正常工作并持续在采集这个指标。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "healthy-zero",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "过去60分钟内该指标有61个数据点",
+          "持续为0意味着GPU在这段时间内没有被使用（空闲状态）"
+        ],
+        "reason": "Correctly identifies current and historical zero samples as present, but asserts the GPU was unused/idle from utilization alone. This does not establish workload state or complete device health."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 10,
+        "toolCalls": 9,
+        "toolErrors": 0,
+        "backendRequests": 9,
+        "elapsedMs": 172472.60320800002,
+        "usages": [
+          {
+            "prompt_tokens": 4029,
+            "total_tokens": 4132,
+            "completion_tokens": 103,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4198,
+            "total_tokens": 4283,
+            "completion_tokens": 85,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4454,
+            "total_tokens": 4573,
+            "completion_tokens": 119,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6737,
+            "total_tokens": 6827,
+            "completion_tokens": 90,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 13826,
+            "total_tokens": 13920,
+            "completion_tokens": 94,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 20920,
+            "total_tokens": 21041,
+            "completion_tokens": 121,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 21940,
+            "total_tokens": 22018,
+            "completion_tokens": 78,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 22184,
+            "total_tokens": 22275,
+            "completion_tokens": 91,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 22365,
+            "total_tokens": 22411,
+            "completion_tokens": 46,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 22567,
+            "total_tokens": 23199,
+            "completion_tokens": 632,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据我的调查，我可以得出以下结论：\n\n## 检查结果\n\n**fixture-gpu-c 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标确实一直保持为 0**，根据我的检查：\n\n1. **当前值验证**：最新查询显示该指标值为 0（时间戳：2026-11-06T00:00:00.000Z）\n\n2. **历史数据分析**：\n   - 过去 1 小时：所有 60 个采样点都为 0\n   - 过去 6 小时：所有采样点都为 0（经下sampling后显示）\n   - 过去 24 小时：所有采样点都为 0（经下sampling后显示）\n\n3. **指标存在性确认**：使用 `observability_metric_last_seen` 确认该指标确实存在并被采集，最后一个实际样本是在 2026-11-06T00:00:00.000Z，值为 0\n\n4. **主机范围检查**：fixture-gpu-c 似乎只有 GPU 0，且这是唯一报告此指标的主机\n\n## 是否表明采集中断？\n\n**不，这不一定表明采集已经中断**。根据我的分析：\n\n- **指标仍在被采集**：时间戳更新显示采集器仍在工作（最后样本时间是当前时间）\n- **值为0是有效的监控数据**：GPU 利用率为 0 表示 GPU 当前处于空闲状态，这是一种完全正常的情况\n- **没有中断的迹象**：如果采集真正中断了，我们应该会看到：\n  - 指标完全消失（无法查询到）\n  - 或者时间戳停止更新（不再有新样本）\n  - 或者出现采集错误的迹象\n\n## 结论\n\nfixture-gpu-c 的 GPU 0 目前利用率为 0，这是一个**有效的监控读数**，表明 GPU 当前没有被使用（空闲状态），而不是采集中断。采集器正常工作，只是报告了 GPU 没有工作负载的事实。\n\n如果您怀疑应该有工作负载在运行但看到利用率为 0，这可能表明：\n- 工作负载实际上没有在运行\n- 工作负载没有使用 GPU 资源\n- 工作负载在其他 GPU 上运行（但此主机似乎只有 1 个 GPU）",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "healthy-zero",
+        "repetition": 2,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "最后一个实际样本是在 2026-11-06T00:00:00.000Z，值为 0",
+          "采集器正常工作，只是报告了 GPU 没有工作负载的事实"
+        ],
+        "reason": "Correctly establishes the current original zero sample and distinguishes presence from absence, but asserts no workload exists and normal collector operation from utilization alone; the queried data cannot establish those facts."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "healthy-zero",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 3,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 43697.91341600008,
+        "usages": [
+          {
+            "prompt_tokens": 4029,
+            "total_tokens": 4116,
+            "completion_tokens": 87,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4287,
+            "total_tokens": 4420,
+            "completion_tokens": 133,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6584,
+            "total_tokens": 6929,
+            "completion_tokens": 345,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以得出以下结论：\n\n**fixture-gpu-c 的 GPU 0 的 DCGM_FI_DEV_GPU_UTIL 指标确实存在且持续采集中，但其值一直为 0。**\n\n具体证据：\n1. 该指标在最新查询中存在（timestamp: 1793923200, 对应 2026-11-06T00:00:00.000Z）\n2. 在过去一小时（60分钟）内，该指标持续采集，每分钟一个数据点，共有61个数据点\n3. 所有61个数据点的值都是0，从2026-11-05T23:00:00.000Z开始一直到当前时间\n\n因此，**这并不说明采集已经中断**。相反，监控系统正在正常采集该指标数据，只是该GPU的利用率持续为0（可能表示GPU当前空闲或没有运行任何计算任务）。\n\n如果采集真正中断了，我们应该看到：\n- 指标完全消失（查询返回空结果）\n- 或者数据点停止更新（时间戳不再推进）\n\n而在这里我们看到的是持续的、带时间戳的零值数据点，表明采集器正在工作，只是被监控的GPU当前没有被使用。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "healthy-zero",
+          "host": "fixture-gpu-c",
+          "last": 1793923200,
+          "missing": null,
+          "value": 0,
+          "count": 11521,
+          "lastIso": "2026-11-06T00:00:00.000Z",
+          "missingIso": null
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "healthy-zero",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": true,
+        "claims": [
+          "共61个数据点",
+          "可能表示GPU当前空闲",
+          "只是被监控的GPU当前没有被使用"
+        ],
+        "reason": "Correctly establishes fresh zero-valued data. Initially qualifies idle-workload interpretation as possible, but the final sentence asserts the GPU was unused; utilization alone cannot establish that workload fact."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 4,
+        "elapsedMs": 61339.434583000024,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4127,
+            "completion_tokens": 93,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4193,
+            "total_tokens": 4281,
+            "completion_tokens": 88,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4372,
+            "total_tokens": 4491,
+            "completion_tokens": 119,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5557,
+            "total_tokens": 6063,
+            "completion_tokens": 506,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以为您提供以下信息：\n\n**fixture-gpu-d 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的数据缺失情况：**\n\n1. **最后一次成功观测时间**：2026-11-05T21:59:00.000Z（价值为23）\n2. **数据开始缺失的时间**：大约在2026-11-05T21:59:00.000Z之后\n3. **截至当前时间的缺失时长**：大约2小时1分钟（从最后一次采样到当前时间2026-11-06T00:00:00.000Z）\n\n**时间依据**：\n- 系统在最近的检查窗口（2026-11-05T17:00:00.000Z到2026-11-06T00:00:00.000Z）内进行了分阶段搜索\n- 在2026-11-05T17:00:00.000Z到2026-11-05T23:00:00.000Z之间找到了有效数据（299个样本点）\n- 在2026-11-05T23:00:00.000Z到2026-11-06T00:00:00.000Z这一小时窗口内未找到任何样本\n- 最后一个有效样本的确切时间戳是2026-11-05T21:59:00.000Z\n\n因此，可以判断fixture-gpu-d的GPU 0在DCGM_FI_DEV_GPU_UTIL指标上的数据大约从2026-11-05T21:59:00.000Z开始缺失，截至目前已经缺失了约2小时1分钟。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "two-hour-gap",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "最后一次成功观测时间：2026-11-05T21:59:00.000Z",
+          "从2026-11-05T21:59:00.000Z开始缺失"
+        ],
+        "reason": "Recovers the correct original last sample and sample age, but never states the cadence-qualified 22:00 first expected missing sample. The final sentence instead dates missing data to the still-present 21:59 sample."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 5,
+        "toolCalls": 4,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 71659.88299999991,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4121,
+            "completion_tokens": 87,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4187,
+            "total_tokens": 4257,
+            "completion_tokens": 70,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4348,
+            "total_tokens": 4439,
+            "completion_tokens": 91,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4758,
+            "total_tokens": 4864,
+            "completion_tokens": 106,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5930,
+            "total_tokens": 6503,
+            "completion_tokens": 573,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以为您提供以下信息：\n\n**关于 fixture-gpu-d 的 GPU 0 的 GPU 使用率指标 (DCGM_FI_DEV_GPU_UTIL) 缺失情况的分析：**\n\n1. **最后一次观测到的数据时间**：2026-11-05T21:59:00.000Z（UTC时间）\n2. **该时间点的数值**：23（表示GPU使用率为23%）\n3. **数据缺失开始时间**：从最后一次观测之后开始缺失，即大约从2026-11-05T21:59:00.000Z开始\n4. **缺失时长**：截至当前时间（2026-11-06T00:00:00.000Z），数据已经缺失了大约2小时1分钟\n\n**时间依据**：\n- 通过 `observability_metric_last_seen` 工具在7小时的窗口内（2026-11-05T17:00:00.000Z 到 2026-11-06T00:00:00.000Z）搜索了该指标的原始样本\n- 在时间窗口的早期部分（2026-11-05T17:00:00.000Z 到 2026-11-05T23:00:00.000Z）发现了299个样本，最后一个样本时间戳为2026-11-05T21:59:00.000Z\n- 在最近的时间窗口（2026-11-05T23:00:00.000Z 到 2026-11-06T00:00:00.000Z）内未发现任何样本，表明数据从最后一个样本时间之后停止上报\n\n因此，可以判断fixture-gpu-d的GPU 0的GPU使用率指标大约从**2026-11-05T21:59:00.000Z**开始缺失，截止到目前已经缺失了约2小时1分钟。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "two-hour-gap",
+        "repetition": 2,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "最后一个实际样本时间：2026-11-05T21:59:00.000Z",
+          "从2026-11-05T21:59:00.000Z开始缺失"
+        ],
+        "reason": "Correct original last sample, sample age, and seven-hour actual search coverage, but omits the known-cadence first expected absence at 22:00 and instead labels the present 21:59 sample as the onset."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "two-hour-gap",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 4,
+        "toolCalls": 3,
+        "toolErrors": 0,
+        "backendRequests": 4,
+        "elapsedMs": 60770.42316699994,
+        "usages": [
+          {
+            "prompt_tokens": 4034,
+            "total_tokens": 4126,
+            "completion_tokens": 92,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4192,
+            "total_tokens": 4278,
+            "completion_tokens": 86,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 4369,
+            "total_tokens": 4480,
+            "completion_tokens": 111,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5546,
+            "total_tokens": 6076,
+            "completion_tokens": 530,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "根据查询结果，我可以得出以下结论：\n\n**关于 fixture-gpu-d 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的数据缺失情况：**\n\n1. **最后一个有效样本时间**：2026-11-05T21:59:00.000Z（值为23）\n2. **数据开始缺失的时间**：大约在2026-11-05T21:59:00.000Z之后\n3. **时间依据**：\n   - 在检查窗口(2026-11-05T17:00:00.000Z到2026-11-06T00:00:00.000Z)中，系统发现：\n     - 从2026-11-05T17:00:00.000Z到2026-11-05T23:00:00.000Z有数据（299个样本）\n     - 从2026-11-05T23:00:00.000Z到2026-11-06T00:00:00.000Z（最近1小时）没有任何样本\n   - 最后一个实际的源样本时间戳是2026-11-05T21:59:00.000Z\n   - 从该样本到当前时间(2026-11-06T00:00:00.000Z)已过去约2小时1分钟\n\n因此，**fixture-gpu-d 的 GPU 0 在 DCGM_FI_DEV_GPU_UTIL 指标上的数据大约从2026-11-05T21:59:00.000Z开始缺失**，即当前时间的约2小时1分钟前。这个时间依据是通过在指定时间范围内搜索原始样本，找到最后一个有效样本，并在之后的时间窗口中未发现任何新样本来确定的。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "two-hour-gap",
+          "host": "fixture-gpu-d",
+          "last": 1793915940,
+          "missing": 1793916000,
+          "value": 23,
+          "count": 11400,
+          "lastIso": "2026-11-05T21:59:00.000Z",
+          "missingIso": "2026-11-05T22:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "two-hour-gap",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "最后一个实际样本时间：2026-11-05T21:59:00.000Z",
+          "从2026-11-05T21:59:00.000Z开始缺失"
+        ],
+        "reason": "Correct original last sample, sample age, and seven-hour actual search coverage, but omits the known-cadence first expected absence at 22:00 and instead labels the present 21:59 sample as the onset."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 2,
+        "toolCalls": 1,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 24349.793666000012,
+        "usages": [
+          {
+            "prompt_tokens": 4477,
+            "total_tokens": 4588,
+            "completion_tokens": 111,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5813,
+            "total_tokens": 6006,
+            "completion_tokens": 193,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": " fixture-gpu-a 的 GPU 0 在最近 48 小时（从 2026-11-04T00:00:00Z 到 2026-11-06T00:00:00Z）都没有 DCGM_FI_DEV_GPU_UTIL 样本。检索工具未在该时间窗口内找到任何此指标的原始样本，也无法确定该序列此前是否曾经存在。因此，**无法给出问题开始的确切时间**；目前只能说在这 48 小时内该指标持续缺失。若需要进一步确定更早时间的状况，需要扩大回溯窗口或检查采集器/导出器的健康状态。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "最近 48 小时没有原始样本",
+          "需要扩大回溯窗口"
+        ],
+        "reason": "Stops after a 48-hour empty search and suggests further queries instead of using accessible history to recover the actual three-day last-sample evidence."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 2,
+        "stop": "stop",
+        "modelTurns": 2,
+        "toolCalls": 1,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 45494.16991699999,
+        "usages": [
+          {
+            "prompt_tokens": 4477,
+            "total_tokens": 4588,
+            "completion_tokens": 111,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5813,
+            "total_tokens": 6364,
+            "completion_tokens": 551,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "**回答**\n\n在检查的时间窗口内（最近 48 小时），没有发现任何 **DCGM_FI_DEV_GPU_UTIL{gpu=\"0\",Hostname=\"fixture-gpu-a\"}** 的原始样本。因此：\n\n- **无法确定此指标何时停止上报**（onset 未知）。\n- 不能断言此系列在此窗口之前曾经存在；它可能从未被采集过，也可能在此 48 小时之前就停止了，但无法从已有数据中得出确切时间。\n- 最近两小时（2026-11-05T22:00:00Z 至 2026-11-06T00:00:00Z）确实没有样本，这仅说明该窗口内没有数据，**不能作为故障开始时间**。\n\n**时间依据**（来自 `observability_metric_last_seen`）：\n\n- 检查范围：`requestedStartIso=\"2026-11-04T00:00:00.000Z\"` 到 `requestedEndIso=\"2026-11-06T00:00:00.000Z\"`（共 48 小时）。\n- 已实际搜索的窗口：`searchedDurationHours=48`，分四段逐步向前查询，所有窗口均返回 `sampleCount=0`、`seriesCount=0`。\n- 结论字段明确指出：“No matching source samples were found … It is unknown whether this exact series ever existed. The onset is unknown, not established to predate this window.”\n\n因此，**基于目前可观测的数据，无法给出更早的确切停止时间**。如果需要进一步回溯，可将 `lookbackHours` 调大（最多可查 720 小时），但同样只能得出“在此延长窗口内仍未发现样本”而不能断言更早的故障时间。若希望确认该系列是否曾经存在，需检查更早的历史或确认采集器配置。当前只能说：**最近两小时无数据，且在最近 48 小时内均未见该指标样本，故障开始时间未知**。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap-followup",
+        "repetition": 2,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "最近 48 小时内均未见该指标样本，故障开始时间未知",
+          "调大lookbackHours但同样只能得出延长窗口内仍未发现样本"
+        ],
+        "reason": "Accurately reports the checked 48-hour empty window, but stops before reaching accessible older evidence. Also predicts that an unexecuted longer search would remain empty, although the fixture contains older samples."
+      }
+    },
+    {
+      "side": "candidate",
+      "source_commit": "8305d59e44470e10d268a4e60fc36870929b2e27",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 3,
+        "stop": "stop",
+        "modelTurns": 2,
+        "toolCalls": 1,
+        "toolErrors": 0,
+        "backendRequests": 6,
+        "elapsedMs": 27443.519417000003,
+        "usages": [
+          {
+            "prompt_tokens": 4477,
+            "total_tokens": 4589,
+            "completion_tokens": 112,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 6142,
+            "total_tokens": 6378,
+            "completion_tokens": 236,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "问题开始时间：2026-11-02T23:59:00.000Z\n\n时间依据：\n- 该指标 DCGM_FI_DEV_GPU_UTIL{gpu=\"0\",Hostname=\"fixture-gpu-a\"} 的最后一个观测样本出现在 2026-11-02T23:59:00.000Z，数值为 42。\n- 自该时间起至当前 2026-11-06T00:00:00.000Z，系统已连续 3 天 1 分钟未再采集到任何新样本（在最近两小时窗口以及向前扩展的 79 小时检索中均未发现样本）。\n- 因此可以确定数据中断始于最后一次成功采样之后，即 2026-11-02T23:59:00.000Z。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "candidate",
+        "case": "three-day-gap-followup",
+        "repetition": 3,
+        "verdict": "fail",
+        "core_finding_correct": false,
+        "claims": [
+          "问题开始时间：2026-11-02T23:59:00.000Z",
+          "向前扩展的 79 小时检索中均未发现样本"
+        ],
+        "reason": "Finds the correct original last sample but labels that present-sample timestamp as onset and omits the known-cadence 00:00 first expected absence. Incorrectly says the entire 79-hour search had no samples despite finding 419 samples in its oldest window."
+      }
+    }
+  ],
+  "non_scoring_attempts": [
+    {
+      "stage": "smoke",
+      "side": "baseline",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 5,
+        "toolCalls": 4,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 64337.828041999994,
+        "usages": [
+          {
+            "prompt_tokens": 2728,
+            "total_tokens": 2765,
+            "completion_tokens": 37,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2831,
+            "total_tokens": 2907,
+            "completion_tokens": 76,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2996,
+            "total_tokens": 3072,
+            "completion_tokens": 76,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3228,
+            "total_tokens": 3419,
+            "completion_tokens": 191,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 3486,
+            "total_tokens": 3974,
+            "completion_tokens": 488,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": "目前可观测系统里只有 `DCGM_FI_DEV_GPU_UTIL` 这一条指标。也就是说我们只能依赖 DCGM 相关的数据来判断 fixture-gpu-a 是否在上报。\n\n刚才我们已经看到：\n- 在当前时间（2026-11-06 00:00:00 UTC）只能查到 fixture-gpu-c 的 GPU 0 有样本（值为 0）；\n- fixture-gpu-a 在这个时间点没有任何 DCGM_FI_DEV_GPU_UTIL 样本；\n- 在最近两小时的范围查询里（1793916000–1793923200 Unix 时间戳，即 2026-11-05 12:00:00–2026-11-06 00:00:00 UTC）同样也没有返回任何样本。\n\n因此可以得出结论： fixture-gpu-a 的 GPU 0 在 **整个最近两小时窗口内都没有上报 DCGM_FI_DEV_GPU_UTIL 指标**，即监控系统在此时间段内完全未收到该节点该 GPU 的任何利用率样本。这一断点正是问题开始的时间——即在观测窗口开始之前（2026-11-05 12:00:00 UTC 以前）监控就已丢失该节点的上报。\n\n若需要更精确的“最后一次成功上报”时间点，则需要把查询窗口向过去延伸（例如过去 6 小时、12 小时或 24 小时），直到出现非空样本为止。但在目前所给的「最近两小时」范围内，我们只能说：**自观测窗口起点（2026-11-05 12:00:00 UTC）开始， fixture-gpu-a GPU 0 的 DCGM_FI_DEV_GPU_UTIL 已持续失联**。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "smoke",
+        "side": "baseline",
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "verdict": "fail",
+        "claims": [
+          "自观测窗口起点（2026-11-05 12:00:00 UTC）开始",
+          "这一断点正是问题开始的时间"
+        ],
+        "reason": "Dates onset from the recent query window, mis-converts that boundary as 12:00 instead of 22:00, and never finds the original last sample at 2026-11-02T23:59:00Z."
+      },
+      "error": null
+    },
+    {
+      "stage": "smoke",
+      "side": "candidate",
+      "summary": {
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "stop": "stop",
+        "modelTurns": 2,
+        "toolCalls": 1,
+        "toolErrors": 0,
+        "backendRequests": 5,
+        "elapsedMs": 23275.22475,
+        "usages": [
+          {
+            "prompt_tokens": 4477,
+            "total_tokens": 4588,
+            "completion_tokens": 111,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 5813,
+            "total_tokens": 5982,
+            "completion_tokens": 169,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": " fixture-gpu-a 的 GPU 0 在最近 48 小时（从 2026-11-04T00:00:00Z 到 2026-11-06T00:00:00Z）都没有 DCGM_FI_DEV_GPU_UTIL 样本。检查工具在该窗口内逐段搜索原始样本，未发现任何匹配的时间序列。由于没有更早的历史证据，无法断定该指标何时停止上报，也不能确定该系列曾经存在。因此，只能说明缺失已至少持续 48 小时，但具体中断时间未知。",
+        "completed": true,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap-followup",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "followup": true,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "smoke",
+        "side": "candidate",
+        "case": "three-day-gap-followup",
+        "repetition": 1,
+        "verdict": "fail",
+        "claims": [
+          "缺失已至少持续 48 小时",
+          "具体中断时间未知"
+        ],
+        "reason": "Stops after a 48-hour empty-history search even though accessible older samples establish the three-day gap; also treats absence throughout the checked window as a minimum outage duration while admitting prior existence is unproven."
+      },
+      "error": null
+    },
+    {
+      "stage": "formal-attempt-1",
+      "side": "baseline",
+      "summary": {
+        "case": "three-day-gap",
+        "repetition": 1,
+        "stop": "replay_error",
+        "modelTurns": 2,
+        "toolCalls": 2,
+        "toolErrors": 0,
+        "backendRequests": 2,
+        "elapsedMs": 34881.631458,
+        "usages": [
+          {
+            "prompt_tokens": 2472,
+            "total_tokens": 2580,
+            "completion_tokens": 108,
+            "prompt_tokens_details": null
+          },
+          {
+            "prompt_tokens": 2671,
+            "total_tokens": 2831,
+            "completion_tokens": 160,
+            "prompt_tokens_details": null
+          }
+        ],
+        "final": null,
+        "completed": false,
+        "investigated": true,
+        "answerReview": "pending",
+        "expected": {
+          "id": "three-day-gap",
+          "host": "fixture-gpu-a",
+          "last": 1793663940,
+          "missing": 1793664000,
+          "value": 42,
+          "count": 7200,
+          "lastIso": "2026-11-02T23:59:00.000Z",
+          "missingIso": "2026-11-03T00:00:00.000Z"
+        }
+      },
+      "review": {
+        "stage": "formal-attempt-1",
+        "side": "baseline",
+        "case": "three-day-gap",
+        "repetition": 1,
+        "verdict": "not_assessed",
+        "claims": [],
+        "reason": "Transport TypeError: fetch failed after two successful model-selected tool calls; no completed answer. Endpoint remained healthy and the next replay proceeded. Exact socket cause is not recorded. Reconciliation required."
+      },
+      "error": {
+        "name": "TypeError",
+        "message": "fetch failed"
+      }
+    }
+  ],
+  "evidence_retention": {
+    "canonical_artifact_manifest_sha256": "2121d4a2b5267dc4ab226b468587cae8dec72656ad1224bf8a76a070579f9eb9",
+    "full_artifact_manifest": {
+      "files": [
+        {
+          "path": "baseline/fixture-preflight.json",
+          "bytes": 591444,
+          "sha256": "843f5be6191f9f56a0fec7b4b31a6104760ff54d4dd572d5898eadc896745090"
+        },
+        {
+          "path": "baseline/healthy-zero-1/answer.txt",
+          "bytes": 1618,
+          "sha256": "2d4b92bc26b95efd07f1811a1e8fbf2969278ce79ee34adad5de849dcfec62ee"
+        },
+        {
+          "path": "baseline/healthy-zero-1/backend.jsonl",
+          "bytes": 2804,
+          "sha256": "7f24d17a6e1da1d9ce33387baeb75700a9c726a8eb219212ec80c9fea5433381"
+        },
+        {
+          "path": "baseline/healthy-zero-1/initial-messages.json",
+          "bytes": 7632,
+          "sha256": "2c6bb0ccb86e37707c1301fd4d8718b6728a3d36c7c97148b347a8164b773eeb"
+        },
+        {
+          "path": "baseline/healthy-zero-1/model-requests.jsonl",
+          "bytes": 78656,
+          "sha256": "bf84b15f81090d3bada15396c80c16a3c2f7174024f6035d11dcde5955e7e7bf"
+        },
+        {
+          "path": "baseline/healthy-zero-1/model-responses.jsonl",
+          "bytes": 8591,
+          "sha256": "d59f8acb24800fd2261ed698c66dae3e331cfe6d9c54a40c0f978ef6798e43f2"
+        },
+        {
+          "path": "baseline/healthy-zero-1/summary.json",
+          "bytes": 2975,
+          "sha256": "0e1bf5d551c673c61a8e0ce0e81a13f4e5eb3461dfc513ac9052b41f04af3188"
+        },
+        {
+          "path": "baseline/healthy-zero-1/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/healthy-zero-1/tools.jsonl",
+          "bytes": 7983,
+          "sha256": "b663820513d49cffc6ee85ba83de9944fc1debb9ba78ce43bbffa20139b25aac"
+        },
+        {
+          "path": "baseline/healthy-zero-1/transcript.json",
+          "bytes": 17104,
+          "sha256": "6083cdca78dbea75d6a9dd564daa42044e03c660d8f6215d3d61564c84961021"
+        },
+        {
+          "path": "baseline/healthy-zero-2/answer.txt",
+          "bytes": 806,
+          "sha256": "c887d7be51ba1bd0429293e27f966120355412761cddef89400b9bc9962648ab"
+        },
+        {
+          "path": "baseline/healthy-zero-2/backend.jsonl",
+          "bytes": 3391,
+          "sha256": "9736f20d2100e18dde46f31d0d40fa7be782e32fe77ef1dcf6c16c377568671d"
+        },
+        {
+          "path": "baseline/healthy-zero-2/initial-messages.json",
+          "bytes": 7632,
+          "sha256": "2c6bb0ccb86e37707c1301fd4d8718b6728a3d36c7c97148b347a8164b773eeb"
+        },
+        {
+          "path": "baseline/healthy-zero-2/model-requests.jsonl",
+          "bytes": 42185,
+          "sha256": "cc434ff0e050cea8c6e6d9763ab42d513d5a67f85555148a1a2e58d190889d1f"
+        },
+        {
+          "path": "baseline/healthy-zero-2/model-responses.jsonl",
+          "bytes": 4157,
+          "sha256": "c996560ecf2d42119d05fb0f52c20ba81df1be9dfe74c8fdb711f671c0b803ad"
+        },
+        {
+          "path": "baseline/healthy-zero-2/summary.json",
+          "bytes": 1730,
+          "sha256": "bfc63f95cf082415fe01e847c5ed0ae0a67232a135fd62947b66c9ad3923097b"
+        },
+        {
+          "path": "baseline/healthy-zero-2/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/healthy-zero-2/tools.jsonl",
+          "bytes": 16599,
+          "sha256": "db717babffa8e1f5f63deb1b8d108b5f9e2cc76be0e120011b2367cf12ca40f7"
+        },
+        {
+          "path": "baseline/healthy-zero-2/transcript.json",
+          "bytes": 21095,
+          "sha256": "cd80745abe800332fa516c3c8db2232f693cc0676b311d88f848659982d90a65"
+        },
+        {
+          "path": "baseline/healthy-zero-3/answer.txt",
+          "bytes": 1547,
+          "sha256": "2e0e4a636446250ff2dac25ec8190f4012de207fd4ef5288c2782aee69492303"
+        },
+        {
+          "path": "baseline/healthy-zero-3/backend.jsonl",
+          "bytes": 3391,
+          "sha256": "9736f20d2100e18dde46f31d0d40fa7be782e32fe77ef1dcf6c16c377568671d"
+        },
+        {
+          "path": "baseline/healthy-zero-3/initial-messages.json",
+          "bytes": 7632,
+          "sha256": "2c6bb0ccb86e37707c1301fd4d8718b6728a3d36c7c97148b347a8164b773eeb"
+        },
+        {
+          "path": "baseline/healthy-zero-3/model-requests.jsonl",
+          "bytes": 42230,
+          "sha256": "b7c47eebcc24e5f689612a5c24f3474071703b6c21a6acebd94efaa543d607c5"
+        },
+        {
+          "path": "baseline/healthy-zero-3/model-responses.jsonl",
+          "bytes": 4947,
+          "sha256": "0b72a27e67b67f0ee4d2e9b01329d9f37ca12450ee5684e010fe0435868b6555"
+        },
+        {
+          "path": "baseline/healthy-zero-3/summary.json",
+          "bytes": 2490,
+          "sha256": "24db31f54799824c9179ec80acddac13f965eaae17b36fa6514657bc8a409d7c"
+        },
+        {
+          "path": "baseline/healthy-zero-3/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/healthy-zero-3/tools.jsonl",
+          "bytes": 16599,
+          "sha256": "db717babffa8e1f5f63deb1b8d108b5f9e2cc76be0e120011b2367cf12ca40f7"
+        },
+        {
+          "path": "baseline/healthy-zero-3/transcript.json",
+          "bytes": 21866,
+          "sha256": "accfaa9e5da27d8e203e5d23a92db69b01955095de1238f342b0b508367e2d51"
+        },
+        {
+          "path": "baseline/history-unavailable-1/answer.txt",
+          "bytes": 1482,
+          "sha256": "ffb82cd36ce6136997e14eb2aac1d88fdca3249a5a487965d7b0597349e14a02"
+        },
+        {
+          "path": "baseline/history-unavailable-1/backend.jsonl",
+          "bytes": 8282,
+          "sha256": "a9a8c06bd5e171846536d2d9d8688b9178219a9ea4c29108854a16b7edc45fe4"
+        },
+        {
+          "path": "baseline/history-unavailable-1/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "b53a1a727553b7e4bfa014be06d6753142320de8a2564eb54766b8798e2016e3"
+        },
+        {
+          "path": "baseline/history-unavailable-1/model-requests.jsonl",
+          "bytes": 250731,
+          "sha256": "eb308807fc5ea51ea5bc7c54f557d9cf44a566a5d7c7abd75706d2260b44e9cf"
+        },
+        {
+          "path": "baseline/history-unavailable-1/model-responses.jsonl",
+          "bytes": 18125,
+          "sha256": "5ceedff383c32a75f487d7fb919c55f23a42677badeb2334e8e6dc677f0f2841"
+        },
+        {
+          "path": "baseline/history-unavailable-1/summary.json",
+          "bytes": 3799,
+          "sha256": "eac53671e72428b7318cf233a5579c1692ce0eadfe32d528d84427667ea62d1a"
+        },
+        {
+          "path": "baseline/history-unavailable-1/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/history-unavailable-1/tools.jsonl",
+          "bytes": 29928,
+          "sha256": "181226fbf1b0d37fe8711239c2a4317793f66a1a0a17c153940a2031352a9d26"
+        },
+        {
+          "path": "baseline/history-unavailable-1/transcript.json",
+          "bytes": 36445,
+          "sha256": "6a345d0d3dd7d2b6967d80bb839f94649f99ea576e10adc381900a2fe20ca000"
+        },
+        {
+          "path": "baseline/history-unavailable-2/answer.txt",
+          "bytes": 946,
+          "sha256": "ef8a3500eb64eafd10052c0bd5a451fb058f08141f65d337ee53a8633e5c6419"
+        },
+        {
+          "path": "baseline/history-unavailable-2/backend.jsonl",
+          "bytes": 1322,
+          "sha256": "4e52af89b3d4dd1263e82629994b4c1b268450a859a75b82a668925b396b5a8a"
+        },
+        {
+          "path": "baseline/history-unavailable-2/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "b53a1a727553b7e4bfa014be06d6753142320de8a2564eb54766b8798e2016e3"
+        },
+        {
+          "path": "baseline/history-unavailable-2/model-requests.jsonl",
+          "bytes": 43823,
+          "sha256": "ff1325f91be8283db7ed312b8e48d5accb4e431808e4291814e56e509ea0e455"
+        },
+        {
+          "path": "baseline/history-unavailable-2/model-responses.jsonl",
+          "bytes": 5823,
+          "sha256": "943e50107c3abf25cb4c6b2c09fb8941ee840fde754c83060e37bbc88f78ce03"
+        },
+        {
+          "path": "baseline/history-unavailable-2/summary.json",
+          "bytes": 1997,
+          "sha256": "175856ba3965bc59a1940b9ddc0f43e31594fe444ca9bf760147f34c836a616c"
+        },
+        {
+          "path": "baseline/history-unavailable-2/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/history-unavailable-2/tools.jsonl",
+          "bytes": 2141,
+          "sha256": "217d0837cc3e589392ef8c9ad1f48cf0741a4ac17ab88118fbf2bf788ecd14f1"
+        },
+        {
+          "path": "baseline/history-unavailable-2/transcript.json",
+          "bytes": 11709,
+          "sha256": "be8a380417aa9c873311168368e4525b6922ecbb1dd43d23cf313ec59409a12f"
+        },
+        {
+          "path": "baseline/history-unavailable-3/answer.txt",
+          "bytes": 1231,
+          "sha256": "e627eef04f517f07e137e70b0fdad2da5b443c900abd4c50ab1b8d5136d62999"
+        },
+        {
+          "path": "baseline/history-unavailable-3/backend.jsonl",
+          "bytes": 3786,
+          "sha256": "71ba073a06ef874f82d9dab8509b64b46a7d20cd050decdab84c0d90db57e67a"
+        },
+        {
+          "path": "baseline/history-unavailable-3/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "b53a1a727553b7e4bfa014be06d6753142320de8a2564eb54766b8798e2016e3"
+        },
+        {
+          "path": "baseline/history-unavailable-3/model-requests.jsonl",
+          "bytes": 134845,
+          "sha256": "9b80c7e247dd460830d2aaf6a436e57999a21e19be6ee3b91e81ed2e86e0a10d"
+        },
+        {
+          "path": "baseline/history-unavailable-3/model-responses.jsonl",
+          "bytes": 15234,
+          "sha256": "fe6c1fa24ad126bcdcdd3be5efa7e5fe31cb6040b9e2a732277fcc4dcec87f2a"
+        },
+        {
+          "path": "baseline/history-unavailable-3/summary.json",
+          "bytes": 3121,
+          "sha256": "66510da581bfe9df352e4c606beceb4ee20b6ce01ad5777097c0f86e9ed67027"
+        },
+        {
+          "path": "baseline/history-unavailable-3/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/history-unavailable-3/tools.jsonl",
+          "bytes": 6316,
+          "sha256": "49824689f6fc128a02a36d26899f789ed6ada56a7a6347f3ffb2047cfb055d2a"
+        },
+        {
+          "path": "baseline/history-unavailable-3/transcript.json",
+          "bytes": 18079,
+          "sha256": "b6be3eba39b84b7d74b9712cf9917f766af7661a9a20c3798398e77d500a0ced"
+        },
+        {
+          "path": "baseline/manifest.json",
+          "bytes": 2496,
+          "sha256": "10a63070412f6dc0427cb0280452c9e1cc44e9d9cd4540b1226d77b27641068f"
+        },
+        {
+          "path": "baseline/reviews.json",
+          "bytes": 8835,
+          "sha256": "67de94d435868834cc7beaa4346b8e15e0d6c9b2ad427f5563a848ff7d36eed0"
+        },
+        {
+          "path": "baseline/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/grafana.ts",
+          "bytes": 20362,
+          "sha256": "4ccd76f10c41e86be37f28c1781075708c71b4c3f3308447949675c16b182236"
+        },
+        {
+          "path": "baseline/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/index.ts",
+          "bytes": 9893,
+          "sha256": "34fa25b3e0491c9b946a36d3990b8c1629ad527bc93be11267128aab5309ba1c"
+        },
+        {
+          "path": "baseline/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/loki.ts",
+          "bytes": 9441,
+          "sha256": "4948c6b18e1dc657b3a0112ae6d4bb0c8620983075be6483d3e3898848ad7b46"
+        },
+        {
+          "path": "baseline/source/helm/mosaic-stack/files/openclaw-seed/skills/observability/SKILL.md",
+          "bytes": 6928,
+          "sha256": "4a53faf9612f8f996e56f3e26b6d5dfa9dd02c203e8e9f6c4336e788514b8220"
+        },
+        {
+          "path": "baseline/summaries.json",
+          "bytes": 39669,
+          "sha256": "885b3f3fba40ceceb2db3f274129e6d325c85f889c1a562850fb95be12028586"
+        },
+        {
+          "path": "baseline/three-day-gap-1/answer.txt",
+          "bytes": 881,
+          "sha256": "2ea84728f089dc933662519373cb327e141dc45a4acb825df6594137d9e71a42"
+        },
+        {
+          "path": "baseline/three-day-gap-1/backend.jsonl",
+          "bytes": 9041,
+          "sha256": "bfe34c79aa85e8e9cf2b9c3171fe1867e58add2a4d6667455a6a14dc0a96476b"
+        },
+        {
+          "path": "baseline/three-day-gap-1/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "ae39d3ea3eb8d2af471798908e6e468e5dce5229df40dd629fa024bb8eba10ca"
+        },
+        {
+          "path": "baseline/three-day-gap-1/model-requests.jsonl",
+          "bytes": 404097,
+          "sha256": "9ae7c74d2912267f3013db5e4e404002df8b52eebafc2ccdc5734c7709ac4e04"
+        },
+        {
+          "path": "baseline/three-day-gap-1/model-responses.jsonl",
+          "bytes": 28569,
+          "sha256": "b936267f74a9c6056137196266b840b90d1d443f47775ebb8c36d4ff4d001ba7"
+        },
+        {
+          "path": "baseline/three-day-gap-1/summary.json",
+          "bytes": 4469,
+          "sha256": "aa64589474b72fef6f96c046a5b45f2a8b9827f461ef4d10e853047ec50d39f5"
+        },
+        {
+          "path": "baseline/three-day-gap-1/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-1/tools.jsonl",
+          "bytes": 15284,
+          "sha256": "eec8c4725453f7ecae7a371a0421ee3d0cce55b04c6fc557e82cfd3f740aff30"
+        },
+        {
+          "path": "baseline/three-day-gap-1/transcript.json",
+          "bytes": 28527,
+          "sha256": "f27562ecf1043893b885050c8a1de991fb7d00178cd364bf4ae11065e2bd06d3"
+        },
+        {
+          "path": "baseline/three-day-gap-2/answer.txt",
+          "bytes": 1418,
+          "sha256": "e1516f9fcc5dde646e5b4d416ef071b438573b5d7ec2fcc7f524e1c0230dc95b"
+        },
+        {
+          "path": "baseline/three-day-gap-2/backend.jsonl",
+          "bytes": 116712,
+          "sha256": "19a247732e93994ee69549caa09a86ee03bda962815b860cbbc73febff60af2d"
+        },
+        {
+          "path": "baseline/three-day-gap-2/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "ae39d3ea3eb8d2af471798908e6e468e5dce5229df40dd629fa024bb8eba10ca"
+        },
+        {
+          "path": "baseline/three-day-gap-2/model-requests.jsonl",
+          "bytes": 63777,
+          "sha256": "d865d0adb25c6235f3b0aa1d65839bcae84332dd512ad050d1e2722a3969598d"
+        },
+        {
+          "path": "baseline/three-day-gap-2/model-responses.jsonl",
+          "bytes": 6210,
+          "sha256": "b9c066214b32a50b75ad83a4c9fee09f601a4db3c0b39b17f79abe9c34f26e53"
+        },
+        {
+          "path": "baseline/three-day-gap-2/summary.json",
+          "bytes": 2529,
+          "sha256": "f7edc9e458df994bd9c98e7ed925b70bbb423771b2636f68edfaeae8a0f6f395"
+        },
+        {
+          "path": "baseline/three-day-gap-2/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-2/tools.jsonl",
+          "bytes": 30626,
+          "sha256": "010163040360269f28c03b7e0e98776ea0b0ee80005ced200c07aaf495b61764"
+        },
+        {
+          "path": "baseline/three-day-gap-2/transcript.json",
+          "bytes": 32182,
+          "sha256": "c60ae177bf0004388d511054b648ba45abb0cd66d395bc8abd0bc8860b015b88"
+        },
+        {
+          "path": "baseline/three-day-gap-3/answer.txt",
+          "bytes": 1082,
+          "sha256": "df1e7a5fe1459374739b4f08426b5e673f9638b7555c9f85b7578e84ccbe8d99"
+        },
+        {
+          "path": "baseline/three-day-gap-3/backend.jsonl",
+          "bytes": 105122,
+          "sha256": "aab0c282243cb3a98e9fbdda55286f3456964bf490e84c67a6f363b2a03b92e8"
+        },
+        {
+          "path": "baseline/three-day-gap-3/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "ae39d3ea3eb8d2af471798908e6e468e5dce5229df40dd629fa024bb8eba10ca"
+        },
+        {
+          "path": "baseline/three-day-gap-3/model-requests.jsonl",
+          "bytes": 190314,
+          "sha256": "70a65abca9753c43473f70c6374350fcd24dbf692ca208a90b8a30fcea1f78ff"
+        },
+        {
+          "path": "baseline/three-day-gap-3/model-responses.jsonl",
+          "bytes": 13275,
+          "sha256": "fbbf0ab397d61d027af24fee5ced34022a2f9a62c22915eae6d0caa9ed5c2f25"
+        },
+        {
+          "path": "baseline/three-day-gap-3/summary.json",
+          "bytes": 3018,
+          "sha256": "bbb085321a057c12e89cee423261aaed669c7dde52e81dacbc40d8c4d34853d0"
+        },
+        {
+          "path": "baseline/three-day-gap-3/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-3/tools.jsonl",
+          "bytes": 89249,
+          "sha256": "40da6d38618d013ca8d604f86314116aa578b4979cad4635bd0c10b708ff020c"
+        },
+        {
+          "path": "baseline/three-day-gap-3/transcript.json",
+          "bytes": 75855,
+          "sha256": "43e92ee8c2331d49862c3ae311c025752080dbf5490b56e222ce71c2e07dfc25"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/answer.txt",
+          "bytes": 156,
+          "sha256": "cbdc95a222c5f187f9549db9f3cb5fbf07afbfc89b9701d2d25fedd750b2fa2a"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/backend.jsonl",
+          "bytes": 1105,
+          "sha256": "cf76f2d7333837f728b68b92bbd662c2967f12981b88dc3064dfc16935c178b6"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/initial-messages.json",
+          "bytes": 8601,
+          "sha256": "b3c1acc83407f4527a94b4b2640a27fbf3494c020a6792cc50e3ea38653da110"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/model-requests.jsonl",
+          "bytes": 32760,
+          "sha256": "76f1d3a59aa956f67ebdca7d57aa168ceecd398b8c6fb7c890f36c4344aaecca"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/model-responses.jsonl",
+          "bytes": 3078,
+          "sha256": "1dfa9e0216a98b566dfa36f95aa8cc201a877085f3a9d3b4bc489b171d5385c1"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/seeded-tool.json",
+          "bytes": 1246,
+          "sha256": "242cd05c2a5d2a4f326caa7805415bdd65be0dadbbe5c3419b872ed46f35faaf"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/summary.json",
+          "bytes": 1148,
+          "sha256": "6ba4d3ffef76ac01e4a9b3ec5677e816e5cf964715b67c09c91abc410fe75d1b"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/tools.jsonl",
+          "bytes": 995,
+          "sha256": "bd9f438849a1bf057004dd8ba4df79e12d6bfe9ff20e7e68015e2acd9cea905c"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-1/transcript.json",
+          "bytes": 10078,
+          "sha256": "5ecbe177c436561cfeafcde2c2b4c349bc993b3db6c4d208ce4b55db13a9f673"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/answer.txt",
+          "bytes": 1633,
+          "sha256": "974dae96cc905597584209be5c50baf7c59e05da8a13576f9fc3948d03b08513"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/backend.jsonl",
+          "bytes": 4143,
+          "sha256": "ee62091ee28225c4ab38d52a8657cdd25aea715d6466235815ff28673a00eaa9"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/initial-messages.json",
+          "bytes": 8601,
+          "sha256": "b3c1acc83407f4527a94b4b2640a27fbf3494c020a6792cc50e3ea38653da110"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/model-requests.jsonl",
+          "bytes": 56266,
+          "sha256": "88cea2ae03f51f265384cac0011f8e07242c99c0f5546fea5dbb7dc54d7c7aa3"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/model-responses.jsonl",
+          "bytes": 5651,
+          "sha256": "4e6f9e6a384e0dd2d2059d91ede9df5649c635da3b616a7bf3d4b2c9e50c386c"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/seeded-tool.json",
+          "bytes": 1246,
+          "sha256": "242cd05c2a5d2a4f326caa7805415bdd65be0dadbbe5c3419b872ed46f35faaf"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/summary.json",
+          "bytes": 2779,
+          "sha256": "ad321373d40940244fee09e0da19ab89405e3d9acb6e0474044d040ee450d410"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/tools.jsonl",
+          "bytes": 17680,
+          "sha256": "e23ca45c367f8f85f6ed88847b5edd09a6e207bfedaef609b27afa1b98ad9c4c"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-2/transcript.json",
+          "bytes": 23613,
+          "sha256": "f606f892aa375267b63068e7da80f42c3a911cd8769dc8625e684d0df3839048"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/answer.txt",
+          "bytes": 402,
+          "sha256": "fd6700be6e22f2b2dc8efa5b0269e83cf7b8e05566a047b77ed4b6cd23cb9c8e"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/backend.jsonl",
+          "bytes": 928,
+          "sha256": "8ad254c896059530793cde687d4f5caedce7983adbb7b8ae72fe3cd779af883c"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/initial-messages.json",
+          "bytes": 8601,
+          "sha256": "b3c1acc83407f4527a94b4b2640a27fbf3494c020a6792cc50e3ea38653da110"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/model-requests.jsonl",
+          "bytes": 21608,
+          "sha256": "2824a1c6a94536615a1e46575b47845a0f0a0816a5005035409274a886d8833b"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/model-responses.jsonl",
+          "bytes": 2390,
+          "sha256": "42a61b880d9ee642b6e93511406d5b43b5b85b264851ce275a556f4363156c0c"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/seeded-tool.json",
+          "bytes": 1246,
+          "sha256": "242cd05c2a5d2a4f326caa7805415bdd65be0dadbbe5c3419b872ed46f35faaf"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/summary.json",
+          "bytes": 1259,
+          "sha256": "7933a1dafb0ca74100ccb6336f2d807da68235faeb1b01fc328769e19aef378e"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/tools.jsonl",
+          "bytes": 801,
+          "sha256": "aeaa25106f5bca5229032274bba16a6a8a3e27261428ae9c23178b9ca8dd9cad"
+        },
+        {
+          "path": "baseline/three-day-gap-followup-3/transcript.json",
+          "bytes": 9913,
+          "sha256": "5b5a83632d669791101fd7188727819807bdf9bac0dd96f0a992cd43f9422f31"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/answer.txt",
+          "bytes": 732,
+          "sha256": "b296046cf3526fed326190c8c2b91c8db540cedc33940b783c317051076544ef"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/backend.jsonl",
+          "bytes": 4493,
+          "sha256": "e74837afc6f8057cc5888ab7144065ce8e9a4ea409d4c926078d7c8efc81594a"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "daa66419650577fd8e6d9136135e1c547ee98c3c24075736f1903d15859d4a8a"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/model-requests.jsonl",
+          "bytes": 68382,
+          "sha256": "1f24857ff1337ff288f966e7bda63fd4d5e92767ef2b5f448adc01ded43d33a7"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/model-responses.jsonl",
+          "bytes": 6659,
+          "sha256": "e715c34a37f5aca5f39d58fcef6dd24e7991feda95c84e4de92517c3b7a0f75d"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/summary.json",
+          "bytes": 1969,
+          "sha256": "05dc9e08839a5f8d1b06ee8bc10b4a4de14e8c190a5ee3d1b586be6a0194b69b"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/tools.jsonl",
+          "bytes": 19785,
+          "sha256": "3f2011cbbdec5c08fac6d5d89455dd3375dd083b373acefe02262e03f1f226fc"
+        },
+        {
+          "path": "baseline/two-hour-gap-1/transcript.json",
+          "bytes": 24213,
+          "sha256": "6fdcd0ece4bf8602fcead7364187600b1f229cea80eb9ed84c1fcf462b6813f5"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/answer.txt",
+          "bytes": 591,
+          "sha256": "41d0ccb33d37e558200ddad212158229c019944d97608681177dd6cf4716b5c7"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/backend.jsonl",
+          "bytes": 5846,
+          "sha256": "66f328fa86a1ce4fe113848a95f1e67f261623836568dfa7a2db8a9db4bb0de4"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "daa66419650577fd8e6d9136135e1c547ee98c3c24075736f1903d15859d4a8a"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/model-requests.jsonl",
+          "bytes": 42191,
+          "sha256": "bb9b3db33f984054a1067546586dfca794789b3f657135a836b1079f7966a153"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/model-responses.jsonl",
+          "bytes": 4078,
+          "sha256": "658dca5c1c92575899c0a8414c50d2d8905cebc2bd98e3e81b40aae6bebe437a"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/summary.json",
+          "bytes": 1548,
+          "sha256": "ee3107e424e65dee2dce10d5820a614036fc4e8fd5bedbd2b9aa975c414e6d3d"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/tools.jsonl",
+          "bytes": 16587,
+          "sha256": "acabad4e6aef271503f09ff8736986da4848e9256f1a79d3a7b4c292d5497d27"
+        },
+        {
+          "path": "baseline/two-hour-gap-2/transcript.json",
+          "bytes": 20987,
+          "sha256": "f11249279ca14339c2c76061a94515188696bce47d455f6710ad34c7804e342e"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/answer.txt",
+          "bytes": 1756,
+          "sha256": "f2f34767c6398491b8d7cd779573fe8206b34f8fc16c1d4ffd1864874bee8764"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/backend.jsonl",
+          "bytes": 27735,
+          "sha256": "b9203bc5ea22715acb9b958c63e794c1bf8bfa59d21741db15e0ea659f43a55d"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/initial-messages.json",
+          "bytes": 7652,
+          "sha256": "daa66419650577fd8e6d9136135e1c547ee98c3c24075736f1903d15859d4a8a"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/model-requests.jsonl",
+          "bytes": 81820,
+          "sha256": "a9d3b2ab797976f9f237e6a0e6551d5b89f7fd5937fdc7bbe3d309421f0b0982"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/model-responses.jsonl",
+          "bytes": 6558,
+          "sha256": "dd659dc4f957a7e43267f1353c2970a4a86990e020cf20e97da16e371ab0d7ea"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/summary.json",
+          "bytes": 2882,
+          "sha256": "9929b5e8ef77a303ca590f48e29a67c900193b906fbf8d9fd91239567386751d"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/tool-schemas.json",
+          "bytes": 2767,
+          "sha256": "f34273e2f44478702449d98b49a79be82707abee500537b0747821713052d7c3"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/tools.jsonl",
+          "bytes": 29283,
+          "sha256": "6dbf2e26afa8e8fd51c32c91d344c0ceb3f4fa6cf914ab69cb95a797ccdc67de"
+        },
+        {
+          "path": "baseline/two-hour-gap-3/transcript.json",
+          "bytes": 31655,
+          "sha256": "ad40500e2880eb0b24a499bc55bbc7f99525dca28249ccaca8b9cc326c113689"
+        },
+        {
+          "path": "candidate/fixture-preflight.json",
+          "bytes": 591444,
+          "sha256": "843f5be6191f9f56a0fec7b4b31a6104760ff54d4dd572d5898eadc896745090"
+        },
+        {
+          "path": "candidate/healthy-zero-1/answer.txt",
+          "bytes": 1354,
+          "sha256": "d60408e8528bf44f71d61279a1db85f3df52bda01316ad6954ae65d330ea3eb4"
+        },
+        {
+          "path": "candidate/healthy-zero-1/backend.jsonl",
+          "bytes": 2482,
+          "sha256": "59f01fae1ac94ad67c5d242c285b2f772302b601a7388d2f9f91c4be59c0e96e"
+        },
+        {
+          "path": "candidate/healthy-zero-1/initial-messages.json",
+          "bytes": 11863,
+          "sha256": "1190f15455d1582dd5662a83a5891e76094356a8afa3e564d67eb7f865c52b32"
+        },
+        {
+          "path": "candidate/healthy-zero-1/model-requests.jsonl",
+          "bytes": 75906,
+          "sha256": "b712c97c17d6671b325bb69c245597d9a4574624aa3f091379d0460085ad3f71"
+        },
+        {
+          "path": "candidate/healthy-zero-1/model-responses.jsonl",
+          "bytes": 5855,
+          "sha256": "70d9eacfe07d0629e8aa7b2b22d97c33010db37c4c864599573a7c86b365e551"
+        },
+        {
+          "path": "candidate/healthy-zero-1/summary.json",
+          "bytes": 2432,
+          "sha256": "734ed793fef0dd9c1e12668ee686d3fadfb51954506a514c2523cbe10af8a219"
+        },
+        {
+          "path": "candidate/healthy-zero-1/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/healthy-zero-1/tools.jsonl",
+          "bytes": 11657,
+          "sha256": "a8263ccac8a1d72137bc494157b6c69f93b15a5ff07bfc9329fb8bb95c9b08a7"
+        },
+        {
+          "path": "candidate/healthy-zero-1/transcript.json",
+          "bytes": 22471,
+          "sha256": "44d89563a8ca8bbbc474a1af1cfbbd69ec72d0501501aa9722ea32fb24112a07"
+        },
+        {
+          "path": "candidate/healthy-zero-2/answer.txt",
+          "bytes": 1870,
+          "sha256": "06c388d61291230ac03689631a8c94bf80169fd60b5672ff31762dbf90107278"
+        },
+        {
+          "path": "candidate/healthy-zero-2/backend.jsonl",
+          "bytes": 40816,
+          "sha256": "9a97b1dceb78a13da2a94268fe725e8168f5c9e7403553249e274106c6f66825"
+        },
+        {
+          "path": "candidate/healthy-zero-2/initial-messages.json",
+          "bytes": 11863,
+          "sha256": "1190f15455d1582dd5662a83a5891e76094356a8afa3e564d67eb7f865c52b32"
+        },
+        {
+          "path": "candidate/healthy-zero-2/model-requests.jsonl",
+          "bytes": 488836,
+          "sha256": "4d534fc882a69e0135c0be395677bb1b481831e320a0292a6cbc542de872f889"
+        },
+        {
+          "path": "candidate/healthy-zero-2/model-responses.jsonl",
+          "bytes": 13629,
+          "sha256": "92b980c042de958a1a4977b3eed8485234eb43baf3f2ae5634069a2a30e33c40"
+        },
+        {
+          "path": "candidate/healthy-zero-2/summary.json",
+          "bytes": 3803,
+          "sha256": "3ab5f107013eb48141e3d0be7a765cd13b497edb150009c2fc40930727169d92"
+        },
+        {
+          "path": "candidate/healthy-zero-2/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/healthy-zero-2/tools.jsonl",
+          "bytes": 81671,
+          "sha256": "f184dd17b1981b0acaab5e0729f82bbb7c929d6cf4be771d4518f7a3cee83691"
+        },
+        {
+          "path": "candidate/healthy-zero-2/transcript.json",
+          "bytes": 73730,
+          "sha256": "6b43775e07f3c916c317be9c421e26f995cc0dc8cd46e1a6aa712d5df7fc3f44"
+        },
+        {
+          "path": "candidate/healthy-zero-3/answer.txt",
+          "bytes": 1010,
+          "sha256": "095f02cfb56ea737e09dc204887aea0657a9b2c2d419bed0d40c5f62b99c6879"
+        },
+        {
+          "path": "candidate/healthy-zero-3/backend.jsonl",
+          "bytes": 2251,
+          "sha256": "45322f1b8aa09985a677444458d6504b5706c88485ca778a35a109b01bdbdfd0"
+        },
+        {
+          "path": "candidate/healthy-zero-3/initial-messages.json",
+          "bytes": 11863,
+          "sha256": "1190f15455d1582dd5662a83a5891e76094356a8afa3e564d67eb7f865c52b32"
+        },
+        {
+          "path": "candidate/healthy-zero-3/model-requests.jsonl",
+          "bytes": 57901,
+          "sha256": "ec0441c0c74e9a21de4f9d58bc09eca04f04fab80c92df841e3f5d7c99876655"
+        },
+        {
+          "path": "candidate/healthy-zero-3/model-responses.jsonl",
+          "bytes": 4357,
+          "sha256": "22d8721d93a21577e4eb98521c03aee0865db58a4ac9b65f12a4d5a7b1e7b25b"
+        },
+        {
+          "path": "candidate/healthy-zero-3/summary.json",
+          "bytes": 1948,
+          "sha256": "49b0e9187bc721c0d6d93f98af12e2c31971ca26e7236d1dce96b9043a6c2386"
+        },
+        {
+          "path": "candidate/healthy-zero-3/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/healthy-zero-3/tools.jsonl",
+          "bytes": 11265,
+          "sha256": "bb891a2b55c83c7a57ea804675ddd1e2714255a4220335dd879fe840881d3fb4"
+        },
+        {
+          "path": "candidate/healthy-zero-3/transcript.json",
+          "bytes": 21429,
+          "sha256": "fa03f664bda84d94969ef0210c47fd13cd4fe0822ba5e4ae8763a38d411a4368"
+        },
+        {
+          "path": "candidate/history-unavailable-1/answer.txt",
+          "bytes": 1662,
+          "sha256": "dce95c920084618e2933f9c1961885d85b125c2f7914b14ba7b9f50038cb10a3"
+        },
+        {
+          "path": "candidate/history-unavailable-1/backend.jsonl",
+          "bytes": 4240,
+          "sha256": "8c3fdffb09132251136649253d818ddb283618ccb4cca36de4263bf67a000c71"
+        },
+        {
+          "path": "candidate/history-unavailable-1/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "1b56dc098181825746ef091aa968e5a850edffce1b0d90d74e91c03e095c4d66"
+        },
+        {
+          "path": "candidate/history-unavailable-1/model-requests.jsonl",
+          "bytes": 55530,
+          "sha256": "da993e7959e645577dce25c63ed77ade107b7eade79b6521af5a7acf3ea138a0"
+        },
+        {
+          "path": "candidate/history-unavailable-1/model-responses.jsonl",
+          "bytes": 5047,
+          "sha256": "83266dd6aa8be621cdc3eafc0bce0af6854d7481dbb5933eab21e6f9a85817c5"
+        },
+        {
+          "path": "candidate/history-unavailable-1/summary.json",
+          "bytes": 2594,
+          "sha256": "7097c061be2abacfb3d5b5c058056772117cba5ec8081f3c136af4db278381ed"
+        },
+        {
+          "path": "candidate/history-unavailable-1/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/history-unavailable-1/tools.jsonl",
+          "bytes": 9027,
+          "sha256": "6c9a33d80b44379b88264a4916689d9ee9bcdb3c5720b6966e317065cae4d23c"
+        },
+        {
+          "path": "candidate/history-unavailable-1/transcript.json",
+          "bytes": 19856,
+          "sha256": "439286e0380ad3d3b65b67b02d796a9a1e83d5f88408c86d117755b2da78750e"
+        },
+        {
+          "path": "candidate/history-unavailable-2/answer.txt",
+          "bytes": 1129,
+          "sha256": "0bbbaccb8ecd51e9bc06720e38f3f61858bf4159da5c5b7ece3c4bc4cb90244f"
+        },
+        {
+          "path": "candidate/history-unavailable-2/backend.jsonl",
+          "bytes": 4471,
+          "sha256": "db430707127781e028f215c73db0431ece05fe0fdf5a883e8a15f3b46e075586"
+        },
+        {
+          "path": "candidate/history-unavailable-2/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "1b56dc098181825746ef091aa968e5a850edffce1b0d90d74e91c03e095c4d66"
+        },
+        {
+          "path": "candidate/history-unavailable-2/model-requests.jsonl",
+          "bytes": 73465,
+          "sha256": "346fcba1cb1b59b867860369399475bf3393643255e57fb6ac728416ce7f495c"
+        },
+        {
+          "path": "candidate/history-unavailable-2/model-responses.jsonl",
+          "bytes": 5605,
+          "sha256": "44558591f696bb5809396935e3c15eb2c77dd5164a8a8e141c7c2f17270d6da1"
+        },
+        {
+          "path": "candidate/history-unavailable-2/summary.json",
+          "bytes": 2189,
+          "sha256": "3deaca164a258b90c926990d8298114543f559726c4d81575a70547366184e5a"
+        },
+        {
+          "path": "candidate/history-unavailable-2/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/history-unavailable-2/tools.jsonl",
+          "bytes": 9419,
+          "sha256": "975da20592c52832a4a9a54fb3267596d0111a9fc1890c0f158bec89ff32fc1e"
+        },
+        {
+          "path": "candidate/history-unavailable-2/transcript.json",
+          "bytes": 19982,
+          "sha256": "eb7f72404bb44720a66e2929c1a6ebd09b4e6d90d39220ee60f301996122ac95"
+        },
+        {
+          "path": "candidate/history-unavailable-3/answer.txt",
+          "bytes": 1039,
+          "sha256": "bf0de58b4cab9d2dce597de8dd41da8ae8a7d6311d40384423d4e1baef1c5d90"
+        },
+        {
+          "path": "candidate/history-unavailable-3/backend.jsonl",
+          "bytes": 4469,
+          "sha256": "f775a8145dcde32a37fd60896969c3f8fa5f293b289b64615f13168e4923fbac"
+        },
+        {
+          "path": "candidate/history-unavailable-3/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "1b56dc098181825746ef091aa968e5a850edffce1b0d90d74e91c03e095c4d66"
+        },
+        {
+          "path": "candidate/history-unavailable-3/model-requests.jsonl",
+          "bytes": 72581,
+          "sha256": "1a941856601cf72253f3b8ba2b15fe3efe6d2f9136e023d9f596ec1d63c5f0c9"
+        },
+        {
+          "path": "candidate/history-unavailable-3/model-responses.jsonl",
+          "bytes": 5062,
+          "sha256": "a025ca4385008c4a6297021171ae4c3d352bd2555b76df9d95711c87da105733"
+        },
+        {
+          "path": "candidate/history-unavailable-3/summary.json",
+          "bytes": 2090,
+          "sha256": "52d69346fe22ca18b4f1a00c1c79c59415ca6a9e26f861b18205551c964e8e22"
+        },
+        {
+          "path": "candidate/history-unavailable-3/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/history-unavailable-3/tools.jsonl",
+          "bytes": 9416,
+          "sha256": "f7e0d1b3e5869d1b44d7159f08a5e330f5d6812a31871871a5b035439415de76"
+        },
+        {
+          "path": "candidate/history-unavailable-3/transcript.json",
+          "bytes": 19451,
+          "sha256": "e49ebc674ff264e1fe3ad25f2e1c549e6c7afeff21f7744a4940094e9ffb6930"
+        },
+        {
+          "path": "candidate/manifest.json",
+          "bytes": 2653,
+          "sha256": "89432df57a776bc6a3c3f60793322e1abdccb44c1afc583b30fdbadf52381669"
+        },
+        {
+          "path": "candidate/reviews.json",
+          "bytes": 9957,
+          "sha256": "81214fdca2f12828c7ebce8654627f35f590f7de270ccdc53217455df533a7c0"
+        },
+        {
+          "path": "candidate/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/grafana.ts",
+          "bytes": 20362,
+          "sha256": "4ccd76f10c41e86be37f28c1781075708c71b4c3f3308447949675c16b182236"
+        },
+        {
+          "path": "candidate/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/index.ts",
+          "bytes": 13426,
+          "sha256": "da773298a233edd6792e848dc4680d105065a135fe54bbe4e57a5a65bdfc0fd2"
+        },
+        {
+          "path": "candidate/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/loki.ts",
+          "bytes": 9441,
+          "sha256": "4948c6b18e1dc657b3a0112ae6d4bb0c8620983075be6483d3e3898848ad7b46"
+        },
+        {
+          "path": "candidate/source/helm/mosaic-stack/files/openclaw-seed/extensions/observability/metric-history.ts",
+          "bytes": 12812,
+          "sha256": "1f7f6a3994653dc76c1243a2ed1c6bea9dfa8d65f971d51b6331477277c65bc5"
+        },
+        {
+          "path": "candidate/source/helm/mosaic-stack/files/openclaw-seed/skills/observability/SKILL.md",
+          "bytes": 11095,
+          "sha256": "089c6169447ed0b123f93b31512198797abe792bfa35b597862660d0cc0c02d2"
+        },
+        {
+          "path": "candidate/summaries.json",
+          "bytes": 35899,
+          "sha256": "8004225eb8d08afb480f1c9fe36232e621a8d2c9e2207641a7781c3ab774b533"
+        },
+        {
+          "path": "candidate/three-day-gap-1/answer.txt",
+          "bytes": 1156,
+          "sha256": "9dfa49849643cd961b4fd24adc33b9d87cf41d821c63dc676a3e1a2ed9883b2c"
+        },
+        {
+          "path": "candidate/three-day-gap-1/backend.jsonl",
+          "bytes": 11249,
+          "sha256": "95c08989254237ebf7fd4a1407707765a1fea6a888398171befc00e3ddeda3c8"
+        },
+        {
+          "path": "candidate/three-day-gap-1/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "fa554f53c5a054290c54f98f5f73558a8048a570d2acfdf7fa65417266e43eb3"
+        },
+        {
+          "path": "candidate/three-day-gap-1/model-requests.jsonl",
+          "bytes": 72548,
+          "sha256": "d618f691a6d33298c86b7602ca72c691c1e9b0c67eab028b19a1f8dcb76fffcb"
+        },
+        {
+          "path": "candidate/three-day-gap-1/model-responses.jsonl",
+          "bytes": 5747,
+          "sha256": "2b77ddd4024fa3b0a10780944f71c218c7a031400f8bd542880cad6e70950ad3"
+        },
+        {
+          "path": "candidate/three-day-gap-1/summary.json",
+          "bytes": 2255,
+          "sha256": "47a2acb8b9f14f54295aae523139270ecd863d4ff3f4d1bc3532a51effdabf4b"
+        },
+        {
+          "path": "candidate/three-day-gap-1/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-1/tools.jsonl",
+          "bytes": 7506,
+          "sha256": "854dd288b7ace043b580b75edd63ed83011a64784bfee33bfa00f084984ccec0"
+        },
+        {
+          "path": "candidate/three-day-gap-1/transcript.json",
+          "bytes": 19010,
+          "sha256": "e8bc70a238576c5b23dad3c17ebdd31a73a2a81b5cdac7e166b3f4d47e850b5e"
+        },
+        {
+          "path": "candidate/three-day-gap-2/answer.txt",
+          "bytes": 1344,
+          "sha256": "bd19789dd443f49613a9159b088b62ba4bf53bf3b25be998a76b8d21c9e2bb9d"
+        },
+        {
+          "path": "candidate/three-day-gap-2/backend.jsonl",
+          "bytes": 11249,
+          "sha256": "95c08989254237ebf7fd4a1407707765a1fea6a888398171befc00e3ddeda3c8"
+        },
+        {
+          "path": "candidate/three-day-gap-2/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "fa554f53c5a054290c54f98f5f73558a8048a570d2acfdf7fa65417266e43eb3"
+        },
+        {
+          "path": "candidate/three-day-gap-2/model-requests.jsonl",
+          "bytes": 72279,
+          "sha256": "0d73ecf402c370c9a22275465fe60ed861ebdcb8759d63761673c8922c1720b2"
+        },
+        {
+          "path": "candidate/three-day-gap-2/model-responses.jsonl",
+          "bytes": 5789,
+          "sha256": "55acf89038545d09ff91abb9f24848babd2ea4f446eb8027ebf2785d5c9213bf"
+        },
+        {
+          "path": "candidate/three-day-gap-2/summary.json",
+          "bytes": 2448,
+          "sha256": "30ac8e9095e6f8b19ac423b12600bab1343ab13ce35dc2d39cc122121dbf1828"
+        },
+        {
+          "path": "candidate/three-day-gap-2/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-2/tools.jsonl",
+          "bytes": 7506,
+          "sha256": "854dd288b7ace043b580b75edd63ed83011a64784bfee33bfa00f084984ccec0"
+        },
+        {
+          "path": "candidate/three-day-gap-2/transcript.json",
+          "bytes": 19044,
+          "sha256": "df09abb82620bf125afe5fefde8ce50dfad742f24162eb72c585e76be49cabc6"
+        },
+        {
+          "path": "candidate/three-day-gap-3/answer.txt",
+          "bytes": 1305,
+          "sha256": "889fb74dc9f979ccbc34376394b22a33b01f2ce46f62e9051cf53b3f5a957100"
+        },
+        {
+          "path": "candidate/three-day-gap-3/backend.jsonl",
+          "bytes": 11711,
+          "sha256": "d35af28ff8beab601a88acd3bd99ce43db3f2cab6229d34ed44775861ec2dc33"
+        },
+        {
+          "path": "candidate/three-day-gap-3/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "fa554f53c5a054290c54f98f5f73558a8048a570d2acfdf7fa65417266e43eb3"
+        },
+        {
+          "path": "candidate/three-day-gap-3/model-requests.jsonl",
+          "bytes": 91869,
+          "sha256": "fc876d2896c3407320b4d264a0a5beefe4b79fb0056ff46ec1a657b3da0e7ba1"
+        },
+        {
+          "path": "candidate/three-day-gap-3/model-responses.jsonl",
+          "bytes": 6541,
+          "sha256": "27c82587342a6a24f7d21239b34ba7c4b6e22a01628c75f6c0996397e70cce61"
+        },
+        {
+          "path": "candidate/three-day-gap-3/summary.json",
+          "bytes": 2538,
+          "sha256": "11011e48a3f5b939ffb19f0d2c4b9879fabb33890389ac33e364ca17ac25196c"
+        },
+        {
+          "path": "candidate/three-day-gap-3/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-3/tools.jsonl",
+          "bytes": 9543,
+          "sha256": "d147789d0d027933b1bf6b2750a74802f00434c3ebe7149ade5b3292c0dcf38a"
+        },
+        {
+          "path": "candidate/three-day-gap-3/transcript.json",
+          "bytes": 20180,
+          "sha256": "e5f4fdd62dcce55cbe868b7f2d5dcf103b8e7b6cc432775ae6a28cbcab437ebb"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/answer.txt",
+          "bytes": 496,
+          "sha256": "ee8f2c6e8720f0c7efa7a2778841daf9fa4d103ef288078641ea4bbe837c4416"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/backend.jsonl",
+          "bytes": 2174,
+          "sha256": "64733a8d3f2e9fd62bfca821486aefe6bd59f16512b6a1af149e974bc6671430"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/initial-messages.json",
+          "bytes": 13512,
+          "sha256": "69f56da1771cfa2a22dea9c4cdc8593cbb8022767e54acce489681f4a8ecd1b4"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/model-requests.jsonl",
+          "bytes": 38821,
+          "sha256": "ed00f7e4a27b13e39b49b0c9f3a71d2cedd06c23e940cdc67faa94c98bf91436"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/model-responses.jsonl",
+          "bytes": 2485,
+          "sha256": "f5f426840e8f0a9d3f30505e930a20f293207295d287600e869d5721867dd5d8"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/seeded-tool.json",
+          "bytes": 2606,
+          "sha256": "a19c6ad9ea5fe18b1700a7ba42221ea5c55b04471103d97da02389d2a43fc29b"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/summary.json",
+          "bytes": 1353,
+          "sha256": "fd4673a65b5f4a61bf159989f164447a872ebca40f42804cf0ccfe4bde69e8a5"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/tools.jsonl",
+          "bytes": 5480,
+          "sha256": "4af604d166c63261f767e272a9a06f80720b1ca505029886d0b89e7e3437fac9"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-1/transcript.json",
+          "bytes": 17547,
+          "sha256": "3c8a385879e6a2d4eda2981a13e416aba1f64a911eae9dab278dded77056f6aa"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/answer.txt",
+          "bytes": 1636,
+          "sha256": "1e553ec1df1245c90e54d09e78aaae7e0f1ed3b0db27de49738eedf6d9bfa504"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/backend.jsonl",
+          "bytes": 2174,
+          "sha256": "64733a8d3f2e9fd62bfca821486aefe6bd59f16512b6a1af149e974bc6671430"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/initial-messages.json",
+          "bytes": 13512,
+          "sha256": "69f56da1771cfa2a22dea9c4cdc8593cbb8022767e54acce489681f4a8ecd1b4"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/model-requests.jsonl",
+          "bytes": 38821,
+          "sha256": "e182276afd606bc29261541dc2df7207e54155c942401a4ba4be1e5663dfdea7"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/model-responses.jsonl",
+          "bytes": 3675,
+          "sha256": "e64fcc6a96613bdce09dec055078972c87c090233999e75538f1d837f8540917"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/seeded-tool.json",
+          "bytes": 2606,
+          "sha256": "a19c6ad9ea5fe18b1700a7ba42221ea5c55b04471103d97da02389d2a43fc29b"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/summary.json",
+          "bytes": 2514,
+          "sha256": "3aa558d947dfed59a61b81dd36059c21329a817a3ea35997a97f729d01dac37b"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/tools.jsonl",
+          "bytes": 5480,
+          "sha256": "4af604d166c63261f767e272a9a06f80720b1ca505029886d0b89e7e3437fac9"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-2/transcript.json",
+          "bytes": 18709,
+          "sha256": "4bcff9c3eefc182568b70f358eba3d922daeaf19979d0884d137c8c8933142ea"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/answer.txt",
+          "bytes": 518,
+          "sha256": "e536fc7018477568599ac5b741bca8d5972e0e91ac3d830d22b65c0a90a5386d"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/backend.jsonl",
+          "bytes": 11092,
+          "sha256": "74f3962bf1c1d6a5c00f671e82e335bd0f0804518a4785b551f7c949c661cc07"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/initial-messages.json",
+          "bytes": 13512,
+          "sha256": "69f56da1771cfa2a22dea9c4cdc8593cbb8022767e54acce489681f4a8ecd1b4"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/model-requests.jsonl",
+          "bytes": 39483,
+          "sha256": "6687d190544d5f38c95b98d4248ad80f64ebef684bbba00781ed670ff8be02e9"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/model-responses.jsonl",
+          "bytes": 2530,
+          "sha256": "b7d1b8be6936b7f7aeb312b53a6ec3d5f815af342be559f0643067714525a736"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/seeded-tool.json",
+          "bytes": 2606,
+          "sha256": "a19c6ad9ea5fe18b1700a7ba42221ea5c55b04471103d97da02389d2a43fc29b"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/summary.json",
+          "bytes": 1384,
+          "sha256": "2538c332f08f0e6891580348d3cb3b27bc1726646863e0ccaba18da6083ec14c"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/tools.jsonl",
+          "bytes": 6566,
+          "sha256": "df4f5f5e0be091ed52f70661fff7140066686108a8a8c7fd14288ca9036d1bdb"
+        },
+        {
+          "path": "candidate/three-day-gap-followup-3/transcript.json",
+          "bytes": 18240,
+          "sha256": "2d4c7ee89fc7c47cfb3ac1ddc0b611d8455114820c8a1e4c665b0c91bb2567b2"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/answer.txt",
+          "bytes": 1029,
+          "sha256": "3597b2c55c1431bcd2fc61ce4346fdb9a4b332766480714878d7ceb75d0aa87e"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/backend.jsonl",
+          "bytes": 7565,
+          "sha256": "0cc7be36ca900ff4c0309210a4ac2ed3c448e58a75b6a44c27f9d9273ba59abe"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "b23b28346c618fb2fe92ebee7b95ff9a9ca8480ad4c7f550827b9d9f1cc0d01b"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/model-requests.jsonl",
+          "bytes": 71373,
+          "sha256": "48b0c2cc80e14b4bf6f5a113d49d52d774c2fb42ce8d368f0c0f33aaa8a8c79d"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/model-responses.jsonl",
+          "bytes": 5582,
+          "sha256": "12252f9e8b8fe1c78ef38b7547eec7a38c54448335522231102c70cd9a4f117d"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/summary.json",
+          "bytes": 2133,
+          "sha256": "21f99a3cdc4be2d5b4c3d7df998f1242ed3f68196e66f56aed17246081f12831"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/tools.jsonl",
+          "bytes": 5704,
+          "sha256": "7fb1b106a31d3402961fb9186943247f4a683ecdd90670a6ae46476af171ac6c"
+        },
+        {
+          "path": "candidate/two-hour-gap-1/transcript.json",
+          "bytes": 17755,
+          "sha256": "f4e9198f67ca59fed28a316ae2f108fa57f8c0a6354ba2a91e35b166c399649e"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/answer.txt",
+          "bytes": 1241,
+          "sha256": "ce2b02052ebb3c0030b20c08ea01e911c1588f39313743136855c2c58d9c7f2e"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/backend.jsonl",
+          "bytes": 8031,
+          "sha256": "171daa6f52aa9dad145ef16cb46a2454231d67d59f9cebf1bef990bacbaee04d"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "b23b28346c618fb2fe92ebee7b95ff9a9ca8480ad4c7f550827b9d9f1cc0d01b"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/model-requests.jsonl",
+          "bytes": 91527,
+          "sha256": "f606808a2b4f4a3de7a9a259302b028f19b62093d40d82ba5d358a32bb0af3b6"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/model-responses.jsonl",
+          "bytes": 6863,
+          "sha256": "82ef62d782b0b556448398073ee195578a039d23a865e3f59131c50eb9a79014"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/summary.json",
+          "bytes": 2481,
+          "sha256": "1b2974affc6d1fcac7c3fa9129d2b2a943f913707f90b5e689400aa2eef08bfb"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/tools.jsonl",
+          "bytes": 7745,
+          "sha256": "7dd43721a31a0c991e94c52a8c1b84b584ac9ce76b5e9141e568f5d1d597862b"
+        },
+        {
+          "path": "candidate/two-hour-gap-2/transcript.json",
+          "bytes": 19412,
+          "sha256": "99601cc66894d2bdbb1307f4000a16fb32c336dad4d0278af94e86ac9deff4ae"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/answer.txt",
+          "bytes": 1111,
+          "sha256": "1834f09ae2e211d64005e1bc5655330c03f2216aea5754d834c25ffaa552560b"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/backend.jsonl",
+          "bytes": 7565,
+          "sha256": "0cc7be36ca900ff4c0309210a4ac2ed3c448e58a75b6a44c27f9d9273ba59abe"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/initial-messages.json",
+          "bytes": 11883,
+          "sha256": "b23b28346c618fb2fe92ebee7b95ff9a9ca8480ad4c7f550827b9d9f1cc0d01b"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/model-requests.jsonl",
+          "bytes": 71338,
+          "sha256": "f53abd4d280b52bc8ee623cf33b70c407cb98b5598612ebcfd6e1a850fce5f65"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/model-responses.jsonl",
+          "bytes": 5625,
+          "sha256": "a9ab2b589bac0d7ca23755e9b00e76c4f729f8f589a92bd83fcd53fef68f8a6f"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/summary.json",
+          "bytes": 2213,
+          "sha256": "c323981f9bbbe29b1bb6bf924ded12861d44aa44f7ed727bb4edc24e35ea70f5"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/tool-schemas.json",
+          "bytes": 5850,
+          "sha256": "b898787e4883f81874db544e916e4039435d50494e17d312b4e64d266011fddf"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/tools.jsonl",
+          "bytes": 5704,
+          "sha256": "7fb1b106a31d3402961fb9186943247f4a683ecdd90670a6ae46476af171ac6c"
+        },
+        {
+          "path": "candidate/two-hour-gap-3/transcript.json",
+          "bytes": 17801,
+          "sha256": "d90e48b4fe51c882c146f2c3b83d46cb85b758a40ddf813f225b0e0cc36fcba8"
+        },
+        {
+          "path": "comparison.json",
+          "bytes": 89631,
+          "sha256": "8f79cd5a8e374c5af3f40f73b4090d64913df9179ed62e0a05d44e422fd0a0a8"
+        },
+        {
+          "path": "reconciliation.json",
+          "bytes": 5122,
+          "sha256": "08820c61cb058681fa3ba00df6132d5ea28090f098131758615eec5959461099"
+        },
+        {
+          "path": "result-summary.json",
+          "bytes": 3198,
+          "sha256": "ffeae049b67c59c696dd5d850df85852f9c29313be12a0323c2f85ed8101e7ab"
+        },
+        {
+          "path": "server-record.json",
+          "bytes": 5784,
+          "sha256": "a7ab5582799c9b633c0b4924eeec847c474a7f208a91735cd902f5383178b8a6"
+        }
+      ]
+    },
+    "included": "All 30 canonical summaries, complete final answers, every per-turn token usage record, review reasons, both smoke outcomes, and the transport-invalid attempt.",
+    "retained_locally": "Full model requests/responses, transcripts, real tool/backend results, source snapshots, fixture and serving logs, and original deployment recovery evidence.",
+    "not_published": "Deployment-specific host addresses, local workspace paths, original production-container identity and recovery records. No credentials were included in these benchmark outputs."
+  }
+}

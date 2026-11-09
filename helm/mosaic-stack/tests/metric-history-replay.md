@@ -13,6 +13,12 @@ wrapper. It does not test native OpenClaw skill selection, complete runtime
 prompts, session routing, approvals or the UI. Those need a separate deployment
 test. No score or model behavior is asserted by adding this runner.
 
+An observed [Nemotron 3 Super NVFP4 comparison](metric-history-results-nemotron-3-super-20261109.md)
+records all 30 outcomes and their factual review, including failures. Evidence
+retrieval improves in that run, but complete-answer reliability and native
+OpenClaw acceptance remain unresolved. Its exact configuration and full final
+answers are recorded separately from the runner's deterministic tests.
+
 ## Prepare the fixture and revisions
 
 Use Node.js 24 or newer and the running local Prometheus fixture documented in
