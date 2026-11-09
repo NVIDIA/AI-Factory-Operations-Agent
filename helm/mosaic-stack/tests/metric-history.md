@@ -82,7 +82,8 @@ No stale markers are inserted, so real Prometheus lookback behavior is exercised
 | Two-hour gap | fixture-gpu-d | 0 | 23 | 11400 | 2026-11-05T21:59:00Z | 2026-11-05T22:00:00Z |
 
 The generator emits every one of the 30121 samples. It can also support
-model/tool replay tests. Passing the deterministic tool tests does not prove
+the [matched model/tool replay](metric-history-replay.md) for comparing harness
+revisions with the same model and fixture. Passing the deterministic tool tests does not prove
 that an agent selected the skill, invoked the tool, or completed the answer;
 those require separate native-runtime behavior tests.
 
