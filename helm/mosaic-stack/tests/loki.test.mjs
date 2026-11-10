@@ -92,7 +92,7 @@ test("Loki registers without Prometheus and absent endpoints register no query t
     const { default: plugin } = await import("../files/openclaw-seed/extensions/observability/index.ts");
     const names = config => {
       const result = [];
-      plugin.register({ pluginConfig: {grafanaEnabled:false, ...config}, registerTool: tool => result.push(tool.name) });
+      plugin.register({ pluginConfig: {grafanaEnabled:false, ...config}, registerTool: (tool, options) => result.push(options?.name || tool.name) });
       return result;
     };
     assert.ok(names({grafanaEnabled:true, datasourceUid:"metrics", grafanaUrl:"http://dashboards.example.com", prometheusUrl:"http://metrics.example.com"}).includes("dashboard_create"));
