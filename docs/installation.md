@@ -44,8 +44,6 @@ unset NGC_API_KEY
 
 Persistent storage must be available through the cluster’s default StorageClass. The chart uses that default for the agent workspace and UI audit log; set `openclaw.pvc.storageClassName` or `mosaicUi.auditPvc.storageClassName` only when selecting another class.
 
-OpenClaw runtime scratch files use a private, pod-local temporary directory so NFS ownership mapping cannot prevent sandbox execution or documentation reads. Agent state and the existing workspace files remain on persistent storage.
-
 ### 2. Choose An LLM
 
 Choose one inference path below. Both paths install the same agent stack.

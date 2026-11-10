@@ -10,8 +10,6 @@ Select Base Command Manager to expose the optional **Read-only Redfish** checkbo
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
-Runtime scratch uses pod-local storage while agent state remains persistent. See the [installation guide](installation.md) for storage configuration.
-
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```
