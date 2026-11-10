@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -452,6 +452,13 @@ test("additional providers cannot shadow the primary provider ID", () => {
     "--set-json", 'openclaw.additionalModelProviders={"llm":{"models":[]}}'], { encoding: "utf8" });
   assert.notEqual(result.status, 0);
   assert.ok(result.stderr.includes("llm is reserved for the primary inference provider"));
+});
+
+test("preserves an explicitly configured runtime temporary directory", () => {
+  const output = render("--show-only", "templates/openclaw.yaml",
+    "--set-json", 'openclaw.extraEnv=[{"name":"TMPDIR","value":"/custom/tmp"}]');
+  assert.equal(output.split("name: TMPDIR").length - 1, 1);
+  assert.ok(output.includes("value: /custom/tmp"));
 });
 
 test("uses one no-reasoning request contract for external endpoints", () => {
@@ -1198,25 +1205,6 @@ test("packages every Kubernetes plugin module into the OpenClaw seed", () => {
   }
 });
 
-test("creates the base workspace when every optional skill module is disabled", () => {
-  const output = render(
-    "--set", "modules.slurm.enabled=false",
-    "--set", "modules.observability.enabled=false",
-    "--set", "modules.bcm.enabled=false",
-    "--show-only", "templates/openclaw.yaml",
-  );
-  assert.match(output, /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace\/skills/);
-  assert.match(output, /cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/);
-});
-
-test("initializes a fresh OpenClaw workspace before seeding it", () => {
-  const output = render("--show-only", "templates/openclaw.yaml");
-  assert.match(
-    output,
-    /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace[\s\S]*cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/,
-  );
-});
-
 test("preserves the Slurm evidence apiVersion after its SPDX header", () => {
   const output = render(
     "--show-only",
@@ -1299,9 +1287,14 @@ test("packaged product and GPU documentation installs locally with research, UI 
     const init = output.split("- name: init-config\n")[1].split("          securityContext:")[0];
     const script = init.split("            - |\n")[1].split("\n")
       .map(line => line.slice(14)).join("\n")
-      .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`);
+      .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`)
+      .replaceAll("/run/openclaw-tmp", join(directory, "runtime-tmp"));
     execFileSync("sh", ["-eu", "-c", script]);
     assert.equal(existsSync(legacySkill), false);
+    assert.ok(readFileSync(join(home, "workspace/AGENTS.md"), "utf8").trim());
+    const scratch = statSync(join(directory, "runtime-tmp/runtime"));
+    assert.equal(scratch.uid, process.getuid());
+    assert.equal(scratch.mode & 0o777, 0o700);
     const documentation = join(home, "workspace/product-docs");
     const root = join(chart, "../..");
     const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})

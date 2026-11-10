@@ -116,8 +116,10 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /home/node/.openclaw/tmp/openclaw /home/node/.openclaw/workspace/skills
-              chmod 700 /home/node/.openclaw/tmp /home/node/.openclaw/tmp/openclaw
+              mkdir -p /home/node/.openclaw/tmp /home/node/.openclaw/workspace/skills
+              chmod 700 /home/node/.openclaw/tmp
+              mkdir -p /run/openclaw-tmp/runtime
+              chmod 700 /run/openclaw-tmp/runtime
               rm -rf /home/node/.openclaw/extensions/automation-guard \
                 /home/node/.openclaw/extensions/bcm \
                 /home/node/.openclaw/extensions/dcgm \
@@ -273,6 +275,8 @@ spec:
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
+            - name: runtime-tmp
+              mountPath: /run/openclaw-tmp
             - name: openclaw-seed
               mountPath: /seed
             {{- if .Values.modules.kubernetes.enabled }}
@@ -508,6 +512,14 @@ spec:
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
           command: ["node", "/app/dist/index.js", "gateway", "run"]
           env:
+            {{- $customTmpdir := false }}
+            {{- range .Values.openclaw.extraEnv }}
+            {{- if eq .name "TMPDIR" }}{{- $customTmpdir = true }}{{- end }}
+            {{- end }}
+            {{- if not $customTmpdir }}
+            - name: TMPDIR
+              value: /run/openclaw-tmp/runtime
+            {{- end }}
             {{- with .Values.openclaw.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -686,6 +698,8 @@ spec:
             - name: openclaw-home
               mountPath: /tmp
               subPath: tmp
+            - name: runtime-tmp
+              mountPath: /run/openclaw-tmp
             - name: runtime-tools
               mountPath: /tools
               readOnly: true
@@ -730,6 +744,8 @@ spec:
           configMap:
             name: openclaw-seed
         - name: runtime-tools
+          emptyDir: {}
+        - name: runtime-tmp
           emptyDir: {}
         - name: openshell-plugin
           emptyDir: {}
