@@ -116,9 +116,8 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /home/node/.openclaw/tmp /home/node/.openclaw/workspace/skills
-              chmod 700 /home/node/.openclaw/tmp
-              mkdir -p /run/openclaw-tmp/runtime
+              mkdir -p -m 700 /home/node/.openclaw/tmp
+              mkdir -p /home/node/.openclaw/workspace/skills /run/openclaw-tmp/runtime
               chmod 700 /run/openclaw-tmp/runtime
               rm -rf /home/node/.openclaw/extensions/automation-guard \
                 /home/node/.openclaw/extensions/bcm \
