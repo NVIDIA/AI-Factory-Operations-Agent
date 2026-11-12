@@ -386,7 +386,7 @@ export default definePluginEntry({
           dut: {
             type: "object",
             additionalProperties: true,
-            description: "DUTInfo-style object. Provide the hostname as id; the Hardware Agent resolves BMC details and credentials.",
+            description: "DUTInfo-style object. Provide a hostname for configured inventory lookup, or BMC details for direct collection. Keep credentials out of progress messages and reports.",
           },
           event_text: {
             type: "string",

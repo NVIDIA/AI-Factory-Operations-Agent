@@ -41,7 +41,7 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 5–30 minutes.
 
 1. POST returns `202 Accepted` with a `triage_id`.
-2. Backend runs Base Command Manager (BCM) lookup, nvdebug collection, and diagnosis.
+2. Backend resolves the DUT through its configured lookup, then runs nvdebug collection and diagnosis.
 3. The tool returns the `triage_id` immediately. Do not wait or poll in the same turn.
 
 ## Mandatory duration disclosure
@@ -79,6 +79,11 @@ It is a read-only operation permitted in View mode. Call `hardware_analyze_dut`
 after confirmation even when the runtime access mode is View. Do not ask the
 user to switch to Edit or Auto, and do not infer an Edit requirement from the
 backend's access to the target.
+
+Hostname-only chat requests require configured inventory lookup. Without it,
+direct BMC credentials can be submitted through the authenticated backend API
+as described in the product installation guide. Do not ask for credentials in
+chat.
 
 Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
 `/api/v1/analyze-dut`, returns the queued triage id, and emits a live NVDebug
