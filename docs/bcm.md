@@ -29,7 +29,8 @@ and `EXTERNAL_LLM_API_KEY` through the environment.
 
 Use a fresh Kind cluster name and no existing `/etc/afoa-bcm/server.env` service.
 The defaults are cluster `mosaic`, namespace `aifoa`, and MCP port `3002`.
-Set `KIND_CLUSTER_NAME` or `MOSAIC_NAMESPACE` to choose different names. Port
+Set `KIND_CLUSTER_NAME` or `MOSAIC_NAMESPACE` to choose different names.
+Keep those variables set in the shell used for the commands below. Port
 `3002` must be unused. Existing installations use the
 [upgrade workflow](installation.md#upgrade-an-existing-installation).
 
@@ -67,6 +68,26 @@ continue. The script does not rewrite host firewall configuration or restart
 Docker. If a later step fails, it preserves the cluster and service for diagnosis;
 it does not delete workloads or overwrite an existing installation on rerun.
 
+## Recover a failed installation
+
+Inspect the retained state first. To discard a failed installation and retry,
+confirm that its Kind cluster contains no workloads you need to keep. Use the
+same `KIND_CLUSTER_NAME` as the failed run, then remove only its cluster and
+installer-owned service state:
+
+```bash
+kind delete cluster --name "${KIND_CLUSTER_NAME:-mosaic}"
+systemctl disable --now afoa-bcm-mcp.service
+systemctl reset-failed afoa-bcm-mcp.service
+rm -f /etc/systemd/system/afoa-bcm-mcp.service
+systemctl daemon-reload
+rm -rf /opt/afoa-bcm /etc/afoa-bcm
+```
+
+Skip service commands if the failure occurred before the unit was installed.
+This deletes the retained kubeconfig, generated certificates, token, and values.
+Rerun the installer after correcting the original failure.
+
 ## Validate Base Command Manager access
 
 Confirm that the Kind node and AI Factory Operations Agent workloads are ready, then issue a real
@@ -76,10 +97,10 @@ creates or updates `aichatbotuser`:
 ```bash
 export KUBECONFIG=/etc/afoa-bcm/kubeconfig
 kubectl get nodes
-kubectl -n aifoa get pods
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get pods
 
 MANAGER_TEST_PROMPT='/cluster-management Use Base Command Manager to run "device; list" and summarize the first five devices.'
-kubectl -n aifoa exec deploy/mosaic-ui -- \
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" exec deploy/mosaic-ui -- \
   mosaic --session bcm-install-validation --timeout-ms 180000 \
   "$MANAGER_TEST_PROMPT"
 
@@ -91,12 +112,18 @@ The `cmsh` profile command must return `readonly`. No head-node SSH key is
 mounted in AFOA. Base Command Manager edit and administration
 remain disabled.
 
+The optional `bcmMcp.networkPolicy` applies to every pod in a dedicated AFOA
+namespace. It allows all non-head-node egress. Kubernetes combines NetworkPolicy
+allow rules, so other egress policies cannot restrict those allowed destinations.
+Enforce additional restrictions outside this policy, for example with a firewall
+or an enforced proxy.
+
 ## Open the UI remotely
 
 Keep this port-forward running on the Base Command Manager head node:
 
 ```bash
-kubectl -n aifoa port-forward svc/mosaic-ui 3210:3000
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" port-forward svc/mosaic-ui 3210:3000
 ```
 
 From the operator's workstation, keep an SSH tunnel to the head node running:
@@ -108,9 +135,9 @@ ssh -L 3210:127.0.0.1:3210 root@bcm-head.example.com
 Retrieve the generated UI credentials on the head node:
 
 ```bash
-kubectl -n aifoa get secret mosaic-ui-auth \
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get secret mosaic-ui-auth \
   -o jsonpath='{.data.username}' | base64 --decode; echo
-kubectl -n aifoa get secret mosaic-ui-auth \
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get secret mosaic-ui-auth \
   -o jsonpath='{.data.password}' | base64 --decode; echo
 ```
 
@@ -198,23 +225,30 @@ return 0
 Check the configuration before changing the running firewall. Restart Docker
 only if Shorewall previously removed its rules. Inspect existing workloads and
 arrange a maintenance window before restarting Docker or Shorewall. Then verify that the
-Kind node and pod egress survive a Shorewall restart:
+Kind node and pod egress survive a Shorewall restart.
+
+Only when Docker rules need restoring, after arranging that maintenance window:
+
+```bash
+systemctl restart docker
+```
+
+Validate and restart Shorewall:
 
 ```bash
 shorewall check
 systemctl daemon-reload
-systemctl restart docker
 systemctl restart shorewall
-kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready "node/${KIND_CLUSTER_NAME:-mosaic}-control-plane" --timeout=120s
 
-kubectl --kubeconfig /etc/afoa-bcm/kubeconfig run shorewall-egress-check --rm -i --restart=Never \
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig -n "${MOSAIC_NAMESPACE:-aifoa}" run shorewall-egress-check --rm -i --restart=Never \
   --image=curlimages/curl:8.15.0 -- \
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
   -w 'http=%{http_code} tls=%{ssl_verify_result}\n' \
   https://integrate.api.nvidia.com/v1/models
 
 systemctl restart shorewall
-kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready "node/${KIND_CLUSTER_NAME:-mosaic}-control-plane" --timeout=120s
 ```
 
 An HTTP response such as `401` with `tls=0` confirms network egress and

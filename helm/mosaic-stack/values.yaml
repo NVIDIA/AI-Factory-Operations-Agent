@@ -412,6 +412,8 @@ bcmMcp:
   networkPolicy:
     enabled: false
     # Dedicated AFOA namespace only: applies to every pod, including agent sandboxes.
+    # Allows all non-head-node egress; other NetworkPolicies cannot deny it.
+    # Enforce additional restrictions with an external firewall or proxy.
     # Include every IPv4/IPv6 address of the head node as /32 or /128 CIDRs.
     headCidrs: []
     mcpPort: 3002
