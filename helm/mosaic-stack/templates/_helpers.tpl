@@ -202,5 +202,5 @@ tolerations:
 {{- end -}}
 
 {{- define "mosaic-stack.agentWorkspaceDir" -}}
-/sandbox/mosaic-agent-workspace
+/sandbox/aifoa-workspace
 {{- end -}}
