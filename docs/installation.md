@@ -648,10 +648,7 @@ requires it.
 <details>
 <summary id="use-an-ssh-key">Alternative: use an SSH key (experimental)</summary>
 
-Use the SSH adapter when you need Helm to manage the MCP server inside Kubernetes
-and cannot install the head-node service. This gives the adapter a head-node SSH
-identity; the HTTPS service above is recommended to avoid storing that identity
-in AFOA.
+The SSH adapter runs MCP inside Kubernetes using a head-node SSH key.
 
 Provide the Base Command Manager head host and SSH key:
 

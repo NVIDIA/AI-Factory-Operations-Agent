@@ -43,17 +43,8 @@ bash helm/mosaic-stack/files/setup-bcm-kind.sh
 ```
 
 The [installer](../helm/mosaic-stack/files/setup-bcm-kind.sh) deploys the chart
-from the same source tree. It:
-
-1. Authenticates to NGC and prepares the chart's pinned dependencies.
-2. Creates Kind with a dedicated kubeconfig at `/etc/afoa-bcm/kubeconfig`.
-3. Extracts the Base Command Manager package from the chart's pinned image and installs the same
-   extended server used by the [module instructions](installation.md#use-a-head-node-mcp-server).
-4. Generates a bearer token and a self-signed certificate for the Kind Docker
-   gateway address, and starts `afoa-bcm-mcp.service` on that interface.
-5. Creates the registry, inference, MCP token, and CA Secrets in Kubernetes.
-6. Checks that a pod can reach the authenticated MCP endpoint with TLS
-   verification, then installs AFOA with local Kubernetes and read-only Base Command Manager access.
+from this checkout, creates Kind and the head-node MCP service, generates
+credentials, and verifies pod-to-service HTTPS before installing AFOA.
 
 The certificate expires after one year. Replace it and update the `bcm-mcp-ca`
 Secret when rotating certificates. Tokens and service configuration stay under
@@ -148,13 +139,11 @@ For optional BMC inventory and monitoring, follow the [Read-only Redfish install
 
 ## Shorewall configuration
 
-The installer pauses here when Shorewall is active, after creating Kind and
-printing its Docker bridge name. Skip this section when Shorewall is inactive. On a Base Command Manager head node
-where Shorewall is active, Docker and Shorewall both manage iptables. A
-Shorewall start, reload, or restart can otherwise delete Docker's forwarding,
-NAT, and port-publishing rules. Keep Shorewall enabled when the Base Command Manager head-node
-role requires it. This local workflow does not require exposing the Kind API
-outside the head node or adding a temporary Base Command Manager firewall role for it.
+Skip this section if Shorewall is inactive. Otherwise, the installer pauses
+after creating Kind and printing its Docker bridge name. Shorewall can delete
+Docker's forwarding, NAT, and port-publishing rules when it starts, reloads, or
+restarts. Apply the configuration below while keeping Shorewall enabled when
+required by the Base Command Manager head-node role.
 
 This procedure follows [Shorewall's Docker integration](https://shorewall.org/Docker.html)
 and was validated with Shorewall 5.2.8. Shorewall 5.2.4 or later is required
