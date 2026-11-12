@@ -14,6 +14,8 @@ The optional **Read-only Redfish** checkbox appears inside the Base Command Mana
 
 For a checksum-verified mirrored or source-built sandbox backend package, configure the advanced values described under [OpenShell dependency](installation.md#openshell-dependency).
 
+To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```

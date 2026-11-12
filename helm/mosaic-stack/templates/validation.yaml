@@ -40,6 +40,9 @@
 {{- if not (has .Values.modules.slurm.backend (list "auto" "vanilla" "bcm")) -}}
 {{- fail "modules.slurm.backend must be one of: auto, vanilla, bcm" -}}
 {{- end -}}
+{{- if and (hasKey .Values.openclaw "agentDisplayName") (not (kindIs "string" .Values.openclaw.agentDisplayName)) -}}
+{{- fail "openclaw.agentDisplayName must be a string" -}}
+{{- end -}}
 {{- if and .Values.openclaw.slack.enabled (not .Values.openclaw.slack.existingSecret) -}}
 {{- fail "openclaw.slack.existingSecret is required when native Slack is enabled" -}}
 {{- end -}}
