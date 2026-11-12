@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metric-history-fixture
+data:
+  generate.mjs: |
+{{ .Files.Get "metric-history.mjs" | indent 4 }}
+  prometheus.yml: |
+{{ .Files.Get "metric-history-prometheus.yml" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metric-history
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metric-history
+  template:
+    metadata:
+      labels:
+        app: metric-history
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: generate
+          image: {{ .Values.nodeImage | quote }}
+          command: [sh, -c, 'node /fixture/generate.mjs > /data/samples.openmetrics']
+          volumeMounts:
+            - {name: fixture, mountPath: /fixture, readOnly: true}
+            - {name: data, mountPath: /data}
+        - name: import
+          image: {{ .Values.prometheusImage | quote }}
+          command: [/bin/promtool, tsdb, create-blocks-from, openmetrics, /data/samples.openmetrics, /data/tsdb]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      containers:
+        - name: prometheus
+          image: {{ .Values.prometheusImage | quote }}
+          args:
+            - --config.file=/fixture/prometheus.yml
+            - --storage.tsdb.path=/data/tsdb
+            - --storage.tsdb.retention.time=10000d
+          securityContext:
+            runAsUser: 0
+          ports:
+            - {name: http, containerPort: 9090}
+          readinessProbe:
+            httpGet: {path: /-/ready, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 512Mi}
+          volumeMounts:
+            - {name: fixture, mountPath: /fixture, readOnly: true}
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: fixture
+          configMap: {name: metric-history-fixture}
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metric-history
+spec:
+  selector:
+    app: metric-history
+  ports:
+    - {name: http, port: 9090, targetPort: http}
+{{- if .Values.uiHost }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: history-validation-ui
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: {{ .Values.uiHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mosaic-ui
+                port: {number: 3000}
+{{- end }}

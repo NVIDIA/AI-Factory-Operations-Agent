@@ -43,11 +43,13 @@ for (const prefix of ['', '/select/23/prometheus']) {
     assert.deepEqual(instant.result[0],{metric:{node:'worker-b'},value:{timestamp:1790812800,value:6}});
     const range = (await api.observability_range_query({query:expression,start:'2026-10-01T00:00:00Z',end:'2026-10-01T00:05:00Z',stepSeconds:60})).details;
     assert.equal(range.result[0].values[1].value,8);
-    assert.deepEqual(requests.map(({url}) => url.pathname),[
-      `${prefix}/api/v1/label/__name__/values`, `${prefix}/api/v1/query`, `${prefix}/api/v1/query_range`,
-    ]);
-    for (const request of requests) assert.equal(request.method,'GET');
-    for (const {url} of requests.slice(1)) assert.equal(url.searchParams.get('query'),expression);
+    assert.equal(requests[0].url.pathname, `${prefix}/api/v1/label/__name__/values`);
+    for (const request of requests) assert.equal(request.method, 'GET');
+    const primary = requests.filter(({url}) => url.searchParams.get('query') === expression);
+    assert.ok(primary.some(({url}) => url.pathname === `${prefix}/api/v1/query`));
+    assert.ok(primary.some(({url}) => url.pathname === `${prefix}/api/v1/query_range`));
+    assert.ok(requests.some(({url}) => url.pathname === `${prefix}/api/v1/query_range`
+      && url.searchParams.get('query') === `timestamp(${expression})`));
     assert.equal(requests[2].url.searchParams.get('step'),'60');
   });
 }

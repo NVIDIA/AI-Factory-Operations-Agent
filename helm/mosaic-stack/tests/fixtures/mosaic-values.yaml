@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Use only in a fresh validation namespace. Supply an authorized inference URL,
+# model, and existing credential Secret via Helm overrides.
+llm:
+  mode: external
+modules:
+  ui: {enabled: true}
+  execution: {enabled: true}
+  observability: {enabled: true}
+  kubernetes: {enabled: false}
+  bcm: {enabled: false}
+  slurm: {enabled: false}
+  grafana: {enabled: false}
+  research: {enabled: false}
+  diagnostics: {enabled: false}
+  terminal: {enabled: false}
+  webSearch: {enabled: false}
+observability:
+  prometheusUrl: http://metric-history:9090
+openclaw:
+  bootstrapSkills: []
