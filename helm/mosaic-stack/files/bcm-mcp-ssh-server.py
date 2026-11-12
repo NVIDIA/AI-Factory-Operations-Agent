@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import selectors
+import signal
 import shlex
 import ssl
 import subprocess
@@ -273,12 +274,16 @@ class MosaicBCMServer(BCMServer):
             if not self.bcm_head_host:
                 raise RuntimeError("BCM head host is not configured")
             command = ["ssh", self.bcm_head_host, "sh -lc " + shlex.quote(script)]
-        if max_output_bytes is None:
+        if max_output_bytes is None and self.execution_mode != "local":
             return subprocess.run(command, capture_output=True, timeout=timeout, check=False, input=stdin)
         deadline = time.monotonic() + timeout
         with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL) as process:
+                              stderr=subprocess.PIPE if max_output_bytes is None else subprocess.DEVNULL,
+                              start_new_session=self.execution_mode == "local") as process:
             try:
+                if max_output_bytes is None:
+                    stdout, stderr = process.communicate(input=stdin, timeout=timeout)
+                    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
                 output = bytearray()
                 pending = memoryview(stdin or b"")
                 with selectors.DefaultSelector() as selector:
@@ -313,6 +318,13 @@ class MosaicBCMServer(BCMServer):
                                     raise RedfishError(502, "BMC response exceeds the size limit")
                 code = process.wait(timeout=max(0, deadline - time.monotonic()))
                 return subprocess.CompletedProcess(command, code, bytes(output), b"")
+            except BaseException:
+                if self.execution_mode == "local":
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                raise
             finally:
                 if process.poll() is None:
                     process.kill()

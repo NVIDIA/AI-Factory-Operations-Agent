@@ -6,6 +6,8 @@ import importlib.util
 import inspect
 import json
 import subprocess
+import shlex
+import tempfile
 import sys
 import threading
 import time
@@ -127,6 +129,21 @@ class ServerTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0)
         with self.assertRaises(self.module.RedfishError):
             server._run_head("printf 'oversized evidence'", 5, max_output_bytes=4)
+
+    def test_local_failures_stop_descendants(self):
+        server = self.server()
+        server.execution_mode = "local"
+        for limit, overflow in ((None, False), (128, False), (128, True)):
+            with self.subTest(limit=limit, overflow=overflow), tempfile.TemporaryDirectory() as directory:
+                marker = Path(directory) / "survived"
+                child = f"import time; from pathlib import Path; time.sleep(1); Path({str(marker)!r}).touch()"
+                script = f"{shlex.quote(sys.executable)} -c {shlex.quote(child)} & "
+                script += "sleep .1; printf '%0256d' 0; wait" if overflow else "wait"
+                error = self.module.RedfishError if overflow else subprocess.TimeoutExpired
+                with self.assertRaises(error):
+                    server._run_head(script, .3, max_output_bytes=limit)
+                time.sleep(1.1)
+                self.assertFalse(marker.exists(), "A descendant continued after the request failed")
 
     def test_bounded_ssh_returns_small_output_and_stops_oversized_output(self):
         actual_popen = subprocess.Popen
