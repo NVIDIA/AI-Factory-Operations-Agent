@@ -590,7 +590,7 @@ Configure `/etc/afoa-bcm/server.env` from the
 
 - **Redfish:** enable Redfish access.
 - **Hardware Agent:** enable compatibility and match its webhook token to the Hardware Agent auth Secret.
-- **BCM edit mode:** enable administrative CMSH access. AFOA's approval gates still apply.
+- **Base Command Manager edit mode:** enable administrative CMSH access. AFOA's approval gates still apply.
 
 ```bash
 systemctl daemon-reload
