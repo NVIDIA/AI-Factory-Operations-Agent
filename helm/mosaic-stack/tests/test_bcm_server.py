@@ -6,6 +6,8 @@ import importlib.util
 import inspect
 import json
 import subprocess
+import shlex
+import tempfile
 import sys
 import threading
 import time
@@ -97,6 +99,7 @@ class ServerTests(unittest.TestCase):
         server.cmsh_enabled = True
         server.cmsh_admin_enabled = False
         server.hardware_compat_enabled = True
+        server.execution_mode = "ssh"
         server.bcm_head_host = "head.example"
         server.redfish_enabled = False
         server.redfish_verify_tls = False
@@ -111,9 +114,36 @@ class ServerTests(unittest.TestCase):
         server = self.server()
         completed = subprocess.CompletedProcess([], 0, b"", b"")
         with patch.object(self.module.subprocess, "run", return_value=completed) as run:
-            server._ssh("uname -m", 30)
+            server._run_head("uname -m", 30)
         self.assertEqual(run.call_args.args[0][:2], ["ssh", "head.example"])
         self.assertNotIn("pip", run.call_args.args[0][-1])
+
+    def test_local_head_execution_needs_no_ssh_and_preserves_input_and_limits(self):
+        server = self.server()
+        server.execution_mode = "local"
+        server.bcm_head_host = ""
+        with patch.dict(self.module.os.environ, {"PATH": "/usr/bin:/bin"}):
+            for limit in (None, 64):
+                result = server._run_head("cat", 5, stdin=b"head-node evidence", max_output_bytes=limit)
+                self.assertEqual(result.stdout, b"head-node evidence")
+                self.assertEqual(result.returncode, 0)
+        with self.assertRaises(self.module.RedfishError):
+            server._run_head("printf 'oversized evidence'", 5, max_output_bytes=4)
+
+    def test_local_failures_stop_descendants(self):
+        server = self.server()
+        server.execution_mode = "local"
+        for limit, overflow in ((None, False), (128, False), (128, True)):
+            with self.subTest(limit=limit, overflow=overflow), tempfile.TemporaryDirectory() as directory:
+                marker = Path(directory) / "survived"
+                child = f"import time; from pathlib import Path; time.sleep(1); Path({str(marker)!r}).touch()"
+                script = f"{shlex.quote(sys.executable)} -c {shlex.quote(child)} & "
+                script += "sleep .1; printf '%0256d' 0; wait" if overflow else "wait"
+                error = self.module.RedfishError if overflow else subprocess.TimeoutExpired
+                with self.assertRaises(error):
+                    server._run_head(script, .3, max_output_bytes=limit)
+                time.sleep(1.1)
+                self.assertFalse(marker.exists(), "A descendant continued after the request failed")
 
     def test_bounded_ssh_returns_small_output_and_stops_oversized_output(self):
         actual_popen = subprocess.Popen
@@ -129,12 +159,12 @@ class ServerTests(unittest.TestCase):
 
                 with patch.object(self.module.subprocess, "Popen", side_effect=launch):
                     if len(content) <= limit:
-                        result = self.server()._ssh("diagnostic", 5, max_output_bytes=limit)
+                        result = self.server()._run_head("diagnostic", 5, max_output_bytes=limit)
                         self.assertEqual(result.stdout, content)
                         self.assertEqual(result.returncode, 0)
                     else:
                         with self.assertRaises(self.module.RedfishError) as raised:
-                            self.server()._ssh("diagnostic", 5, max_output_bytes=limit)
+                            self.server()._run_head("diagnostic", 5, max_output_bytes=limit)
                         self.assertEqual(raised.exception.status, 502)
                 self.assertIsNotNone(processes[0].poll())
 
@@ -149,16 +179,16 @@ class ServerTests(unittest.TestCase):
 
         with patch.object(self.module.subprocess, "Popen", side_effect=launch):
             with self.assertRaises(subprocess.TimeoutExpired):
-                self.server()._ssh("diagnostic", 0.1, stdin=b"x" * 131072, max_output_bytes=128)
+                self.server()._run_head("diagnostic", 0.1, stdin=b"x" * 131072, max_output_bytes=128)
         self.assertIsNotNone(processes[0].poll())
 
     def test_cmsh_identity_is_checked_once(self):
         server = self.server()
-        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 0, b"", b""))
+        server._run_head = Mock(return_value=subprocess.CompletedProcess([], 0, b"", b""))
         server._ensure_cmsh_user()
         server._ensure_cmsh_user()
         server._ensure_cmsh_user()
-        server._ssh.assert_called_once()
+        server._run_head.assert_called_once()
 
     def test_blocking_cmsh_calls_run_concurrently(self):
         server = self.server()
@@ -353,9 +383,9 @@ ip
             "hostname": "atlas-01", "bmc_ip": "10.30.0.11", "bmc_username": "admin", "bmc_password": 'p"a\\ss',
         })
         body = b'{"@odata.type":"#ComputerSystem","Id":"DGX","PowerState":"On","Oem":{"UserPassword":"x","AuthToken":"y"}}'
-        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 0, body + b"\n200", b""))
+        server._run_head = Mock(return_value=subprocess.CompletedProcess([], 0, body + b"\n200", b""))
         result = server.redfish_get("atlas-01", "/redfish/v1/Systems/DGX")
-        script, timeout, stdin = server._ssh.call_args.args
+        script, timeout, stdin = server._run_head.call_args.args
         self.assertNotIn("p\"a", script)
         self.assertIn("-K /dev/stdin", script)
         self.assertIn("https://10.30.0.11/redfish/v1/Systems/DGX", script)
@@ -368,10 +398,10 @@ ip
         server.hardware_bmc = Mock(return_value={
             "hostname": "atlas-01", "bmc_ip": "10.30.0.11", "bmc_username": "admin", "bmc_password": "secret",
         })
-        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 7, b"", b"curl: (7) Failed to connect to 10.30.0.11 port 443"))
+        server._run_head = Mock(return_value=subprocess.CompletedProcess([], 7, b"", b"curl: (7) Failed to connect to 10.30.0.11 port 443"))
         text = server.redfish_tool(server.redfish_system_summary, "atlas-01")
         self.assertEqual(json.loads(text), {"error": "BMC is unreachable", "status": 502})
-        server._ssh = Mock(return_value=subprocess.CompletedProcess([], 0, b"\n401", b""))
+        server._run_head = Mock(return_value=subprocess.CompletedProcess([], 0, b"\n401", b""))
         text = server.redfish_tool(server.redfish_get, "atlas-01", "/redfish/v1/Systems")
         self.assertEqual(json.loads(text)["status"], 401)
         self.assertNotIn("10.30.0.11", text)

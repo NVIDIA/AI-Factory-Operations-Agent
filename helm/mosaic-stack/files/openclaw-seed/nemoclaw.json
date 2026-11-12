@@ -314,7 +314,7 @@
           "gatewayEndpoint": {{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}{{- if .Values.openclaw.openshell.policy }},
           "policy": {{ .Values.openclaw.openshell.policy | quote }}{{- end }},
           "remoteWorkspaceDir": "/sandbox",
-          "remoteAgentWorkspaceDir": "/sandbox/mosaic-agent-workspace"
+          "remoteAgentWorkspaceDir": {{ include "mosaic-stack.agentWorkspaceDir" . | quote }}
         }
       },
       "hardware-agent": {
@@ -336,7 +336,7 @@
           "mcpUrl": {{ .Values.bcmMcp.mcpUrl | quote }},
           "headHost": {{ .Values.bcmMcp.headHost | quote }},
           "mcpMode": {{ .Values.bcmMcp.mode | quote }},
-          {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+          {{- if eq (include "mosaic-stack.bcmAuthenticated" .) "true" }}
           "authToken": "${MOSAIC_BCM_MCP_TOKEN}",
           {{- end }}
           "cmshEnabled": {{ not .Values.bcmMcp.config.noCmshUser }},

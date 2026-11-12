@@ -93,6 +93,32 @@ async function loadBcmPlugin() {
   }
 }
 
+test("external MCP executes on its server without an implicit SSH hop", async () => {
+  const plugin = await loadBcmPlugin();
+  const { tools } = registerBcm(plugin, {
+    mcpMode: "external", headHost: "head.example.test", authToken: "test-token",
+    mcpUrl: "https://mcp.example.test:3002/mcp", slurmEnabled: true, redfishEnabled: true, editEnabled: true,
+  });
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("/api/subagents/events")) return Response.json({});
+    assert.equal(String(url), "https://mcp.example.test:3002/mcp");
+    assert.equal(init.headers.Authorization, "Bearer test-token");
+    request = JSON.parse(init.body);
+    return Response.json({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: "evidence" }] } });
+  };
+  try {
+    await tools.get("bcm_execute_tool").execute("external-call", { tool_id: "slurm.sinfo" });
+    assert.equal(request.params.arguments.context.ssh_host, undefined);
+    for (const name of ["bcm_execute_cmsh", "bcm_execute_cmsh_admin", "slurm_job_evidence", ...redfishToolNames]) {
+      assert.ok(tools.has(name), name);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 function registerBcm(plugin, pluginConfig) {
   const tools = new Map();
   let policy;

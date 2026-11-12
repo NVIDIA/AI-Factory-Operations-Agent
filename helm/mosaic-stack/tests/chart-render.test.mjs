@@ -1308,6 +1308,8 @@ for (const scenario of [
     assert.equal(scratch.mode & 0o777, 0o700);
     assert.equal(statSync(join(home, "tmp")).mode & 0o777, scenario.existing ? 0o555 : 0o700);
     const documentation = join(home, "workspace/product-docs");
+    const backend = JSON.parse(readFileSync(join(home, "openclaw.json"), "utf8")).plugins.entries.openshell.config;
+    assert.ok(readFileSync(join(home, "workspace/AGENTS.md"), "utf8").includes(`${backend.remoteAgentWorkspaceDir}/product-docs/`));
     const root = join(chart, "../..");
     const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})
       .split("\0").filter(name => name.endsWith(".md"));
@@ -1451,4 +1453,22 @@ test("inference selection preserves provider reasoning contracts", () => {
     if (!reasoning) assert.equal(primary.thinkingLevelMap, undefined);
     assert.equal(render(...args, "--show-only", "templates/llm-compat.yaml").includes("json.reasoning_effort = 'none'"), effort);
   }
+});
+
+test("installs either the pinned or overridden sandbox archive with checksum verification", () => {
+  const archive = "https://artifacts.example.test/openshell-source-build.tgz";
+  const checksum = "a".repeat(64);
+  const defaults = render("--show-only", "templates/openclaw.yaml");
+  assert.ok(defaults.includes('value: "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz"'));
+  const overridden = render("--show-only", "templates/openclaw.yaml",
+    "--set-string", `openclaw.openshell.pluginArchiveUrl=${archive}`,
+    "--set-string", `openclaw.openshell.pluginSha256=${checksum}`);
+  assert.ok(overridden.includes(`value: "${archive}"`));
+  assert.ok(overridden.includes(`printf '%s  %s\\n' "${checksum}" "$plugin" | sha256sum -c -`));
+  assert.ok(overridden.includes('"$OPENSHELL_PLUGIN_ARCHIVE_URL"'));
+  assert.equal(
+    defaults.replaceAll("https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz", archive)
+      .replaceAll("1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33", checksum),
+    overridden,
+  );
 });

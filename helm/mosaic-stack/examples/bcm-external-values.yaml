@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+modules:
+  bcm:
+    enabled: true
+bcmMcp:
+  enabled: false
+  mode: external
+  mcpUrl: https://bcm-head.example.com:3002/mcp
+  headHost: ""
+  authTokenCreate: false
+  authTokenSecretName: bcm-external-mcp-auth
+  authTokenSecretKey: token
+  hostSshKeySecretName: ""
+  caCertificateSecret: bcm-mcp-ca
+  networkPolicy:
+    enabled: true
+    headCidrs:
+      - 192.0.2.10/32
+      - 2001:db8::10/128
+    mcpPort: 3002
+diagnosticAgent:
+  hostSshKeySecretName: ""

@@ -38,6 +38,29 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
+        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        - name: prepare-bcm-ca
+          image: {{ include "mosaic-stack.image" .Values.bcmMcp.busyboxImage | quote }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              cat /etc/bcm-ca/ca.crt > /combined-ca/ca.crt
+              printf '\n' >> /combined-ca/ca.crt
+              {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+              cat /etc/llm-ca/ca.crt >> /combined-ca/ca.crt
+              {{- end }}
+          volumeMounts:
+            - name: bcm-ca
+              mountPath: /etc/bcm-ca
+              readOnly: true
+            - name: combined-ca
+              mountPath: /combined-ca
+            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            - name: llm-ca
+              mountPath: /etc/llm-ca
+              readOnly: true
+            {{- end }}
+        {{- end }}
         {{- if .Values.modules.kubernetes.enabled }}
         - name: install-kubectl
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
@@ -384,6 +407,9 @@ spec:
         - name: install-openshell-assets
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          env:
+            - name: OPENSHELL_PLUGIN_ARCHIVE_URL
+              value: {{ default (printf "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-%v.tgz" .Values.openclaw.openshell.pluginVersion) .Values.openclaw.openshell.pluginArchiveUrl | quote }}
           command:
             - sh
             - -c
@@ -453,7 +479,7 @@ spec:
 
               plugin=/tmp/openshell-plugin.tar.gz
               curl -fsSL --retry 5 --retry-all-errors -o "$plugin" \
-                "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-{{ .Values.openclaw.openshell.pluginVersion }}.tgz"
+                "$OPENSHELL_PLUGIN_ARCHIVE_URL"
               printf '%s  %s\n' {{ .Values.openclaw.openshell.pluginSha256 | quote }} "$plugin" | sha256sum -c -
               rm -rf /openshell-plugin/*
               tar -xzf "$plugin" --strip-components=1 -C /openshell-plugin
@@ -573,7 +599,10 @@ spec:
               {{- end }}
             - name: OPENCLAW_VLLM_BASE_URL
               value: {{ include "mosaic-stack.llmBaseUrl" . | quote }}
-            {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
+            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/combined-ca/ca.crt
+            {{- else if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/llm-ca/ca.crt
             {{- end }}
@@ -631,7 +660,7 @@ spec:
                 secretKeyRef:
                   name: {{ $uiAuthSecret }}
                   key: machineToken
-            {{- if and .Values.bcmMcp.enabled (eq .Values.bcmMcp.mode "ssh-adapter") }}
+            {{- if eq (include "mosaic-stack.bcmAuthenticated" .) "true" }}
             - name: MOSAIC_BCM_MCP_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -697,6 +726,11 @@ spec:
             - name: openclaw-home
               mountPath: /tmp
               subPath: tmp
+            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            - name: combined-ca
+              mountPath: /etc/combined-ca
+              readOnly: true
+            {{- end }}
             - name: runtime-tmp
               mountPath: /run/openclaw-tmp
             - name: runtime-tools
@@ -728,6 +762,16 @@ spec:
               readOnly: true
             {{- end }}
       volumes:
+        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        - name: bcm-ca
+          secret:
+            secretName: {{ .Values.bcmMcp.caCertificateSecret | quote }}
+            items:
+              - key: {{ .Values.bcmMcp.caCertificateKey | quote }}
+                path: ca.crt
+        - name: combined-ca
+          emptyDir: {}
+        {{- end }}
         {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
         - name: llm-ca
           secret:

@@ -551,7 +551,7 @@ function mergeLoadedModule(context: Record<string, unknown>, moduleName: string)
 
 function defaultExecutionContext(config: BcmConfig, toolId: string, rawContext?: Record<string, unknown>) {
   const context = rawContext ? { ...rawContext } : {};
-  if (!stringParam(context.ssh_host) && config.headHost) {
+  if (config.mcpMode !== "external" && !stringParam(context.ssh_host) && config.headHost) {
     context.ssh_host = config.headHost;
   }
   if (toolId.startsWith("kubernetes.")) {

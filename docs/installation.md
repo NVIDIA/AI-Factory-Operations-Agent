@@ -518,7 +518,139 @@ server exposes only read tools. For a private CA, set
 
 ### Base Command Manager
 
-To enable the Base Command Manager extension, provide the Base Command Manager head host and SSH key:
+Connect to a head-node MCP service over authenticated HTTPS without a head-node
+SSH key. The [installation builder](installation_builder.md) uses this connection
+by default; the SSH adapter is available below as an alternative.
+
+#### Use a head-node MCP server
+
+For a new Kind cluster, use the [combined installer](bcm.md#install-with-one-script).
+For an existing Kubernetes cluster, follow the steps below.
+
+##### Prerequisites
+
+Run as `root` on a head node with Docker, Helm 3, [uv](https://docs.astral.sh/uv/getting-started/installation/),
+working CMSH, and [NGC access](#1-create-the-namespace-and-registry-access).
+Provide a TLS certificate/key for the endpoint hostname and allow the Kubernetes
+cluster to reach its listening port. Keep the signing CA certificate for AFOA
+when using a private CA.
+
+##### Install the service files and Python environment
+
+Install the chart's server script and the package from its pinned container image.
+The service runs directly on the head node.
+
+```bash
+export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
+export CLUSTER_MANAGER_IMAGE='nvcr.io/0948643769302270/afoa-release/bcm-mcp-tools:3c2280ff'
+export CLUSTER_MANAGER_TLS_CERT='/path/to/server.crt'
+export CLUSTER_MANAGER_TLS_KEY='/path/to/server.key'
+CLUSTER_MANAGER_CHART_DIR=$(mktemp -d)
+
+# Use the same chart version selected for AFOA; replace --devel with --version when pinning.
+helm pull "$MOSAIC_CHART" --devel --untar --untardir "$CLUSTER_MANAGER_CHART_DIR"
+install -d -m 0755 /opt/afoa-bcm/vendor
+install -d -m 0700 /etc/afoa-bcm /var/lib/bcm-mcp/notes
+
+read -rsp 'NGC API key: ' NGC_API_KEY; echo
+printf '%s' "$NGC_API_KEY" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+unset NGC_API_KEY
+docker pull "$CLUSTER_MANAGER_IMAGE"
+CLUSTER_MANAGER_CONTAINER=$(docker create "$CLUSTER_MANAGER_IMAGE")
+docker cp "$CLUSTER_MANAGER_CONTAINER:/opt/venv/lib/python3.12/site-packages/bcm_mcp_tools" /opt/afoa-bcm/vendor/
+docker cp "$CLUSTER_MANAGER_CONTAINER:/opt/venv/lib/python3.12/site-packages/bcm_mcp_tools-1.2.9.dist-info" /opt/afoa-bcm/vendor/
+docker rm "$CLUSTER_MANAGER_CONTAINER"
+
+uv venv --python 3.12 /opt/afoa-bcm/venv
+uv pip install --python /opt/afoa-bcm/venv/bin/python \
+  'mcp[cli]>=1,<2' 'uvicorn>=0.30' 'httpx>=0.27' \
+  'scikit-learn>=1.3' 'cryptography>=41'
+
+install -m 0644 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/files/bcm-mcp-ssh-server.py" /opt/afoa-bcm/
+install -m 0600 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/examples/bcm-head.env.example" /etc/afoa-bcm/server.env
+install -m 0644 "$CLUSTER_MANAGER_CHART_DIR/mosaic-stack/files/bcm-head.service" /etc/systemd/system/afoa-bcm-mcp.service
+install -m 0644 "$CLUSTER_MANAGER_TLS_CERT" /etc/afoa-bcm/server.crt
+install -m 0600 "$CLUSTER_MANAGER_TLS_KEY" /etc/afoa-bcm/server.key
+```
+
+The pinned image contains `bcm-mcp-tools` 1.2.9 with MCP Python SDK 1.x.
+
+##### Configure and start the server
+
+Configure `/etc/afoa-bcm/server.env` from the
+[environment example](../helm/mosaic-stack/examples/bcm-head.env.example).
+
+**Required:**
+
+- Head-node IP reachable from AFOA, listening port, and matching public HTTPS URL.
+- Paths to the TLS certificate and key installed above.
+- Bearer token generated with `openssl rand -hex 32`, reused in AFOA's Kubernetes Secret.
+
+**Optional integrations:** Enable only those used in AFOA.
+
+- **Redfish:** enable Redfish access.
+- **Hardware Agent:** enable compatibility and match its webhook token to the Hardware Agent auth Secret.
+- **Base Command Manager edit mode:** enable administrative CMSH access. AFOA's approval gates still apply.
+
+```bash
+systemctl daemon-reload
+systemctl enable --now afoa-bcm-mcp.service
+systemctl status afoa-bcm-mcp.service --no-pager
+ss -ltnp 'sport = :3002'
+```
+
+Use your configured port in the last command. This server includes the added
+CMSH, Slurm evidence, Redfish, and Hardware Agent interfaces.
+
+##### Connect AFOA
+
+On the Kubernetes administration host, create the token and CA Secrets, then
+connect AFOA. Use the server's token and a separate Secret from SSH adapter credentials:
+
+```bash
+export CLUSTER_MANAGER_MCP_URL='https://bcm-head.example.com:3002/mcp'
+export CLUSTER_MANAGER_CA_CERT_PATH='/path/to/ca.crt'
+read -rsp 'Head-node MCP bearer token: ' CLUSTER_MANAGER_MCP_TOKEN; echo
+
+kubectl -n aifoa create secret generic bcm-external-mcp-auth \
+  --from-literal=token="$CLUSTER_MANAGER_MCP_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n aifoa create secret generic bcm-mcp-ca \
+  --from-file=ca.crt="$CLUSTER_MANAGER_CA_CERT_PATH" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade aifoa "$MOSAIC_CHART" \
+  --devel \
+  -n aifoa \
+  --reuse-values \
+  --set modules.bcm.enabled=true \
+  --set bcmMcp.enabled=false \
+  --set bcmMcp.mode=external \
+  --set-string bcmMcp.mcpUrl="$CLUSTER_MANAGER_MCP_URL" \
+  --set bcmMcp.authTokenCreate=false \
+  --set bcmMcp.authTokenSecretName=bcm-external-mcp-auth \
+  --set bcmMcp.authTokenSecretKey=token \
+  --set bcmMcp.caCertificateSecret=bcm-mcp-ca \
+  --set-string bcmMcp.headHost='' \
+  --set-string bcmMcp.hostSshKeySecretName='' \
+  --set-string diagnosticAgent.hostSshKeySecretName='' \
+  --wait \
+  --timeout 12m
+
+unset CLUSTER_MANAGER_MCP_TOKEN
+```
+
+For a publicly trusted server certificate, omit the CA Secret creation and set
+`bcmMcp.caCertificateSecret=''`. A separate compute-node SSH identity can still
+be configured with `diagnosticAgent.hostSshKeySecretName` when hardware collection
+requires it.
+
+<details>
+<summary id="use-an-ssh-key">Alternative: use an SSH key (experimental)</summary>
+
+The SSH adapter runs MCP inside Kubernetes using a head-node SSH key.
+
+Provide the Base Command Manager head host and SSH key:
 
 ```bash
 export CLUSTER_MANAGER_HEAD_HOST='bcm-head.example.com'
@@ -536,6 +668,11 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --set modules.bcm.enabled=true \
   --set bcmMcp.enabled=true \
   --set bcmMcp.mode=ssh-adapter \
+  --set bcmMcp.mcpUrl=http://bcm-mcp-tools:3001/mcp \
+  --set bcmMcp.authTokenCreate=true \
+  --set bcmMcp.authTokenSecretName=bcm-mcp-auth \
+  --set bcmMcp.authTokenSecretKey=token \
+  --set bcmMcp.networkPolicy.enabled=false \
   --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
   --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
   --wait \
@@ -543,6 +680,8 @@ helm upgrade aifoa "$MOSAIC_CHART" \
 ```
 
 The SSH identity must be allowed to create or update the dedicated read-only CMSH user during startup.
+
+</details>
 
 ### Read-only Redfish
 
@@ -554,8 +693,8 @@ them to the model.
 
 Prerequisites:
 
-- The [Base Command Manager extension](#base-command-manager) is configured in `ssh-adapter` mode.
-- The adapter's SSH identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
+- The [Base Command Manager extension](#base-command-manager) uses the SSH adapter or the head-node MCP server installed by this guide.
+- The server identity can read `bmcsettings` and BMC interfaces through CMSH on the head node.
 - The head node can reach the BMC network over HTTPS and has `curl`. Check one BMC from the head node:
 
   ```bash
@@ -574,13 +713,16 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-By default each request runs `curl` on the head node over the adapter's existing SSH session
-(`modules.bcm.redfish.viaHeadNode=true`), because the head node is routed to the BMC network. The
+By default each request runs `curl` on the head node
+(`modules.bcm.redfish.viaHeadNode=true`): over SSH for the adapter, or locally for
+the head-node MCP service. The head node is routed to the BMC network. The
 BMC credential reaches `curl` on standard input, so it does not appear in process listings. Set
 `viaHeadNode=false` only when the adapter pod itself can reach the BMCs. BMCs usually present
 self-signed certificates, so `modules.bcm.redfish.verifyTls` defaults to `false`.
 `modules.bcm.redfish.timeoutSeconds` (default `60`) bounds each request; some DGX BMCs take about
 30 seconds to return the expanded firmware inventory.
+For an independently installed head-node service, configure the equivalent
+settings in its [environment file](../helm/mosaic-stack/examples/bcm-head.env.example).
 
 The adapter enforces the following allowlist before it looks up any credential. Only `GET` is
 used, and the only query parameters accepted are `$top`, `$skip`, and `$expand=.` limited to one
@@ -658,7 +800,7 @@ collection to delete.
 
 ### Hardware Agent
 
-The Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. The chart exposes the required Base Command Manager lookup inside the cluster and generates its internal credentials. It uses NVDebug evidence and generic analysis.
+With the SSH adapter, the Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. With a head-node MCP server, it uses that server's HTTPS lookup routes; enable Hardware Agent compatibility on the server and match its webhook token to the Hardware Agent auth Secret. A separate compute-node SSH identity remains optional through `diagnosticAgent.hostSshKeySecretName`. The chart generates the Hardware Agent's internal credentials. It uses NVDebug evidence and generic analysis.
 
 ```bash
 helm upgrade aifoa "$MOSAIC_CHART" \
@@ -913,6 +1055,8 @@ helm upgrade aifoa "$MOSAIC_CHART" \
 The model selects only the registered name. It cannot provide a kubeconfig path, context, token, or server address. Removing the list entry on upgrade removes the corresponding credential mount. A missing Secret leaves the OpenClaw pod unready with the Kubernetes volume error from the kubelet.
 
 ## OpenShell Dependency
+
+The sandbox backend package is pinned by `openclaw.openshell.pluginVersion` and verified against `openclaw.openshell.pluginSha256` before installation. For a mirrored or source-built compatible package, set `openclaw.openshell.pluginArchiveUrl` and its matching SHA256 in your tracked site values. Build backports from version-controlled source and retain the source commit and artifact checksum; do not modify downloaded packages at startup. An empty archive URL uses the pinned npm registry package. The override does not change the OpenClaw host or OpenShell CLI versions.
 
 The published chart includes the pinned official OpenShell OCI dependency from `ghcr.io/nvidia/openshell`. It uses the official gateway, supervisor, and unprivileged base sandbox images. The pinned `kubernetes-sigs/agent-sandbox` prerequisite required by OpenShell's Kubernetes driver is included as well:
 

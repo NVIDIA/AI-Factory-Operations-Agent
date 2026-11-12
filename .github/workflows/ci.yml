@@ -56,6 +56,11 @@ jobs:
       - name: Run tests
         run: node --test utils/*.test.mjs helm/mosaic-stack/tests/*.test.mjs tests/docs/*.test.mjs
 
+      - name: Validate external BCM MCP configuration and execution
+        run: |
+          uv run --no-project --with pyyaml python -m unittest discover -s helm/mosaic-stack/tests -p test_bcm_external.py
+          uv run --no-project python -m unittest discover -s helm/mosaic-stack/tests -p test_bcm_server.py
+
       - name: Lint Helm chart
         run: helm lint helm/mosaic-stack
 

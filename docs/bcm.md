@@ -1,69 +1,149 @@
-# Base Command Manager Installation Without Kubernetes
+# Base Command Manager installation without Kubernetes
 
-This guide installs AI Factory Operations Agent on a Base Command Manager
-head node when Base Command Manager does not manage a Kubernetes cluster. It creates a
-single-node Kind cluster on the head node and enables read-only Base Command Manager access over
-SSH. Kind remains independent of Base Command Manager's `cm-kubernetes-setup` inventory.
+Run one setup script on the Base Command Manager head node to create a Kind
+cluster, install the head-node MCP service, and connect AFOA over authenticated
+HTTPS. The MCP service executes commands locally; AFOA holds a bearer token and
+trusts the generated server certificate. It needs no head-node SSH key.
 
-For upgrades, UI access, and module configuration, see the
-[shared Helm guide](installation.md).
+Kind remains independent of Base Command Manager's `cm-kubernetes-setup`
+inventory. For an existing Kubernetes cluster, install the service and configure
+AFOA using the [Base Command Manager module instructions](installation.md#use-a-head-node-mcp-server).
 
-## 1. Prerequisites
+## Prerequisites
 
-Run this procedure as `root` on the Base Command Manager head node. Install Docker, Kind, Helm
-3, and `kubectl`, then verify Base Command Manager and each dependency:
+Run as `root` on a Linux head node with Docker, Kind, Helm 3, `kubectl`,
+[uv](https://docs.astral.sh/uv/getting-started/installation/), OpenSSL,
+`ss`, and systemd installed. CMSH must work locally:
 
 ```bash
-docker version
-kind version
-helm version
-kubectl version --client
 cmsh -c 'device; list'
 ```
 
-Ask your NVIDIA contact to invite the email address you will use with NGC to
-the AI Factory Operations Agent `afoa-release` team in the private registry. Accept the invitation while
-signed in with that account; use a private browser window if another NGC
-account is already signed in. Then create an NGC personal API key from
-[NGC Setup > API Keys](https://org.ngc.nvidia.com/setup/api-keys), include the
-Private Registry service, and confirm that the account can pull the required
-private registry artifacts. Obtain an API key, `/v1/chat/completions` base URL,
-and model name from the same OpenAI-compatible LLM provider.
+Obtain access to the `afoa-release` NGC team and a personal API key with the
+Private Registry service, as described in the
+[registry setup](installation.md#1-create-the-namespace-and-registry-access).
+Have an OpenAI-compatible inference API base URL, model name, and API key ready.
+The installer prompts for these four inputs; API keys are entered without echo.
+You can also supply `EXTERNAL_LLM_BASE_URL`, `EXTERNAL_LLM_MODEL`, `NGC_API_KEY`,
+and `EXTERNAL_LLM_API_KEY` through the environment.
 
-The Base Command Manager adapter also requires an SSH private key that can connect to the head
-node as `root`. It uses that identity to create or update the dedicated
-`aichatbotuser` CMSH account with the `readonly` profile. Do not create that
-account manually.
+Use a fresh Kind cluster name and no existing `/etc/afoa-bcm/server.env` service.
+The defaults are cluster `mosaic`, namespace `aifoa`, and MCP port `3002`.
+Set `KIND_CLUSTER_NAME` or `MOSAIC_NAMESPACE` to choose different names.
+Keep those variables set in the shell used for the commands below. Port
+`3002` must be unused. Existing installations use the
+[upgrade workflow](installation.md#upgrade-an-existing-installation).
 
-For Hardware Agent BMC lookups, the adapter reads the device's BMC address and
-credentials. Any unset username or password is resolved from that device's category;
-device-specific values take precedence. Credentials stay within the backend.
+## Install with one script
 
-## 2. Create The Kind Cluster
+From the repository checkout, run:
 
 ```bash
-kind create cluster --name mosaic --wait 120s
-kubectl config use-context kind-mosaic
-kubectl cluster-info
-
-KIND_NETWORK_ID=$(docker network inspect kind --format '{{.Id}}')
-KIND_BRIDGE="br-${KIND_NETWORK_ID:0:12}"
-KIND_GATEWAY=$(docker network inspect kind --format '{{(index .IPAM.Config 0).Gateway}}')
-printf 'bridge=%s gateway=%s\n' "$KIND_BRIDGE" "$KIND_GATEWAY"
+bash helm/mosaic-stack/files/setup-bcm-kind.sh
 ```
 
-Kind provides the `standard` storage class. The Docker network gateway is the
-Base Command Manager head address reachable from the Kind cluster; `127.0.0.1` inside a pod
-would refer to that pod.
+The [installer](../helm/mosaic-stack/files/setup-bcm-kind.sh) deploys the chart
+from this checkout, creates Kind and the head-node MCP service, generates
+credentials, and verifies pod-to-service HTTPS before installing AFOA.
 
-## 3. Configure Shorewall
+The certificate expires after one year. Replace it and update the `bcm-mcp-ca`
+Secret when rotating certificates. Tokens and service configuration stay under
+`/etc/afoa-bcm`; API keys are removed from the installer's temporary files on exit.
+The generated Helm values are saved at `/etc/afoa-bcm/values.json` without tokens
+or API keys. The default web-search module needs HTTPS egress to DuckDuckGo;
+other optional modules can be enabled using the main installation guide.
 
-Skip this section when Shorewall is not installed or active. On a Base Command Manager head node
-where Shorewall is active, Docker and Shorewall both manage iptables. A
-Shorewall start, reload, or restart can otherwise delete Docker's forwarding,
-NAT, and port-publishing rules. Keep Shorewall enabled when the Base Command Manager head-node
-role requires it. This local workflow does not require exposing the Kind API
-outside the head node or adding a temporary Base Command Manager firewall role for it.
+If Shorewall is active, the script pauses after printing the Kind bridge name.
+Complete the firewall procedure below in another shell, then press Enter to
+continue. The script does not rewrite host firewall configuration or restart
+Docker. If a later step fails, it preserves the cluster and service for diagnosis;
+it does not delete workloads or overwrite an existing installation on rerun.
+
+## Recover a failed installation
+
+Inspect the retained state first. To discard a failed installation and retry,
+confirm that its Kind cluster contains no workloads you need to keep. Use the
+same `KIND_CLUSTER_NAME` as the failed run, then remove only its cluster and
+installer-owned service state:
+
+```bash
+kind delete cluster --name "${KIND_CLUSTER_NAME:-mosaic}"
+systemctl disable --now afoa-bcm-mcp.service
+systemctl reset-failed afoa-bcm-mcp.service
+rm -f /etc/systemd/system/afoa-bcm-mcp.service
+systemctl daemon-reload
+rm -rf /opt/afoa-bcm /etc/afoa-bcm
+```
+
+Skip service commands if the failure occurred before the unit was installed.
+This deletes the retained kubeconfig, generated certificates, token, and values.
+Rerun the installer after correcting the original failure.
+
+## Validate Base Command Manager access
+
+Confirm that the Kind node and AI Factory Operations Agent workloads are ready, then issue a real
+read-only Base Command Manager request through HTTPS. The first CMSH request
+creates or updates `aichatbotuser`:
+
+```bash
+export KUBECONFIG=/etc/afoa-bcm/kubeconfig
+kubectl get nodes
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get pods
+
+MANAGER_TEST_PROMPT='/cluster-management Use Base Command Manager to run "device; list" and summarize the first five devices.'
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" exec deploy/mosaic-ui -- \
+  mosaic --session bcm-install-validation --timeout-ms 180000 \
+  "$MANAGER_TEST_PROMPT"
+
+cmsh -c 'user; use aichatbotuser; get profile'
+
+```
+
+The `cmsh` profile command must return `readonly`. No head-node SSH key is
+mounted in AFOA. Base Command Manager edit and administration
+remain disabled.
+
+The optional `bcmMcp.networkPolicy` applies to every pod in a dedicated AFOA
+namespace. It allows all non-head-node egress. Kubernetes combines NetworkPolicy
+allow rules, so other egress policies cannot restrict those allowed destinations.
+Enforce additional restrictions outside this policy, for example with a firewall
+or an enforced proxy.
+
+## Open the UI remotely
+
+Keep this port-forward running on the Base Command Manager head node:
+
+```bash
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" port-forward svc/mosaic-ui 3210:3000
+```
+
+From the operator's workstation, keep an SSH tunnel to the head node running:
+
+```bash
+ssh -L 3210:127.0.0.1:3210 root@bcm-head.example.com
+```
+
+Retrieve the generated UI credentials on the head node:
+
+```bash
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get secret mosaic-ui-auth \
+  -o jsonpath='{.data.username}' | base64 --decode; echo
+kubectl -n "${MOSAIC_NAMESPACE:-aifoa}" get secret mosaic-ui-auth \
+  -o jsonpath='{.data.password}' | base64 --decode; echo
+```
+
+Open `http://127.0.0.1:3210` on the workstation. Both forwarding processes
+must remain running.
+
+For optional BMC inventory and monitoring, follow the [Read-only Redfish installation](installation.md#read-only-redfish).
+
+## Shorewall configuration
+
+Skip this section if Shorewall is inactive. Otherwise, the installer pauses
+after creating Kind and printing its Docker bridge name. Shorewall can delete
+Docker's forwarding, NAT, and port-publishing rules when it starts, reloads, or
+restarts. Apply the configuration below while keeping Shorewall enabled when
+required by the Base Command Manager head-node role.
 
 This procedure follows [Shorewall's Docker integration](https://shorewall.org/Docker.html)
 and was validated with Shorewall 5.2.8. Shorewall 5.2.4 or later is required
@@ -72,7 +152,7 @@ If Base Command Manager or another configuration manager owns these files, store
 entries in that system so they survive configuration regeneration.
 
 Set these values in `/etc/shorewall/shorewall.conf`, replacing the example
-bridge name with `$KIND_BRIDGE` from the previous step:
+bridge name with the bridge printed by the installer:
 
 ```ini
 DOCKER=Yes
@@ -99,11 +179,11 @@ dock    fw     REJECT    info
 dock    all    ACCEPT
 ```
 
-Permit the Base Command Manager adapter to reach only SSH on the head node by adding this entry
+Permit the Kind workloads to reach the HTTPS MCP service on the head node by adding this entry
 to `/etc/shorewall/rules`:
 
 ```text
-ACCEPT:info    dock    fw    tcp    22
+ACCEPT:info    dock    fw    tcp    3002
 ```
 
 On Debian-derived systems, create
@@ -132,157 +212,34 @@ return 0
 ```
 
 Check the configuration before changing the running firewall. Restart Docker
-once to recreate any rules Shorewall previously removed, then verify that the
-Kind node and pod egress survive a Shorewall restart:
+only if Shorewall previously removed its rules. Inspect existing workloads and
+arrange a maintenance window before restarting Docker or Shorewall. Then verify that the
+Kind node and pod egress survive a Shorewall restart.
+
+Only when Docker rules need restoring, after arranging that maintenance window:
+
+```bash
+systemctl restart docker
+```
+
+Validate and restart Shorewall:
 
 ```bash
 shorewall check
 systemctl daemon-reload
-systemctl restart docker
 systemctl restart shorewall
-kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready "node/${KIND_CLUSTER_NAME:-mosaic}-control-plane" --timeout=120s
 
-kubectl run shorewall-egress-check --rm -i --restart=Never \
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig -n "${MOSAIC_NAMESPACE:-aifoa}" run shorewall-egress-check --rm -i --restart=Never \
   --image=curlimages/curl:8.15.0 -- \
   curl --connect-timeout 5 --max-time 15 -sS -o /dev/null \
   -w 'http=%{http_code} tls=%{ssl_verify_result}\n' \
   https://integrate.api.nvidia.com/v1/models
 
 systemctl restart shorewall
-kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
+kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready "node/${KIND_CLUSTER_NAME:-mosaic}-control-plane" --timeout=120s
 ```
 
 An HTTP response such as `401` with `tls=0` confirms network egress and
 successful TLS verification. The bridge name belongs to the current Docker
 network. Update the Shorewall configuration if the Kind network is recreated.
-
-## 4. Configure Credentials
-
-Set the provider values and select the head node's Kind-network address. The
-SSH preflight must return `0`, confirming root access through the same network
-path the Base Command Manager adapter will use:
-
-```bash
-export EXTERNAL_LLM_BASE_URL='https://integrate.api.nvidia.com/v1'
-export EXTERNAL_LLM_MODEL='nvidia/nemotron-3.5-super-vl-120b-a12b'
-export CLUSTER_MANAGER_HEAD_HOST="$KIND_GATEWAY"
-export CLUSTER_MANAGER_SSH_KEY_PATH='/root/.ssh/id_ecdsa'
-export MOSAIC_CHART='oci://nvcr.io/0948643769302270/afoa-release/mosaic-stack'
-
-read -rsp 'NGC API key: ' NGC_API_KEY; echo
-read -rsp 'External LLM API key: ' EXTERNAL_LLM_API_KEY; echo
-
-test -r "$CLUSTER_MANAGER_SSH_KEY_PATH"
-ssh -i "$CLUSTER_MANAGER_SSH_KEY_PATH" -o BatchMode=yes \
-  -o StrictHostKeyChecking=accept-new "$CLUSTER_MANAGER_HEAD_HOST" 'id -u'
-
-printf '%s' "$NGC_API_KEY" | helm registry login nvcr.io \
-  --username '$oauthtoken' \
-  --password-stdin
-
-kubectl create namespace aifoa --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n aifoa create secret generic mosaic-external-llm \
-  --from-literal=apiKey="$EXTERNAL_LLM_API_KEY" \
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n aifoa create secret generic bcm-host-ssh-key \
-  --from-file=id_ecdsa="$CLUSTER_MANAGER_SSH_KEY_PATH" \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-The private key is stored in the `bcm-host-ssh-key` Kubernetes Secret and
-mounted only into the Base Command Manager adapter pod.
-
-## 5. Install AI Factory Operations Agent
-
-This installation enables the UI, local Kubernetes inspection, and read-only
-Base Command Manager inspection. Other cluster integrations remain disabled.
-
-```bash
-# Remove --devel for the latest stable release, or replace it with --version 0.0.1 to pin that release.
-helm upgrade --install aifoa "$MOSAIC_CHART" \
-  --devel \
-  -n aifoa \
-  --create-namespace \
-  --set global.registryCredentials.create=true \
-  --set-string global.registryCredentials.password="$NGC_API_KEY" \
-  --set llm.mode=external \
-  --set-string llm.external.baseUrl="$EXTERNAL_LLM_BASE_URL" \
-  --set-string llm.external.model="$EXTERNAL_LLM_MODEL" \
-  --set llm.external.existingSecret=mosaic-external-llm \
-  --set modules.ui.enabled=true \
-  --set modules.execution.enabled=true \
-  --set modules.kubernetes.enabled=true \
-  --set modules.bcm.enabled=true \
-  --set bcmMcp.enabled=true \
-  --set bcmMcp.mode=ssh-adapter \
-  --set-string bcmMcp.headHost="$CLUSTER_MANAGER_HEAD_HOST" \
-  --set bcmMcp.hostSshKeySecretName=bcm-host-ssh-key \
-  --set modules.slurm.enabled=false \
-  --set modules.observability.enabled=false \
-  --set modules.grafana.enabled=false \
-  --set modules.research.enabled=false \
-  --set modules.diagnostics.enabled=false \
-  --set modules.terminal.enabled=false \
-  --reset-values \
-  --atomic \
-  --wait \
-  --timeout 12m
-
-unset NGC_API_KEY EXTERNAL_LLM_API_KEY
-```
-
-## 6. Validate Base Command Manager Access
-
-Confirm that the Kind node and AI Factory Operations Agent workloads are ready, then issue a real
-read-only Base Command Manager request. The first request creates or updates `aichatbotuser`:
-
-```bash
-kubectl get nodes
-kubectl -n aifoa get pods
-
-MANAGER_TEST_PROMPT='/cluster-management Use Base Command Manager to run "device; list" and summarize the first five devices.'
-kubectl -n aifoa exec deploy/mosaic-ui -- \
-  mosaic --session bcm-install-validation --timeout-ms 180000 \
-  "$MANAGER_TEST_PROMPT"
-
-cmsh -c 'user; use aichatbotuser; get profile'
-
-if systemctl is-active --quiet shorewall; then
-  systemctl restart shorewall
-  kubectl wait --for=condition=Ready node/mosaic-control-plane --timeout=120s
-  kubectl -n aifoa exec deploy/mosaic-ui -- \
-    mosaic --session bcm-restart-validation --timeout-ms 180000 \
-    "$MANAGER_TEST_PROMPT"
-fi
-```
-
-The `cmsh` profile command must return `readonly`. Base Command Manager edit and administration
-remain disabled.
-
-## 7. Open The UI Remotely
-
-Keep this port-forward running on the Base Command Manager head node:
-
-```bash
-kubectl -n aifoa port-forward svc/mosaic-ui 3210:3000
-```
-
-From the operator's workstation, keep an SSH tunnel to the head node running:
-
-```bash
-ssh -L 3210:127.0.0.1:3210 root@bcm-head.example.com
-```
-
-Retrieve the generated UI credentials on the head node:
-
-```bash
-kubectl -n aifoa get secret mosaic-ui-auth \
-  -o jsonpath='{.data.username}' | base64 --decode; echo
-kubectl -n aifoa get secret mosaic-ui-auth \
-  -o jsonpath='{.data.password}' | base64 --decode; echo
-```
-
-Open `http://127.0.0.1:3210` on the workstation. Both forwarding processes
-must remain running.
-
-For optional BMC inventory and monitoring, follow the [Read-only Redfish installation](installation.md#read-only-redfish).
