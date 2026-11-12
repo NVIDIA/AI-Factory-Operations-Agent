@@ -524,10 +524,8 @@ by default; the SSH adapter is available below as an alternative.
 
 #### Use a head-node MCP server
 
-For a head node without Kubernetes, the [combined installer](bcm.md#install-with-one-script)
-sets up both this service and a local Kind cluster in one run. For an existing
-Kubernetes cluster, install the service on the head node first, then connect AFOA
-from your Kubernetes administration host using the steps below.
+For a new Kind cluster, use the [combined installer](bcm.md#install-with-one-script).
+For an existing Kubernetes cluster, follow the steps below.
 
 ##### Prerequisites
 
