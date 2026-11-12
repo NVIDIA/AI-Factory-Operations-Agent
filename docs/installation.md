@@ -577,21 +577,20 @@ The pinned image contains `bcm-mcp-tools` 1.2.9 with MCP Python SDK 1.x.
 
 ##### Configure and start the server
 
-Edit `/etc/afoa-bcm/server.env` using the installed
-[environment example](../helm/mosaic-stack/examples/bcm-head.env.example):
+Configure `/etc/afoa-bcm/server.env` from the
+[environment example](../helm/mosaic-stack/examples/bcm-head.env.example).
 
-- Set the listening IP to the head-node interface reachable from AFOA.
-- Set the listening port and public HTTPS URL to the same endpoint.
-- Set the certificate and key paths to the files installed above.
-- Replace the bearer-token placeholder with a secret generated with `openssl rand -hex 32`.
-  Use the same token when creating AFOA's Kubernetes Secret.
-- Enable the optional Redfish and Hardware Agent settings only when those modules
-  are enabled in AFOA. For Hardware Agent compatibility, match its webhook token
-  in the namespace's Hardware Agent auth Secret. Match the admin CMSH setting to
-  the Base Command Manager edit module.
+**Required:**
 
-The service requires TLS and a bearer token. AFOA's approval gates still apply
-to agent-initiated edits.
+- Head-node IP reachable from AFOA, listening port, and matching public HTTPS URL.
+- Paths to the TLS certificate and key installed above.
+- Bearer token generated with `openssl rand -hex 32`, reused in AFOA's Kubernetes Secret.
+
+**Optional integrations:** Enable only those used in AFOA.
+
+- **Redfish:** enable Redfish access.
+- **Hardware Agent:** enable compatibility and match its webhook token to the Hardware Agent auth Secret.
+- **BCM edit mode:** enable administrative CMSH access. AFOA's approval gates still apply.
 
 ```bash
 systemctl daemon-reload
