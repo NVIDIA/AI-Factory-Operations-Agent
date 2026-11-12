@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -452,6 +452,13 @@ test("additional providers cannot shadow the primary provider ID", () => {
     "--set-json", 'openclaw.additionalModelProviders={"llm":{"models":[]}}'], { encoding: "utf8" });
   assert.notEqual(result.status, 0);
   assert.ok(result.stderr.includes("llm is reserved for the primary inference provider"));
+});
+
+test("preserves an explicitly configured runtime temporary directory", () => {
+  const output = render("--show-only", "templates/openclaw.yaml",
+    "--set-json", 'openclaw.extraEnv=[{"name":"TMPDIR","value":"/custom/tmp"}]');
+  assert.equal(output.split("name: TMPDIR").length - 1, 1);
+  assert.ok(output.includes("value: /custom/tmp"));
 });
 
 test("uses one no-reasoning request contract for external endpoints", () => {
@@ -1198,25 +1205,6 @@ test("packages every Kubernetes plugin module into the OpenClaw seed", () => {
   }
 });
 
-test("creates the base workspace when every optional skill module is disabled", () => {
-  const output = render(
-    "--set", "modules.slurm.enabled=false",
-    "--set", "modules.observability.enabled=false",
-    "--set", "modules.bcm.enabled=false",
-    "--show-only", "templates/openclaw.yaml",
-  );
-  assert.match(output, /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace\/skills/);
-  assert.match(output, /cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/);
-});
-
-test("initializes a fresh OpenClaw workspace before seeding it", () => {
-  const output = render("--show-only", "templates/openclaw.yaml");
-  assert.match(
-    output,
-    /mkdir -p \/home\/node\/\.openclaw\/tmp\/openclaw \/home\/node\/\.openclaw\/workspace[\s\S]*cp \/seed\/AGENTS\.md \/home\/node\/\.openclaw\/workspace\/AGENTS\.md/,
-  );
-});
-
 test("preserves the Slurm evidence apiVersion after its SPDX header", () => {
   const output = render(
     "--show-only",
@@ -1266,42 +1254,59 @@ test("preloads selected skill instructions from their authoritative files", () =
   }
 });
 
-test("packaged product and GPU documentation installs locally with research, UI and BCM disabled", () => {
+const disabledWorkspaceModules = ["research", "kubernetes", "slurm", "bcm", "diagnostics", "observability", "grafana", "ui"]
+  .flatMap(name => ["--set", `modules.${name}.enabled=false`]);
+
+for (const scenario of [
+  {name: "fresh workspace with defaults", args: [], kubernetes: true},
+  {name: "fresh workspace with optional modules disabled", args: disabledWorkspaceModules, kubernetes: false},
+  {name: "existing workspace and scratch metadata", args: disabledWorkspaceModules, kubernetes: false, existing: true},
+]) test(`initializes packaged documentation and ${scenario.name}`, () => {
   const directory = mkdtempSync(join(tmpdir(), "skill-offline-"));
   try {
     execFileSync("helm", ["package", chart, "--destination", directory]);
     const archive = join(directory, readdirSync(directory).find(name => name.endsWith(".tgz")));
-    const output = execFileSync("helm", ["template", "offline", archive,
-      "--set", "modules.research.enabled=false", "--set", "modules.kubernetes.enabled=false",
-      "--set", "modules.slurm.enabled=false", "--set", "modules.bcm.enabled=false",
-      "--set", "modules.diagnostics.enabled=false", "--set", "modules.observability.enabled=false",
-      "--set", "modules.ui.enabled=false"], {encoding: "utf8"});
+    const output = execFileSync("helm", ["template", "offline", archive, ...scenario.args], {encoding: "utf8"});
     const seed = join(directory, "seed");
     const home = join(directory, "home");
     execFileSync("mkdir", ["-p", seed, home]);
     const legacySkill = join(home, "workspace/skills/agent-documentation");
-    execFileSync("mkdir", ["-p", legacySkill]);
-    writeFileSync(join(legacySkill, "SKILL.md"), "Previous documentation skill");
+    if (scenario.existing) {
+      execFileSync("mkdir", ["-p", legacySkill, join(home, "workspace/docs"), join(home, "tmp")]);
+      writeFileSync(join(legacySkill, "SKILL.md"), "Previous documentation skill");
+      writeFileSync(join(home, "workspace/docs/existing-manual.md"), "Existing manual");
+      chmodSync(join(home, "tmp"), 0o555);
+    }
     const seedSection = output.split("name: openclaw-seed\n")[1].split("\n---")[0];
     const binaryData = seedSection.split("binaryData:\n")[1].split("\ndata:")[0];
     for (const line of binaryData.trim().split("\n")) {
       const [name, encoded] = line.trim().split(": ");
       writeFileSync(join(seed, name), Buffer.from(JSON.parse(encoded), "base64"));
     }
-    execFileSync("mkdir", ["-p", join(home, "workspace/docs")]);
-    writeFileSync(join(home, "workspace/docs/existing-manual.md"), "Existing manual");
     for (const line of seedSection.split("\n")) {
       if (line.startsWith("  ") && !line.startsWith("   ") && line.endsWith(": |-")) {
         const key = line.trim().slice(0, -4);
         writeFileSync(join(seed, key), configMapBlock(seedSection, key));
       }
     }
+    const serviceAccount = join(directory, "serviceaccount");
+    execFileSync("mkdir", ["-p", serviceAccount]);
+    writeFileSync(join(serviceAccount, "namespace"), "workspace-test");
     const init = output.split("- name: init-config\n")[1].split("          securityContext:")[0];
     const script = init.split("            - |\n")[1].split("\n")
       .map(line => line.slice(14)).join("\n")
-      .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`);
-    execFileSync("sh", ["-eu", "-c", script]);
+      .replaceAll("/home/node/.openclaw", home).replaceAll("/seed/", `${seed}/`)
+      .replaceAll("/run/openclaw-tmp", join(directory, "runtime-tmp"))
+      .replaceAll("/var/run/mosaic-kubernetes", join(directory, "kubernetes"))
+      .replaceAll("/var/run/secrets/kubernetes.io/serviceaccount", serviceAccount);
+    assert.equal(existsSync(join(home, "workspace")), Boolean(scenario.existing));
+    execFileSync("sh", ["-eu", "-c", script], {env: {...process.env, KUBERNETES_SERVICE_HOST: "kubernetes.test"}});
     assert.equal(existsSync(legacySkill), false);
+    assert.ok(readFileSync(join(home, "workspace/AGENTS.md"), "utf8").trim());
+    const scratch = statSync(join(directory, "runtime-tmp/runtime"));
+    assert.equal(scratch.uid, process.getuid());
+    assert.equal(scratch.mode & 0o777, 0o700);
+    assert.equal(statSync(join(home, "tmp")).mode & 0o777, scenario.existing ? 0o555 : 0o700);
     const documentation = join(home, "workspace/product-docs");
     const root = join(chart, "../..");
     const sources = execFileSync("git", ["ls-files", "-z", "README.md", "docs"], {cwd: root, encoding: "utf8"})
@@ -1309,8 +1314,8 @@ test("packaged product and GPU documentation installs locally with research, UI 
     for (const source of sources) {
       assert.deepEqual(readFileSync(join(documentation, source)), readFileSync(join(root, source)));
     }
-    assert.equal(JSON.parse(readFileSync(join(documentation, "deployment.json"), "utf8")).modules.kubernetes, false);
-    assert.equal(readFileSync(join(home, "workspace/docs/existing-manual.md"), "utf8"), "Existing manual");
+    assert.equal(JSON.parse(readFileSync(join(documentation, "deployment.json"), "utf8")).modules.kubernetes, scenario.kubernetes);
+    if (scenario.existing) assert.equal(readFileSync(join(home, "workspace/docs/existing-manual.md"), "utf8"), "Existing manual");
     const relative = "skills/gpu-networking";
     const workspace = join(home, "workspace");
     const references = join(workspace, relative, "references");
