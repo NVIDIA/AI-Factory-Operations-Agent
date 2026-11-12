@@ -79,6 +79,20 @@ function render(...args) {
   });
 }
 
+test("ships the metric-history module and disables it with observability", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  const runtime = render("--show-only", "templates/openclaw.yaml");
+  assert.equal(configMapBlock(seed, "observability.metric-history.ts").trim(),
+    readFileSync(new URL("../files/openclaw-seed/extensions/observability/metric-history.ts", import.meta.url), "utf8").trim());
+  assert.match(configMapBlock(seed, "observability.index.ts"), /from "\.\/metric-history\.ts"/);
+  assert.ok(JSON.parse(configMapBlock(seed, "observability.openclaw.plugin.json")).contracts.tools.includes("observability_metric_last_seen"));
+  assert.match(runtime, /cp \/seed\/observability\.metric-history\.ts \/home\/node\/\.openclaw\/extensions\/observability\/metric-history\.ts/);
+  for (const template of ["openclaw", "openclaw-seed-configmap"]) {
+    const disabled = render("--set", "modules.observability.enabled=false", "--show-only", `templates/${template}.yaml`);
+    assert.doesNotMatch(disabled, /observability\.metric-history\.ts/);
+  }
+});
+
 function renderDiagnostics(...args) {
   return render(
     "--set", "modules.diagnostics.enabled=true",

@@ -132,6 +132,8 @@ test("separates sandbox execution from external tool permissions", () => {
   assert.equal(toolRequiresEdit("hardware_analyze_dut"), false);
   assert.equal(toolRequiresEdit("bcm_execute_cmsh"), false);
   assert.equal(toolRequiresEdit("observability_query"), false);
+  assert.equal(toolAccess("observability_metric_last_seen"), "read");
+  assert.equal(toolRequiresEdit("observability_metric_last_seen"), false);
   assert.equal(toolRequiresEdit("third_party_delete_cluster"), true);
   assert.equal(toolAccess("third_party_delete_cluster"), "unknown");
   assert.equal(toolRequiresEdit("exec", { command: "nvidia-smi -L" }), false);
