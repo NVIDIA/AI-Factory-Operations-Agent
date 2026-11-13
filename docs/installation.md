@@ -838,7 +838,14 @@ endpoint/model and `diagnosticAgent.config.inferenceApiKey` for diagnosis.
 The pod must reach the BMC over HTTPS and trust its certificate. The pinned
 collector uses direct Redfish; BMC credentials alone do not provide host SSH logs.
 
-Create a private `analyze-dut.json` file containing:
+Create `analyze-dut.json` with private permissions before adding credentials:
+
+```bash
+(umask 077; touch analyze-dut.json)
+chmod 600 analyze-dut.json
+```
+
+Edit the file to contain:
 
 ```json
 {
@@ -854,10 +861,9 @@ Create a private `analyze-dut.json` file containing:
 ```
 
 Use your target's supported baseboard. Keep credentials out of chat and version
-control. Protect the file, then forward the API in a separate terminal:
+control. Forward the API in a separate terminal:
 
 ```bash
-chmod 600 analyze-dut.json
 kubectl -n aifoa port-forward svc/diagnostic-agent 8080:80
 ```
 

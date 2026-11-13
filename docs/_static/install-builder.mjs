@@ -182,9 +182,9 @@ if (root) {
         alternative.append(toggle, document.createTextNode('Use SSH adapter instead (experimental)')); settingsBody.append(alternative);
         if (state.bcmMode !== 'ssh-adapter') {
           keys.push('bcmUrl', 'bcmTokenSecret', 'bcmCaSecret');
-          if (enabled.has('diagnostics')) keys.push('diagnosticSshSecret');
         } else keys.push('bcmHead', 'bcmSecret');
       }
+      if (enabled.has('diagnostics') && (state.diagnosticSource === 'direct' || state.bcmMode !== 'ssh-adapter')) keys.push('diagnosticSshSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
       for (const key of keys) {

@@ -30,6 +30,17 @@ def render(**changes):
 
 
 class ExternalBCMTests(unittest.TestCase):
+    def test_openclaw_receives_hardware_lookup_availability(self):
+        for enabled in ("true", "false"):
+            output = render(**{
+                "modules.diagnostics.enabled": "true",
+                "diagnosticAgent.config.bcmLookupEnabled": enabled,
+            })
+            self.assertEqual(output.returncode, 0, output.stderr)
+            pod = next(o for o in yaml.safe_load_all(output.stdout) if o and o["kind"] == "Deployment" and o["metadata"]["name"] == "openclaw")["spec"]["template"]["spec"]
+            env = {e["name"]: e for e in pod["containers"][0]["env"]}
+            self.assertEqual(env["DIAGNOSTIC_AGENT_BCM_LOOKUP_ENABLED"]["value"], enabled)
+
     def test_external_auth_and_all_existing_tools_without_head_key_mounts(self):
         output = render(**{
             "modules.bcm.redfish.enabled": "true",
