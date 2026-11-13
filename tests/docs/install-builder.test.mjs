@@ -24,6 +24,8 @@ const example = {inference:'external', baseUrl:'https://inference.example.com/v1
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
+  {modules:['diagnostics'],diagnosticSource:'direct'},
+  {modules:['diagnostics','bcm'],diagnosticSource:'direct'},
   {modules:['bcm'],redfish:true},
   {modules:['bcm'],bcmMode:'external'},
   {modules:['bcm'],bcmMode:'ssh-adapter'},
@@ -207,4 +209,13 @@ test('namespace selection defaults to aifoa and preserves custom installations',
     const args = argumentsFor({...example, modules:[], namespace});
     assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
   }
+});
+
+test('direct hardware credentials do not select a manager or require head-node credentials', () => {
+  const state = {...example, modules:['diagnostics'], diagnosticSource:'direct'};
+  assert.deepEqual([...enabledModules(state)], ['diagnostics']);
+  const args = argumentsFor(state);
+  for (const flag of ['modules.bcm.enabled=false', 'diagnosticAgent.config.bcmLookupEnabled=false', 'diagnosticAgent.hostSshKeySecretName=']) assert.ok(args.includes(flag));
+  assert.ok(!args.some(arg => arg.startsWith('bcmMcp.mcpUrl=')));
+  assert.ok(enabledModules({...state, modules:['diagnostics','bcm']}).has('bcm'));
 });

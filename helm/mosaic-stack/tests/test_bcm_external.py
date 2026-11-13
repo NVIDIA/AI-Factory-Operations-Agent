@@ -30,6 +30,17 @@ def render(**changes):
 
 
 class ExternalBCMTests(unittest.TestCase):
+    def test_openclaw_receives_hardware_lookup_availability(self):
+        for enabled in ("true", "false"):
+            output = render(**{
+                "modules.diagnostics.enabled": "true",
+                "diagnosticAgent.config.bcmLookupEnabled": enabled,
+            })
+            self.assertEqual(output.returncode, 0, output.stderr)
+            pod = next(o for o in yaml.safe_load_all(output.stdout) if o and o["kind"] == "Deployment" and o["metadata"]["name"] == "openclaw")["spec"]["template"]["spec"]
+            env = {e["name"]: e for e in pod["containers"][0]["env"]}
+            self.assertEqual(env["DIAGNOSTIC_AGENT_BCM_LOOKUP_ENABLED"]["value"], enabled)
+
     def test_external_auth_and_all_existing_tools_without_head_key_mounts(self):
         output = render(**{
             "modules.bcm.redfish.enabled": "true",
@@ -65,6 +76,38 @@ class ExternalBCMTests(unittest.TestCase):
         for name in ("cmshEnabled", "editEnabled", "slurmEnabled", "redfishEnabled"):
             self.assertTrue(config["config"][name], name)
         self.assertEqual(config["config"]["authToken"], "${MOSAIC_BCM_MCP_TOKEN}")
+
+    def test_direct_hardware_collection_has_no_manager_or_head_key_dependency(self):
+        output = render(**{
+            "modules.diagnostics.enabled": "true",
+            "modules.bcm.enabled": "false",
+            "diagnosticAgent.config.bcmLookupEnabled": "false",
+            "bcmMcp.networkPolicy.enabled": "false",
+        })
+        self.assertEqual(output.returncode, 0, output.stderr)
+        objects = [o for o in yaml.safe_load_all(output.stdout) if o]
+        deployments = {o["metadata"]["name"]: o for o in objects if o["kind"] == "Deployment"}
+        self.assertNotIn("bcm-mcp-tools", deployments)
+        seed = next(o for o in objects if o["kind"] == "ConfigMap" and o["metadata"]["name"] == "openclaw-seed")
+        plugins = json.loads(seed["data"]["openclaw.json"])["plugins"]["entries"]
+        self.assertTrue(plugins["hardware-agent"]["enabled"])
+        self.assertFalse(plugins["bcm"]["enabled"])
+        pod = deployments["diagnostic-agent"]["spec"]["template"]["spec"]
+        env = {e["name"] for e in pod["containers"][0]["env"]}
+        self.assertFalse(any(name.startswith("BCM_WEBHOOK_") for name in env))
+        self.assertIn("AGENT_API_KEYS", env)
+        self.assertFalse(any(v.get("secret", {}).get("secretName") in {"bcm-ca", "bcm-host-ssh-key"} for v in pod["volumes"]))
+        self.assertNotIn("prepare-bcm-ca", {i["name"] for i in pod["initContainers"]})
+
+    def test_direct_hardware_credentials_preserve_independent_manager_tools(self):
+        output = render(**{
+            "modules.diagnostics.enabled": "true",
+            "diagnosticAgent.config.bcmLookupEnabled": "false",
+        })
+        self.assertEqual(output.returncode, 0, output.stderr)
+        objects = [o for o in yaml.safe_load_all(output.stdout) if o]
+        seed = next(o for o in objects if o["kind"] == "ConfigMap" and o["metadata"]["name"] == "openclaw-seed")
+        self.assertTrue(json.loads(seed["data"]["openclaw.json"])["plugins"]["entries"]["bcm"]["enabled"])
 
     def test_policy_allows_mcp_and_preserves_other_destinations(self):
         output = render()

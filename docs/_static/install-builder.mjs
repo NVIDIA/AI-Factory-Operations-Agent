@@ -37,7 +37,7 @@ const fields = {
 };
 export function enabledModules(state) {
   const enabled = new Set(state.modules || []);
-  if (enabled.has('diagnostics') || (enabled.has('slurm') && state.slurmBackend !== 'vanilla')) enabled.add('bcm');
+  if ((enabled.has('diagnostics') && state.diagnosticSource !== 'direct') || (enabled.has('slurm') && state.slurmBackend !== 'vanilla')) enabled.add('bcm');
   if (['terminal', 'edit', 'clusters'].some(name => enabled.has(name))) enabled.add('kubernetes');
   if ([...observabilityServices, 'grafana'].some(name => enabled.has(name))) enabled.add('observability');
   return enabled;
@@ -84,6 +84,10 @@ export function buildCommand(state) {
       set('diagnosticAgent.hostSshKeySecretName', state.diagnosticSshSecret?.trim() || '', true);
     }
   }
+  if (enabled.has('diagnostics')) {
+    set('diagnosticAgent.config.bcmLookupEnabled', state.diagnosticSource !== 'direct');
+    if (state.diagnosticSource === 'direct') set('diagnosticAgent.hostSshKeySecretName', state.diagnosticSshSecret?.trim() || '', true);
+  }
   if (enabled.has('slurm')) {
     set('modules.slurm.backend', state.slurmBackend || 'bcm');
     if (state.slurmBackend === 'vanilla') {
@@ -113,7 +117,7 @@ export function buildCommand(state) {
 
 const root = typeof document === 'undefined' ? null : document.querySelector('#install-command-builder');
 if (root) {
-  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', bcmMode: 'external', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
+  const state = {inference: 'qwen', channel: 'devel', slurmBackend: 'bcm', diagnosticSource: 'bcm', bcmMode: 'external', grafanaType: 'prometheus', modules: ['kubernetes', 'webSearch']};
   const form = document.createElement('form'); form.addEventListener('submit', event => event.preventDefault());
   const options = document.createElement('fieldset'); options.innerHTML = '<legend>Installation options</legend>';
   function select(key, label, choices) {
@@ -170,6 +174,7 @@ if (root) {
       if (enabled.has('loki')) keys.push('lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
       if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaType', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
+      if (enabled.has('diagnostics')) settingsBody.append(select('diagnosticSource', 'Hardware credentials', [['bcm', 'Base Command Manager lookup'], ['direct', 'Direct BMC credentials (API)']]));
       if (enabled.has('bcm')) {
         const alternative = document.createElement('label'); const toggle = document.createElement('input');
         toggle.type = 'checkbox'; toggle.name = 'bcmSshAlternative'; toggle.checked = state.bcmMode === 'ssh-adapter';
@@ -177,9 +182,9 @@ if (root) {
         alternative.append(toggle, document.createTextNode('Use SSH adapter instead (experimental)')); settingsBody.append(alternative);
         if (state.bcmMode !== 'ssh-adapter') {
           keys.push('bcmUrl', 'bcmTokenSecret', 'bcmCaSecret');
-          if (enabled.has('diagnostics')) keys.push('diagnosticSshSecret');
         } else keys.push('bcmHead', 'bcmSecret');
       }
+      if (enabled.has('diagnostics') && (state.diagnosticSource === 'direct' || state.bcmMode !== 'ssh-adapter')) keys.push('diagnosticSshSecret');
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
       for (const key of keys) {
@@ -209,6 +214,7 @@ if (root) {
       } else notes.push(`Create ${state.bcmSecret || fields.bcmSecret[1]} with key id_ecdsa; its SSH identity must bootstrap the read-only CMSH user.`);
     }
     if (enabled.has('bcm') && state.redfish) notes.push('Redfish reads node BMCs through the BCM head using credentials stored in BCM. Resets and configuration changes are unavailable. BMC TLS certificate verification is off by default; see the Redfish installation guide to configure it.');
+    if (enabled.has('diagnostics') && state.diagnosticSource === 'direct') notes.push('Submit BMC credentials through a private API request file; see Hardware Agent setup. Hostname-only chat collection needs inventory lookup.');
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
     if (enabled.has('webSearch')) notes.push('Web search uses DuckDuckGo without an API key; the OpenClaw pod needs HTTPS egress to duckduckgo.com. Clear it for air-gapped installations.');
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');

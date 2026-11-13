@@ -800,7 +800,11 @@ collection to delete.
 
 ### Hardware Agent
 
-With the SSH adapter, the Hardware Agent reuses the Base Command Manager head address and `bcm-host-ssh-key` configured above. With a head-node MCP server, it uses that server's HTTPS lookup routes; enable Hardware Agent compatibility on the server and match its webhook token to the Hardware Agent auth Secret. A separate compute-node SSH identity remains optional through `diagnosticAgent.hostSshKeySecretName`. The chart generates the Hardware Agent's internal credentials. It uses NVDebug evidence and generic analysis.
+The Hardware Agent collects NVDebug evidence and diagnoses hardware faults.
+By default it resolves BMC credentials through Base Command Manager. With a
+head-node MCP server, enable Hardware Agent compatibility and match its webhook
+token to the Hardware Agent auth Secret. The SSH adapter uses the configured
+head address and SSH key.
 
 ```bash
 helm upgrade aifoa "$MOSAIC_CHART" \
@@ -812,6 +816,71 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 
 ```
+
+**Without Base Command Manager:** select **Direct BMC credentials (API)** in the
+[installation builder](installation_builder.md), or apply these Helm values:
+
+```yaml
+modules:
+  diagnostics:
+    enabled: true
+  bcm:
+    enabled: false
+diagnosticAgent:
+  hostSshKeySecretName: ""
+  config:
+    bcmLookupEnabled: false
+```
+
+This disables only Hardware Agent inventory lookup. Keep the manager module
+enabled if other integrations use it. Configure the Hardware Agent's inference
+endpoint/model and `diagnosticAgent.config.inferenceApiKey` for diagnosis.
+The pod must reach the BMC over HTTPS and trust its certificate. The pinned
+collector uses direct Redfish; BMC credentials alone do not provide host SSH logs.
+
+Create `analyze-dut.json` with private permissions before adding credentials:
+
+```bash
+(umask 077; touch analyze-dut.json)
+chmod 600 analyze-dut.json
+```
+
+Edit the file to contain:
+
+```json
+{
+  "dut": {
+    "id": "node-01",
+    "baseboard": "Blackwell-HGX-8-GPU",
+    "bmc_ip": "192.0.2.10",
+    "bmc_username": "<BMC username>",
+    "bmc_password": "<BMC password>"
+  },
+  "event_text": "General hardware health collection"
+}
+```
+
+Use your target's supported baseboard. Keep credentials out of chat and version
+control. Forward the API in a separate terminal:
+
+```bash
+kubectl -n aifoa port-forward svc/diagnostic-agent 8080:80
+```
+
+Submit the file using the chart-generated API key:
+
+```bash
+HARDWARE_API_KEY=$(kubectl -n aifoa get secret diagnostic-agent-auth -o jsonpath='{.data.API_KEY}' | base64 --decode)
+printf 'header = "X-API-Key: %s"\n' "$HARDWARE_API_KEY" | \
+  curl --fail-with-body --config - -H 'Content-Type: application/json' \
+  --data-binary @analyze-dut.json http://127.0.0.1:8080/api/v1/analyze-dut
+unset HARDWARE_API_KEY
+```
+
+The response contains a `triage_id`; retrieve its status and report through the
+Hardware Agent tools or authenticated `/api/v1/triage/<id>` and
+`/api/v1/triage/<id>/report` endpoints. Collection can take 5–30 minutes.
+Hostname-only chat collection still requires configured inventory lookup.
 
 ### Web search
 
