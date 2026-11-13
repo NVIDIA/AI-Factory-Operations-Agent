@@ -58,7 +58,7 @@ class FakeBCMServer:
 def load_server_module():
     modules = {name: types.ModuleType(name) for name in [
         "mcp", "mcp.server", "mcp.server.auth", "mcp.server.auth.provider",
-        "mcp.server.auth.settings", "mcp.server.fastmcp", "starlette",
+        "mcp.server.auth.settings", "mcp.server.mcpserver", "starlette",
         "starlette.requests", "starlette.responses", "bcm_mcp_tools",
         "bcm_mcp_tools.cli", "bcm_mcp_tools.cli.support_mcp",
         "bcm_mcp_tools.cli.support_mcp.main", "bcm_mcp_tools.cli.support_mcp.options",
@@ -66,7 +66,7 @@ def load_server_module():
     ]}
     modules["mcp.server.auth.provider"].AccessToken = object
     modules["mcp.server.auth.settings"].AuthSettings = object
-    modules["mcp.server.fastmcp"].FastMCP = FakeMCP
+    modules["mcp.server.mcpserver"].MCPServer = FakeMCP
     modules["starlette.requests"].Request = object
     modules["starlette.responses"].JSONResponse = FakeResponse
     modules["bcm_mcp_tools.cli.support_mcp.main"].configure_logging = lambda _level: None

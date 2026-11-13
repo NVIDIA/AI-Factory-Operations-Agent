@@ -26,7 +26,7 @@ from bcm_mcp_tools.notes import NotesManager
 from bcm_mcp_tools.server import BCMServer
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -244,24 +244,42 @@ class StaticTokenVerifier:
 
 
 class MosaicBCMServer(BCMServer):
+    def _register_tools(self) -> None:
+        super()._register_tools()
+        # Keep the Mosaic MCP contract stable across the upstream SDK migration.
+        for source, name in {
+            "execute_ro_tools": "execute_tool",
+            "search_ro_tools": "search_tools",
+            "execute_ro_cmsh": "execute_cmsh",
+            "list_local_cluster_notes": "list_notes",
+            "search_local_cluster_notes": "search_notes",
+            "add_local_cluster_note": "add_note",
+            "remove_local_cluster_note": "remove_note",
+            "search_local_cluster_bcm_docs": "search_bcm_docs",
+        }.items():
+            tool = self.mcp._tool_manager.get_tool(source)
+            if tool is not None:
+                self.mcp.remove_tool(source)
+                self.mcp.add_tool(tool.fn, name=name)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.execution_mode = get_env_str("MOSAIC_BCM_EXECUTION_MODE", "ssh")
+        self.execution_mode = get_env_str("MOSAIC_BCM_EXECUTION_MODE", default="ssh")
         if self.execution_mode not in {"ssh", "local"}:
             raise ValueError("MOSAIC_BCM_EXECUTION_MODE must be ssh or local")
-        self.cmsh_enabled = get_env_bool("MOSAIC_BCM_CMSH_ENABLED", False)
-        self.cmsh_admin_enabled = get_env_bool("MOSAIC_BCM_CMSH_ADMIN_ENABLED", False)
-        self.cmsh_username = get_env_str("MOSAIC_BCM_CMSH_USERNAME", "aichatbotuser") or "aichatbotuser"
-        self.cmsh_profile = get_env_str("MOSAIC_BCM_CMSH_PROFILE", "readonly") or "readonly"
-        self.cmsh_setup_timeout = get_env_int("MOSAIC_BCM_CMSH_SETUP_TIMEOUT", 240)
-        self.cmsh_exec_timeout = get_env_int("MOSAIC_BCM_CMSH_EXEC_TIMEOUT", 120)
-        self.cmsh_path = get_env_str("MOSAIC_BCM_CMSH_PATH", "/cm/local/apps/cmd/bin/cmsh") or "/cm/local/apps/cmd/bin/cmsh"
-        self.hardware_compat_enabled = get_env_bool("MOSAIC_BCM_HARDWARE_COMPAT_ENABLED", False)
-        self.bcm_head_host = get_env_str("MOSAIC_BCM_HEAD_HOST", "") or ""
-        self.redfish_enabled = get_env_bool("MOSAIC_BCM_REDFISH_ENABLED", False)
-        self.redfish_verify_tls = get_env_bool("MOSAIC_BCM_REDFISH_VERIFY_TLS", False)
-        self.redfish_timeout = get_env_int("MOSAIC_BCM_REDFISH_TIMEOUT", 60)
-        self.redfish_via_head_node = get_env_bool("MOSAIC_BCM_REDFISH_VIA_HEAD_NODE", True)
+        self.cmsh_enabled = get_env_bool("MOSAIC_BCM_CMSH_ENABLED", default=False)
+        self.cmsh_admin_enabled = get_env_bool("MOSAIC_BCM_CMSH_ADMIN_ENABLED", default=False)
+        self.cmsh_username = get_env_str("MOSAIC_BCM_CMSH_USERNAME", default="aichatbotuser") or "aichatbotuser"
+        self.cmsh_profile = get_env_str("MOSAIC_BCM_CMSH_PROFILE", default="readonly") or "readonly"
+        self.cmsh_setup_timeout = get_env_int("MOSAIC_BCM_CMSH_SETUP_TIMEOUT", default=240)
+        self.cmsh_exec_timeout = get_env_int("MOSAIC_BCM_CMSH_EXEC_TIMEOUT", default=120)
+        self.cmsh_path = get_env_str("MOSAIC_BCM_CMSH_PATH", default="/cm/local/apps/cmd/bin/cmsh") or "/cm/local/apps/cmd/bin/cmsh"
+        self.hardware_compat_enabled = get_env_bool("MOSAIC_BCM_HARDWARE_COMPAT_ENABLED", default=False)
+        self.bcm_head_host = get_env_str("MOSAIC_BCM_HEAD_HOST", default="") or ""
+        self.redfish_enabled = get_env_bool("MOSAIC_BCM_REDFISH_ENABLED", default=False)
+        self.redfish_verify_tls = get_env_bool("MOSAIC_BCM_REDFISH_VERIFY_TLS", default=False)
+        self.redfish_timeout = get_env_int("MOSAIC_BCM_REDFISH_TIMEOUT", default=60)
+        self.redfish_via_head_node = get_env_bool("MOSAIC_BCM_REDFISH_VIA_HEAD_NODE", default=True)
         self._redfish_members: dict[tuple[str, str], list[str]] = {}
         self._cmsh_ready = False
         self._cmsh_setup_lock = threading.Lock()
@@ -815,21 +833,21 @@ class MosaicBCMServer(BCMServer):
 
 
 def main() -> int:
-    host = get_env_str("MOSAIC_BCM_ADAPTER_HOST", "0.0.0.0") or "0.0.0.0"
-    port = get_env_int("MOSAIC_BCM_ADAPTER_PORT", 3001)
-    token = get_env_str("MOSAIC_BCM_MCP_TOKEN", "") or ""
-    hardware_token = get_env_str("MOSAIC_BCM_HARDWARE_TOKEN", "") or ""
-    configure_logging(get_env_str("MCP_LOG_LEVEL", "INFO") or "INFO")
+    host = get_env_str("MOSAIC_BCM_ADAPTER_HOST", default="0.0.0.0") or "0.0.0.0"
+    port = get_env_int("MOSAIC_BCM_ADAPTER_PORT", default=3001)
+    token = get_env_str("MOSAIC_BCM_MCP_TOKEN", default="") or ""
+    hardware_token = get_env_str("MOSAIC_BCM_HARDWARE_TOKEN", default="") or ""
+    configure_logging(get_env_str("MCP_LOG_LEVEL", default="INFO") or "INFO")
 
-    notes = NotesManager(get_env_str("MCP_NOTES_DIR", "/tmp/bcm-mcp-notes") or "/tmp/bcm-mcp-notes")
+    notes = NotesManager(get_env_str("MCP_NOTES_DIR", default="/tmp/bcm-mcp-notes") or "/tmp/bcm-mcp-notes")
     notes.initialize()
     server = MosaicBCMServer(
-        exec_timeout_seconds=get_env_int("MCP_EXEC_TIMEOUT", 120),
+        exec_timeout_seconds=get_env_int("MCP_EXEC_TIMEOUT", default=120),
         no_auth=not token,
         auth_token=token or None,
-        max_output_lines=get_env_int("MCP_MAX_OUTPUT_LINES", 200),
-        max_output_chars=get_env_int("MCP_MAX_OUTPUT_CHARS", 20000),
-        preloaded_modules=[name.strip() for name in (get_env_str("MCP_PRELOADED_MODULES", "shared,slurm") or "").split(",") if name.strip()],
+        max_output_lines=get_env_int("MCP_MAX_OUTPUT_LINES", default=200),
+        max_output_chars=get_env_int("MCP_MAX_OUTPUT_CHARS", default=20000),
+        preloaded_modules=[name.strip() for name in (get_env_str("MCP_PRELOADED_MODULES", default="shared,slurm") or "").split(",") if name.strip()],
         cmsh_username=None,
         notes_manager=notes,
     )
@@ -838,12 +856,12 @@ def main() -> int:
     if server.hardware_compat_enabled and not hardware_token:
         raise RuntimeError("MOSAIC_BCM_HARDWARE_TOKEN is required when Hardware Agent compatibility is enabled")
 
-    ssl_cert = get_env_str("MOSAIC_BCM_TLS_CERT", "") or ""
-    ssl_key = get_env_str("MOSAIC_BCM_TLS_KEY", "") or ""
+    ssl_cert = get_env_str("MOSAIC_BCM_TLS_CERT", default="") or ""
+    ssl_key = get_env_str("MOSAIC_BCM_TLS_KEY", default="") or ""
     if server.execution_mode == "local" and (not token or not ssl_cert or not ssl_key):
         raise RuntimeError("local BCM MCP requires MOSAIC_BCM_MCP_TOKEN, MOSAIC_BCM_TLS_CERT and MOSAIC_BCM_TLS_KEY")
     scheme = "https" if ssl_cert else "http"
-    public_url = get_env_str("MOSAIC_BCM_PUBLIC_URL", f"{scheme}://bcm-mcp-tools:{port}").rstrip("/")
+    public_url = get_env_str("MOSAIC_BCM_PUBLIC_URL", default=f"{scheme}://bcm-mcp-tools:{port}").rstrip("/")
     auth = {
         "token_verifier": StaticTokenVerifier(token),
         "auth": AuthSettings(
@@ -852,19 +870,16 @@ def main() -> int:
             required_scopes=["bcm"],
         ),
     } if token else {}
-    server.mcp = FastMCP("BCM MCP", host=host, port=port, stateless_http=True, **auth)
+    server.mcp = MCPServer("BCM MCP", **auth)
     server._register_tools()  # pylint: disable=protected-access
     server.register_mosaic_tools()
     if server.hardware_compat_enabled:
         server.register_hardware_routes(hardware_token)
     logging.getLogger("mosaic.bcm").info("Starting local BCM MCP server on %s:%s", host, port)
-    if ssl_cert:
-        import uvicorn
+    import uvicorn
 
-        uvicorn.run(server.mcp.streamable_http_app(), host=host, port=port,
-                    ssl_certfile=ssl_cert, ssl_keyfile=ssl_key)
-    else:
-        server.mcp.run(transport="streamable-http")
+    uvicorn.run(server.mcp.streamable_http_app(host=host, stateless_http=True),
+                host=host, port=port, ssl_certfile=ssl_cert or None, ssl_keyfile=ssl_key or None)
     return 0
 
 
