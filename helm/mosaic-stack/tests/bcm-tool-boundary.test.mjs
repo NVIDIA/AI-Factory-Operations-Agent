@@ -76,6 +76,13 @@ test("classifies every registered Redfish tool as read-only in the global sessio
   }
 });
 
+function catalogResponse(request) {
+  if (request.method !== "tools/list") return null;
+  return Response.json({ jsonrpc: "2.0", id: request.id, result: { tools: [
+    "execute_tool", "search_tool", "execute_cmsh", "list_notes", "search_notes", "add_note", "remove_note",
+  ].map(name => ({ name })) } });
+}
+
 async function loadBcmPlugin() {
   const { registerHooks } = await import("node:module");
   const hooks = registerHooks({
@@ -106,6 +113,8 @@ test("external MCP executes on its server without an implicit SSH hop", async ()
     assert.equal(String(url), "https://mcp.example.test:3002/mcp");
     assert.equal(init.headers.Authorization, "Bearer test-token");
     request = JSON.parse(init.body);
+    const catalog = catalogResponse(request);
+    if (catalog) return catalog;
     return Response.json({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: "evidence" }] } });
   };
   try {
@@ -164,6 +173,8 @@ test("diagnostic searches retain catalog results and explain their capability di
   globalThis.fetch = async (url, init) => {
     if (String(url).includes("/api/subagents/events")) return new Response("{}");
     const request = JSON.parse(init.body);
+    const catalog = catalogResponse(request);
+    if (catalog) return catalog;
     assert.equal(request.params.name, "search_tool");
     return Response.json({ jsonrpc: "2.0", id: request.id, result: payload });
   };
@@ -190,6 +201,8 @@ test("surfaces Redfish policy refusals and validates hostnames before calling th
   globalThis.fetch = async (url, init) => {
     if (String(url).includes("/api/subagents/events")) return new Response("{}");
     const request = JSON.parse(init.body);
+    const catalog = catalogResponse(request);
+    if (catalog) return catalog;
     calls.push(request.params);
     const payload = request.params.arguments.path === "/redfish/v1/AccountService"
       ? { error: "/redfish/v1/AccountService is not permitted by the read-only Redfish policy", status: 403 }
@@ -224,6 +237,8 @@ test("executes independent BCM mutations without sharing cached or in-flight res
     if (String(url).includes("/api/subagents/events")) return new Response("{}");
     assert.equal(String(url), "http://mutations.test/mcp");
     const request = JSON.parse(init.body);
+    const catalog = catalogResponse(request);
+    if (catalog) return catalog;
     calls.push(request.params);
     const receipt = calls.length;
     await new Promise(resolve => setImmediate(resolve));
@@ -265,5 +280,66 @@ test("executes independent BCM mutations without sharing cached or in-flight res
     if (previousLedgerPath === undefined) delete process.env.MOSAIC_EDIT_LEDGER_PATH;
     else process.env.MOSAIC_EDIT_LEDGER_PATH = previousLedgerPath;
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("routes existing agent tools using the server's advertised MCP contract", async () => {
+  const plugin = await loadBcmPlugin();
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const native of [false, true]) {
+      const names = native ? ["execute_ro_tools", "search_ro_tools"] : ["execute_tool", "search_tool"];
+      const calls = [];
+      let discoveries = 0;
+      globalThis.fetch = async (url, init) => {
+        if (String(url).includes("/api/subagents/events")) return Response.json({});
+        const request = JSON.parse(init.body);
+        if (request.method === "tools/list") {
+          discoveries++;
+          return Response.json({ jsonrpc: "2.0", id: request.id, result: { tools: names.map(name => ({ name })) } });
+        }
+        calls.push(request.params);
+        return Response.json({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: "result" }] } });
+      };
+      const { tools } = registerBcm(plugin, { mcpMode: "direct", mcpUrl: `http://contract-${native}.test/mcp` });
+      await tools.get("bcm_execute_tool").execute("diagnostic", { tool_id: "system.uname" });
+      await tools.get("bcm_search_tools").execute("search", { query: "kernel" });
+      assert.deepEqual(calls.map(call => call.name), names);
+      assert.equal(calls[0].arguments.tool_id, "system.uname");
+      assert.equal(calls[0].arguments.context.ssh_host, undefined);
+      assert.equal(discoveries, 1);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("keeps discovery and diagnostic results scoped to the endpoint and credentials", async () => {
+  const plugin = await loadBcmPlugin();
+  const originalFetch = globalThis.fetch;
+  const identities = [
+    { url: "http://first.test/mcp", token: "first", name: "execute_tool" },
+    { url: "http://second.test/mcp", token: "first", name: "execute_ro_tools" },
+    { url: "http://first.test/mcp", token: "second", name: "execute_ro_tools" },
+  ];
+  try {
+    for (const identity of identities) {
+      globalThis.fetch = async (url, init) => {
+        if (String(url).includes("/api/subagents/events")) return Response.json({});
+        assert.equal(String(url), identity.url);
+        assert.equal(init.headers.Authorization, `Bearer ${identity.token}`);
+        const request = JSON.parse(init.body);
+        const result = request.method === "tools/list"
+          ? { tools: [{ name: identity.name }] }
+          : { content: [{ type: "text", text: identity.url + identity.token }] };
+        if (request.method === "tools/call") assert.equal(request.params.name, identity.name);
+        return Response.json({ jsonrpc: "2.0", id: request.id, result });
+      };
+      const { tools } = registerBcm(plugin, { mcpMode: "direct", mcpUrl: identity.url, authToken: identity.token });
+      const result = await tools.get("bcm_execute_tool").execute("identity", { tool_id: "system.uname" });
+      assert.equal(result.details.content[0].text, identity.url + identity.token);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });

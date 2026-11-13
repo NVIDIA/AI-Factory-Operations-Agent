@@ -249,7 +249,7 @@ class MosaicBCMServer(BCMServer):
         # Keep the Mosaic MCP contract stable across the upstream SDK migration.
         for source, name in {
             "execute_ro_tools": "execute_tool",
-            "search_ro_tools": "search_tools",
+            "search_ro_tools": "search_tool",
             "execute_ro_cmsh": "execute_cmsh",
             "list_local_cluster_notes": "list_notes",
             "search_local_cluster_notes": "search_notes",

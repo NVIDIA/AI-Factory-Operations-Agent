@@ -16,6 +16,16 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_EVENT_CHARS = 4000;
 const BCM_CACHE_TTL_MS = 60_000;
 const MUTATING_MCP_TOOLS = new Set(["execute_cmsh_admin", "add_note", "remove_note"]);
+const UPSTREAM_MCP_NAMES: Record<string, string> = {
+  execute_tool: "execute_ro_tools",
+  search_tool: "search_ro_tools",
+  execute_cmsh: "execute_ro_cmsh",
+  list_notes: "list_local_cluster_notes",
+  search_notes: "search_local_cluster_notes",
+  add_note: "add_local_cluster_note",
+  remove_note: "remove_local_cluster_note",
+  search_bcm_docs: "search_local_cluster_bcm_docs",
+};
 
 const bcmCache = new Map<string, { expiresAt: number; value: unknown }>();
 const bcmInFlight = new Map<string, Promise<unknown>>();
@@ -373,8 +383,8 @@ function normalizeRpcValue(value: unknown): unknown {
   return value;
 }
 
-function cachedRpcKey(method: string, params: Record<string, unknown>) {
-  return JSON.stringify({ method, params: normalizeRpcValue(params) });
+function cachedRpcKey(config: BcmConfig, method: string, params: Record<string, unknown>) {
+  return JSON.stringify({ url: config.mcpUrl, token: config.authToken, method, params: normalizeRpcValue(params) });
 }
 
 async function bcmRpc(
@@ -383,6 +393,13 @@ async function bcmRpc(
   params: Record<string, unknown>,
   timeoutMs?: number,
 ): Promise<unknown> {
+  if (method === "tools/call" && typeof params.name === "string" && UPSTREAM_MCP_NAMES[params.name]) {
+    const catalog = await cachedBcmRpc(config, "tools/list", {}, timeoutMs) as { tools?: { name: string }[] };
+    const names = new Set((catalog.tools || []).map(tool => tool.name));
+    const name = names.has(params.name) ? params.name : UPSTREAM_MCP_NAMES[params.name];
+    if (!names.has(name)) throw new Error(`BCM MCP server does not advertise ${params.name}`);
+    params = { ...params, name };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs ?? config.timeoutMs);
   const headers: Record<string, string> = {
@@ -428,7 +445,7 @@ async function cachedBcmRpc(
   params: Record<string, unknown>,
   timeoutMs?: number,
 ): Promise<unknown> {
-  const key = cachedRpcKey(method, params);
+  const key = cachedRpcKey(config, method, params);
   const cached = bcmCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;

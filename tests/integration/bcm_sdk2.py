@@ -28,7 +28,7 @@ async def exercise(url, token, notes, context):
             async with ClientSession(*streams) as client:
                 await client.initialize()
                 names = {tool.name for tool in (await client.list_tools()).tools}
-                expected = {"execute_tool", "search_tools", "execute_cmsh", "execute_cmsh_admin",
+                expected = {"execute_tool", "search_tool", "execute_cmsh", "execute_cmsh_admin",
                             "list_notes", "search_notes", "add_note", "remove_note",
                             "slurm_job_evidence", "redfish_get", "redfish_system_summary",
                             "redfish_thermal", "redfish_power", "redfish_sel", "redfish_firmware"}
@@ -41,7 +41,7 @@ async def exercise(url, token, notes, context):
 
                 assert "Linux" in await call("execute_tool", {
                     "tool_id": "system.uname", "tool_kwargs": {"args": ["-s"]}})
-                assert "system.uname" in await call("search_tools", {"query": "uname"})
+                assert "system.uname" in await call("search_tool", {"query": "uname"})
                 await call("add_note", {"subject": "Runtime verification", "content": "Transient local fixture."})
                 files = list(notes.rglob("*.md"))
                 assert len(files) == 1, files
@@ -52,7 +52,7 @@ async def exercise(url, token, notes, context):
                 print("Authenticated MCP discovery, diagnostic, search and notes round-trip pass.")
 
 
-def exercise_server(use_tls):
+def exercise_server(use_tls, native=False):
     adapter = Path(__file__).resolve().parents[2] / "helm/mosaic-stack/files/bcm-mcp-ssh-server.py"
     with tempfile.TemporaryDirectory(prefix="mosaic-sdk2-") as directory:
         root = Path(directory)
@@ -67,7 +67,8 @@ def exercise_server(use_tls):
                    MOSAIC_BCM_MCP_TOKEN=token, MCP_PRELOADED_MODULES="",
                    MCP_NOTES_DIR=str(root / "notes"), MCP_CONFIG_DIR=str(root / "config"),
                    MOSAIC_BCM_CMSH_ADMIN_ENABLED="true", MOSAIC_BCM_REDFISH_ENABLED="true",
-                   MOSAIC_BCM_HARDWARE_COMPAT_ENABLED="true", MOSAIC_BCM_HARDWARE_TOKEN=secrets.token_urlsafe(24))
+                   MOSAIC_BCM_HARDWARE_COMPAT_ENABLED="true", MOSAIC_BCM_HARDWARE_TOKEN=secrets.token_urlsafe(24),
+                   MCP_AUTH_TOKEN=token, MCP_NO_AUTH="false")
         if use_tls:
             cert, key = root / "cert.pem", root / "key.pem"
             subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
@@ -79,7 +80,20 @@ def exercise_server(use_tls):
             env.update(MOSAIC_BCM_TLS_CERT=str(cert), MOSAIC_BCM_TLS_KEY=str(key),
                        MOSAIC_BCM_EXECUTION_MODE="local")
         with (root / "server.log").open("w+") as log:
-            process = subprocess.Popen([sys.executable, str(adapter)], env=env, stdout=log, stderr=log)
+            command = [sys.executable, str(adapter)]
+            if native:
+                # This localhost fixture has no BCM environment modules installed.
+                command = [sys.executable, "-c", """
+import os
+from dataclasses import replace
+from bcm_mcp_tools.cli.support_mcp.main import configure_logging
+from bcm_mcp_tools.cli.support_mcp.options import parse_args
+from bcm_mcp_tools.server import run_http_server
+opts = parse_args(argv=["--no-ssl", "--no-cmsh-user", "--host", "127.0.0.1",
+                       "--port", os.environ["MOSAIC_BCM_ADAPTER_PORT"]])
+run_http_server(replace(opts, preloaded_modules=[]))
+"""]
+            process = subprocess.Popen(command, env=env, stdout=log, stderr=log)
             try:
                 for _ in range(120):
                     if process.poll() is not None:
@@ -91,13 +105,20 @@ def exercise_server(use_tls):
                     time.sleep(.25)
                 else:
                     raise TimeoutError("Adapter did not listen")
-                for path in ("/mcp", "/list"):
+                for path in (("/mcp",) if native else ("/mcp", "/list")):
                     try:
                         urllib.request.urlopen(url + path, timeout=5, context=context)
                     except urllib.error.HTTPError as error:
                         assert error.code == 401, (path, error.code)
                     else:
                         raise AssertionError(f"Unauthenticated {path} was accepted")
+                client_env = dict(os.environ, BCM_TEST_URL=url, BCM_TEST_TOKEN=token)
+                if use_tls:
+                    client_env["NODE_EXTRA_CA_CERTS"] = str(cert)
+                subprocess.run(["node", str(Path(__file__).with_name("bcm_client.mjs"))],
+                               env=client_env, check=True, timeout=30)
+                if native:
+                    return
                 # Mosaic sends stateless tools requests without an initialize handshake.
                 body = json.dumps({"jsonrpc": "2.0", "id": "probe", "method": "tools/call",
                                    "params": {"name": "execute_tool", "arguments": {
@@ -121,3 +142,4 @@ def exercise_server(use_tls):
 if __name__ == "__main__":
     for use_tls in (False, True):
         exercise_server(use_tls)
+    exercise_server(False, native=True)
