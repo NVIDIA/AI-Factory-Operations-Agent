@@ -1,0 +1,11 @@
+# Candidate image selection only. This file is not a rollout-ready configuration.
+# Producer: dgx-agentic-platform/mosaic-upstream, commit 02b9aa9.
+# Build and publish that exact commit to the repository below only after approval.
+# Before activation: migrate the Mosaic adapter to MCP SDK 2, preserve its tool
+# names/auth/CMSH/Redfish/notes workflows, approve upstream execution-policy
+# changes, and validate the built image on both supported architectures.
+# The default chart image remains unchanged until those gates pass.
+bcmMcp:
+  image:
+    repository: nvcr.io/0948643769302270/bcm-mcp-tools
+    tag: 02b9aa9
