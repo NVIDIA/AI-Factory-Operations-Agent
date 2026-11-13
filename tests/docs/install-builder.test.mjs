@@ -21,8 +21,10 @@ function argumentsFor(state) {
 }
 const example = {inference:'external', baseUrl:'https://inference.example.com/v1', model:'served-model', bcmHead:'root@head.example.com', bcmUrl:'https://head.example.com:3002/mcp',
   prometheusUrl:'http://metrics:9090', alertmanagerUrl:'http://alerts:9093', grafanaUrl:'https://dashboards.example.com/grafana',
+  runaiUrl:'https://runai.example.com', runaiTokenUrl:'https://runai.example.com/auth/token',
   corpus:'/data/corpus', evidenceRoot:'/data/jobs', evidenceNode:'login-node'};
 for (const state of [
+  {modules:['runai']}, {modules:['runai'],runaiSecret:'viewer-app',runaiCaSecret:'runai-ca'},
   {modules:[]}, {modules:['terminal']}, {modules:['slurm']}, {modules:['slurm'], slurmBackend:'vanilla'},
   {modules:['bcm'],redfish:true},
   {modules:['bcm'],bcmMode:'external'},
@@ -178,7 +180,7 @@ cases=[]
 for inference in ['external', *json.loads(sys.argv[1])]:
  for backend in ['bcm','vanilla']:
   for modules in [[module] for module in MODULES] + [MODULES, MODULES[::2], MODULES[1::2]]:
-   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','bcmUrl':'https://head.example.com:3002/mcp','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus'}
+   state={'inference':inference,'modules':modules,'slurmBackend':backend,'baseUrl':'https://inference.example.com/v1','model':'served-model','bcmHead':'head.example.com','bcmUrl':'https://head.example.com:3002/mcp','evidenceRoot':'/slurm','evidenceNode':'collector-node','corpus':'/corpus','runaiUrl':'https://runai.example.com','runaiTokenUrl':'https://runai.example.com/auth/token'}
    cases.append({'state':state,'components':list(render_footprint(state).values())})
 for modules in [['bcm'], ['slurm'], ['diagnostics'], ['bcm','slurm','diagnostics']]:
  state={'inference':'external','modules':modules,'bcmMode':'external','bcmUrl':'https://head.example.com:3002/mcp','baseUrl':'https://inference.example.com/v1','model':'served-model'}
@@ -207,4 +209,19 @@ test('namespace selection defaults to aifoa and preserves custom installations',
     const args = argumentsFor({...example, modules:[], namespace});
     assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
   }
+});
+
+test('Run:ai uses managed MCP settings and existing credential and CA Secrets', () => {
+  for (const runaiSecret of [undefined, 'viewer-app']) {
+    const args = argumentsFor({...example, modules:['runai'], runaiSecret, runaiCaSecret:'private-ca'});
+    for (const setting of ['enabled=true', `env.RUNAI_BASE_URL=${example.runaiUrl}`,
+      `oauth.tokenUrl=${example.runaiTokenUrl}`, `oauth.clientIdSecret.name=${runaiSecret || 'runai-credentials'}`,
+      `oauth.clientSecretSecret.name=${runaiSecret || 'runai-credentials'}`, 'tls.existingSecret=private-ca']) {
+      assert.ok(args.includes(`managedMcpServers.servers.runai.${setting}`), setting);
+    }
+    assert.ok(!args.some(arg => arg.startsWith('modules.runai.')));
+  }
+  const disabled = argumentsFor({...example, modules:[]});
+  assert.ok(disabled.includes('managedMcpServers.servers.runai.enabled=false'));
+  assert.ok(!disabled.some(arg => arg.startsWith('managedMcpServers.servers.runai.oauth.')));
 });

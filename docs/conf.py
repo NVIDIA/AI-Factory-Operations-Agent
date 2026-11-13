@@ -97,7 +97,7 @@ def render_footprint(state):
 
 def generate():
     # Include the adapter in the catalog so either connection can be sized.
-    defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "bcmMode": "ssh-adapter", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus"}
+    defaults = {"inference": "external", "modules": [], "sandboxInstalled": True, "baseUrl": "https://inference.example.com/v1", "model": "served-model", "bcmHead": "head.example.com", "bcmMode": "ssh-adapter", "evidenceRoot": "/slurm", "evidenceNode": "collector-node", "corpus": "/corpus", "runaiUrl": "https://runai.example.com", "runaiTokenUrl": "https://runai.example.com/auth/token"}
     base = render_footprint(defaults)
     variants = {}
     profiles = json.loads(subprocess.check_output([

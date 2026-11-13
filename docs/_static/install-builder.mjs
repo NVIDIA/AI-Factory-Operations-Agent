@@ -10,7 +10,7 @@ export const modules = {
   kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
-  webSearch: 'Web search (DuckDuckGo)',
+  webSearch: 'Web search (DuckDuckGo)', runai: 'Run:ai',
 };
 const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
 const fields = {
@@ -30,6 +30,10 @@ const fields = {
   bcmUrl: ['Head-node MCP HTTPS URL', '', 'https://bcm-head.example.com:3002/mcp'],
   bcmTokenSecret: ['MCP bearer token Secret (token)', 'bcm-external-mcp-auth'],
   bcmCaSecret: ['MCP CA certificate Secret (optional, ca.crt)', ''],
+  runaiUrl: ['Run:ai HTTPS base URL', '', 'https://runai.example.com'],
+  runaiTokenUrl: ['Run:ai OAuth token URL', '', 'https://runai.example.com/auth/realms/runai/protocol/openid-connect/token'],
+  runaiSecret: ['Run:ai Viewer application Secret (clientId, clientSecret)', 'runai-credentials'],
+  runaiCaSecret: ['Run:ai CA certificate Secret (optional, ca.crt)', ''],
   diagnosticSshSecret: ['Compute-node SSH Secret (optional, id_ecdsa)', ''],
   evidenceRoot: ['Slurm evidence directory on the collector node', '', '/slurm'],
   evidenceNode: ['Slurm collector node hostname', '', 'slurm-login-node'],
@@ -54,7 +58,7 @@ export function buildCommand(state) {
     set('llm.external.baseUrl', value('baseUrl'), true); set('llm.external.model', value('model'), true);
     set('llm.external.existingSecret', value('llmSecret'), true);
   }
-  for (const name of ['ui', 'execution', 'observability', ...Object.keys(modules).filter(name => !observabilityServices.includes(name))]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
+  for (const name of ['ui', 'execution', 'observability', ...Object.keys(modules).filter(name => ![...observabilityServices, 'runai'].includes(name))]) set(`modules.${name}.enabled`, ['ui', 'execution'].includes(name) || enabled.has(name));
   set('modules.bcm.redfish.enabled', enabled.has('bcm') && !!state.redfish);
   for (const service of ['prometheus', 'alertmanager']) {
     set(`observability.${service}Url`, enabled.has(service) ? value(`${service}Url`) : '', true);
@@ -95,6 +99,14 @@ export function buildCommand(state) {
     set('modules.research.secrets.create', false);
     set('researchAgent.iraop.config.NVIDIA_CHAT_MODEL', state.inference === 'external' ? value('model') : inferenceProfiles[state.inference].model, true);
     set('researchAgent.iraop.corpus.hostPath', value('corpus'), true);
+  }
+  set('managedMcpServers.servers.runai.enabled', enabled.has('runai'));
+  if (enabled.has('runai')) {
+    for (const [path, field] of Object.entries({
+      'env.RUNAI_BASE_URL': 'runaiUrl', 'oauth.tokenUrl': 'runaiTokenUrl',
+      'oauth.clientIdSecret.name': 'runaiSecret', 'oauth.clientSecretSecret.name': 'runaiSecret',
+    })) set(`managedMcpServers.servers.runai.${path}`, value(field), true);
+    set('managedMcpServers.servers.runai.tls.existingSecret', state.runaiCaSecret?.trim() || '', true);
   }
   if (enabled.has('edit')) set('modules.edit.hitl', true);
   if (state.sandboxInstalled) set('agentSandbox.install', false);
@@ -182,6 +194,7 @@ if (root) {
       }
       if (enabled.has('slurm') && state.slurmBackend === 'vanilla') keys.push('evidenceRoot', 'evidenceNode');
       if (enabled.has('research')) keys.push('corpus');
+      if (enabled.has('runai')) keys.push('runaiUrl', 'runaiTokenUrl', 'runaiSecret', 'runaiCaSecret');
       for (const key of keys) {
         if (key === 'grafanaType') {
           settingsBody.append(select(key, fields[key][0], [['prometheus', 'Prometheus'], ['victoriametrics-metrics-datasource', 'VictoriaMetrics (native plugin)']]));
@@ -211,6 +224,10 @@ if (root) {
     if (enabled.has('bcm') && state.redfish) notes.push('Redfish reads node BMCs through the BCM head using credentials stored in BCM. Resets and configuration changes are unavailable. BMC TLS certificate verification is off by default; see the Redfish installation guide to configure it.');
     if (enabled.has('research')) notes.push('Create iraop-secrets with NVIDIA_API_KEY, NVIDIA_CHAT_API_KEY and IRAOP_API_KEY; prepare the corpus directory.');
     if (enabled.has('webSearch')) notes.push('Web search uses DuckDuckGo without an API key; the OpenClaw pod needs HTTPS egress to duckduckgo.com. Clear it for air-gapped installations.');
+    if (enabled.has('runai')) {
+      notes.push(`Create ${state.runaiSecret?.trim() || fields.runaiSecret[1]} in the release namespace with keys clientId and clientSecret for a dedicated Run:ai Viewer application. Enter its HTTPS base URL and OAuth token URL. The chart installs the read-only MCP server and a token-renewal sidecar; do not enter credentials in this form.`);
+      if (state.runaiCaSecret?.trim()) notes.push(`Create ${state.runaiCaSecret.trim()} with key ca.crt containing the Run:ai CA certificate.`);
+    }
     if (state.inference !== 'external') notes.push('Verify GPU, memory and model cache requirements in the on-prem inference section.');
     prerequisites.textContent = notes.join(' ');
     if (enabled.has('bcm')) {
@@ -221,6 +238,10 @@ if (root) {
         const setup = document.createElement('a'); setup.href = 'bcm.html#install-with-one-script';
         setup.textContent = 'Set up MCP and Kind together'; prerequisites.append(' ', setup);
       }
+    }
+    if (enabled.has('runai')) {
+      const link = document.createElement('a'); link.href = 'installation.html#run-ai'; link.textContent = 'Run:ai installation guide';
+      prerequisites.append(' ', link);
     }
     code.textContent = buildCommand(state); status.textContent = '';
     if (catalog) renderSizing(sizing, catalog, state, enabled);

@@ -14,6 +14,8 @@ and enter its HTTPS endpoint and token Secret. **Use SSH adapter instead
 
 The optional **Read-only Redfish** checkbox appears inside the Base Command Manager module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 
+**Run:ai** installs the managed read-only MCP server and OAuth token-renewal sidecar. Enter the HTTPS base URL, OAuth token URL, and an existing Secret with `clientId` and `clientSecret` for a dedicated Viewer application. For a private CA, supply a Secret with `ca.crt`. See the [Run:ai installation guide](installation.md#runai). Its server and sidecar are included in the resource totals.
+
 For a checksum-verified mirrored or source-built sandbox backend package, configure the advanced values described under [OpenShell dependency](installation.md#openshell-dependency).
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
