@@ -2,6 +2,8 @@
 
 This guide installs AI Factory Operations Agent on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](installation.md).
 
+Before using local command execution, complete the [sandbox permission checks](#sandbox-permissions-on-nmc). For SSH to compute nodes, also configure [direct compute-node SSH](#direct-ssh-to-compute-nodes); the head-node BCM connection alone does not enable it.
+
 For self-hosted inference on the separate GPU workload cluster, first follow [Self-hosted inference](#self-hosted-inference), then use its endpoint, served model name, and API key below. The bundled vLLM profile requires GPUs in the same cluster as the agent and should not be used on a GPU-free admin cluster.
 
 ## Execution environment
@@ -150,6 +152,122 @@ kubectl -n "$MOSAIC_NAMESPACE" logs deployment/openclaw -c install-kubectl --tai
 After correcting DNS, the init container retries automatically. Verify that it completes and the OpenClaw deployment becomes available. This failure does not require changing the CoreDNS image or Corefile when CoreDNS already resolves names successfully.
 
 </details>
+
+## Sandbox permissions on NMC
+
+The agent's `exec` tool runs commands in an OpenShell sandbox Pod in the agent namespace. A successful Base Command Manager query verifies the head-node connection; it does not verify sandbox startup. The sandbox controller can be healthy while NMC admission policies reject the sandbox Pods it creates.
+
+Before enabling sandbox execution, check the installed policy releases and inspect any failed sandbox:
+
+```bash
+module load kubernetes/k8s-admin
+MOSAIC_NAMESPACE=${MOSAIC_NAMESPACE:-aifoa}
+helm list -A
+kubectl -n "$MOSAIC_NAMESPACE" get sandboxes.agents.x-k8s.io
+kubectl -n "$MOSAIC_NAMESPACE" describe sandbox.agents.x-k8s.io SANDBOX_NAME
+```
+
+Replace `SANDBOX_NAME` with a name returned by the preceding command. If admission denied Pod creation, there may be no Pod to describe. Read the Sandbox's `Ready` condition and the admission error first.
+
+### Allow the sandbox capability set
+
+The verified OpenShell supervisor version `0.0.75` requires `SYS_ADMIN`, `NET_ADMIN`, `SYS_PTRACE`, and `SYSLOG` in addition to capabilities allowed by the baseline policy. NMC's Kyverno `disallow-capabilities` policy rejects these additions unless the platform administrator configures an exception. Inspect the rendered sandbox template when changing OpenShell versions; this capability set is version-specific.
+
+Make the change in the tracked source and values for the installed NMC policy chart, then upgrade its existing Helm release using the same chart version. Do not disable the cluster policy or exempt the whole agent namespace. The verified configuration used this scope for both the exception and a separate capability-ceiling rule:
+
+| Match | Value |
+| --- | --- |
+| Resource kind | `Pod` |
+| Namespace | The agent namespace |
+| Name | `openclaw-agent-*` |
+| Label | `agents.x-k8s.io/sandbox-name-hash` exists |
+
+All four conditions must match. The label and name identify controller-created sandbox Pods for policy selection; namespace write access remains an administrative trust boundary.
+
+For the validated `nmc-kyverno-policies` version `2.0.12`, the admin policy values use `kyverno-policies-admin.policyExclude.disallow-capabilities.any` for exclusions and `kyverno-policies-admin.customPolicies` for additional policies. Append the scoped exclusion and capability-ceiling policy to their existing lists, preserving all prior entries. Helm replaces arrays, so an overlay containing only the new entries would discard existing site configuration. Other NMC versions may expose different values; inspect the installed chart before editing.
+
+The capability-ceiling policy must enforce the site's existing baseline capability set plus the four additions above, checking regular, init, and ephemeral containers. A matching sandbox must still be denied if it requests another capability, such as `SYS_MODULE`. Keep unrelated admission rules and all pre-existing exclusions unchanged.
+
+Before upgrading the policy release, render the tracked chart and validate these boundaries:
+
+- A matching sandbox with the required capabilities is allowed.
+- A matching sandbox requesting an additional capability is denied.
+- An ordinary Pod in the agent namespace receives no new exception.
+- Pods in other namespaces retain their existing policy behavior.
+
+After the upgrade, ask the agent to run `pwd` and `uname -s` using its local `exec` tool in a fresh conversation. Confirm a successful tool result, rather than only a healthy controller. The verified setup returned `/sandbox` and `Linux`. Older failed sandboxes can remain in controller retry backoff; inspect their current conditions separately before declaring those conversations recovered.
+
+## Direct SSH to compute nodes
+
+The installation command above enables the Base Command Manager adapter's SSH connection to the head node. Direct compute-node SSH uses the separate `run_remote_ssh` connector, which runs in the OpenClaw gateway Pod. Selecting Auto mode does not install this connector, enroll hosts, or override admission and network policies.
+
+### Enroll targets and credentials
+
+Resolve each target's hostname and management address from Base Command Manager inventory. Verify its SSH host public key through a trusted management path, such as an authenticated Base Command Manager `pexec` query of the node's `/etc/ssh/ssh_host_ed25519_key.pub`. A network key scan alone does not establish the node's identity. Enroll only targets whose identity has been verified; defer unavailable nodes rather than disabling host-key verification.
+
+Create a dedicated Kubernetes Secret for the connector through the site's credential-management workflow. It needs two keys:
+
+| Secret key | Contents |
+| --- | --- |
+| `privateKey` | An SSH private key authorized for the configured account on the enrolled targets |
+| `knownHosts` | OpenSSH known-hosts entries for the configured target addresses and verified public keys |
+
+Use the destination address from the connector's host configuration in each known-hosts entry. Nonstandard ports require OpenSSH's `[address]:port` form. The verified setup used IP-address entries and port 22.
+
+An existing BCM SSH identity can be reused only if that identity is authorized for the intended compute-node access. The verified installation reused its existing credential through a separate connector Secret without changing the source Secret. Neither private keys nor Secret manifests containing credential data belong in Git, Helm values, documentation, or chat messages.
+
+The following example creates a new Secret from protected local files without embedding their contents in Helm values. Set the two file-path variables through your site's credential workflow; do not overwrite an existing Secret without reviewing its consumers.
+
+```bash
+: "${MOSAIC_NAMESPACE:?Set the existing agent namespace}"
+: "${NODE_SSH_KEY_PATH:?Set the protected private-key file path}"
+: "${NODE_KNOWN_HOSTS_PATH:?Set the verified known-hosts file path}"
+kubectl -n "$MOSAIC_NAMESPACE" create secret generic mosaic-node-ssh \
+  --from-file=privateKey="$NODE_SSH_KEY_PATH" \
+  --from-file=knownHosts="$NODE_KNOWN_HOSTS_PATH"
+```
+
+Add the connector settings to tracked site values. Replace the documentation-only address below with an inventory-verified address, and choose the intended SSH account. The account must accept the key in the Secret.
+
+```yaml
+modules:
+  edit:
+    enabled: true
+    ssh:
+      enabled: true
+      existingSecret: mosaic-node-ssh
+      privateKeyKey: privateKey
+      knownHostsKey: knownHosts
+      hosts:
+        - alias: compute-01
+          address: 192.0.2.30
+          user: root
+          port: 22
+```
+
+Enabling the Edit module also exposes the other edit capabilities selected by the site's values. Review those settings and the [security model](security_model.md) before enabling it for the first time. Preserve existing module selections and approval settings when adding SSH. The example does not turn off per-operation approval in Edit mode; Auto is selected separately for an interactive conversation.
+
+### Permit the required network path
+
+The namespace allowlist configured earlier permits traffic between listed platform namespaces. Compute-node management IPs need a separate permitted path when the site enforces default-deny egress.
+
+The verified Calico configuration permits TCP port 22 from gateway Pods labeled `app=openclaw` and BCM adapter Pods labeled `app=bcm-mcp-tools` in the agent namespace to explicit, inventory-verified compute-node `/32` addresses. The gateway needs this path for `run_remote_ssh`; the BCM adapter needs it for MCP tools that SSH directly to those targets. A successful SSH connection from the head node does not test either Pod's network path.
+
+Add this rule through tracked site network-policy source and its Helm release. Preserve the global default deny and unrelated rules. Confirm the actual Pod labels and Calico policy ordering: an allow rule must be evaluated before a matching terminal deny. The verified site used order `100`; inspect the site's policies instead of assuming that number is suitable everywhere. Restrict destinations to the enrolled management addresses and use each target's configured SSH port.
+
+Upgrade the existing agent release from its selected chart artifact with the tracked SSH values, preserving its other settings. Use the same chart version for a configuration-only change, or the explicitly chosen upgrade version. The chart provisions its SSH client and mounts the connector credentials; installing a client manually inside the running container is unnecessary.
+
+### Verify the complete request
+
+After the agent rollout completes, confirm that `run_remote_ssh` appears in its tool catalog. In an interactive conversation, ask it to list a directory on an enrolled alias, for example `compute-01`. Inspect the activity result for the target alias, actual command, exit code, and directory listing. The connector takes structured arguments such as:
+
+```json
+{"host": "compute-01", "argv": ["ls", "-la", "/root"]}
+```
+
+Use a directory readable by the configured account. The verified request returned a real directory listing with exit code `0`. A BCM inventory result or an SSH test from the head node is not a substitute for this check.
+
+If the tool is missing, inspect connector enablement and gateway startup. For connection timeouts, inspect the Pod-to-target network path. For authentication or host-key failures, check the configured account, credential and verified host identity without bypassing verification. A local `exec` result saying the sandbox is not ready belongs to the sandbox checks above and does not establish that an SSH client is missing.
 
 ## Self-hosted inference
 
