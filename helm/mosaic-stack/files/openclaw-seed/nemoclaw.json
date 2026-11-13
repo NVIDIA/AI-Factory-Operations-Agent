@@ -243,11 +243,15 @@
       "observability",
       "remote-ssh",
       "slurm",
+      "llm-task",
       "llm"{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
     "entries": {
+      "llm-task": {
+        "enabled": true
+      },
       "automation-guard": {
         "enabled": true,
         "hooks": {

@@ -65,6 +65,8 @@ const READ_ONLY_TOOLS = new Set([
   "iraop_list_documents",
   "iraop_query",
   "grep",
+  // Bundled isolated completion runs with tools disabled and no workload mutations.
+  "llm-task",
   "ls",
   "memory_get",
   "memory_search",
