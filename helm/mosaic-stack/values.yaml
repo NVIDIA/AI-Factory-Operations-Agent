@@ -381,7 +381,7 @@ slurmEvidenceCollector:
     secretKey: token
   image:
     repository: node
-    tag: 20-bookworm-slim
+    tag: 24-bookworm-slim
     pullPolicy: IfNotPresent
   port: 8080
   maxFileBytes: 65536
