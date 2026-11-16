@@ -83,10 +83,12 @@ modules:
     # Secret holding the API key under apiKeySecretKey; required for brave.
     existingSecret: ""
     apiKeySecretKey: WEB_SEARCH_KEY
+    duckduckgo:
+      pluginVersion: 2026.11.4
+      pluginSha256: 4ae848c0c0c40bc6c2b1d526c94569dbd2c05a329f15814eb7d1a3b3b06bf42f
     brave:
-      # OpenClaw 2026.6.10 does not bundle Brave; install the matching official plugin.
-      pluginVersion: 2026.6.10
-      pluginSha256: e922a777c4b1bce6c905c47f328ea8c2b3c3ca7bc86b6f736cf52d5fdfc46b75
+      pluginVersion: 2026.11.4
+      pluginSha256: e6778cb7cff094a2e2b6ce1fbdb87788ae3a4e349abed1c5c87741a2e5451419
   clusters:
     enabled: false
   edit:
@@ -317,10 +319,10 @@ openclaw:
     streaming:
       mode: partial
       nativeTransport: true
-    pluginVersion: 2026.6.6
+    pluginVersion: 2026.11.4
   image:
     repository: ghcr.io/openclaw/openclaw
-    tag: 2026.6.10
+    tag: 2026.11.4
     pullPolicy: IfNotPresent
   opensshInstallerImage: alpine/git@sha256:e043be20669db13cbcfb6190192babee4cf2dca98709bb0c2d08ca2d35a0a06a
   pvc:
@@ -339,8 +341,8 @@ openclaw:
     cliSha256:
       amd64: 9b9331644d0b6350030c521047490314b594591547b4ca28ef105b7adad73eb8
       arm64: c7bf758ed864ef375ba3358d39b4d6e4b80da9e451b67a47ae1341df82c362e0
-    pluginVersion: 2026.6.6
-    pluginSha256: 1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33
+    pluginVersion: 2026.11.4
+    pluginSha256: c9a4451a65b1c1da97e7c0f503cb1d3d876feede970c26e9e96a3e9331d373a0
     # Optional mirrored or source-built package; pluginSha256 must match.
     pluginArchiveUrl: ""
   service:

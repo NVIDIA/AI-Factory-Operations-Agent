@@ -341,7 +341,6 @@ spec:
             - -c
             - |
               node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force
-              node /seed/slack-enterprise-grid-patch.mjs
           env:
             - name: HOME
               value: /home/node
@@ -354,7 +353,8 @@ spec:
             - name: openclaw-seed
               mountPath: /seed
         {{- end }}
-        {{- if and .Values.modules.webSearch.enabled (eq .Values.modules.webSearch.provider "brave") }}
+        {{- if .Values.modules.webSearch.enabled }}
+        {{- $search := index .Values.modules.webSearch .Values.modules.webSearch.provider }}
         - name: init-web-search-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
@@ -363,14 +363,14 @@ spec:
             - -c
             - |
               set -eu
-              plugin=/tmp/brave-plugin.tar.gz
+              plugin=/tmp/web-search-plugin.tar.gz
               curl -fsSL --retry 5 --retry-all-errors -o "$plugin" \
-                "https://registry.npmjs.org/@openclaw/brave-plugin/-/brave-plugin-{{ .Values.modules.webSearch.brave.pluginVersion }}.tgz"
-              printf '%s  %s\n' {{ .Values.modules.webSearch.brave.pluginSha256 | quote }} "$plugin" | sha256sum -c -
-              rm -rf /tmp/brave-plugin
-              mkdir -p /tmp/brave-plugin
-              tar -xzf "$plugin" --strip-components=1 -C /tmp/brave-plugin
-              node /app/dist/index.js plugins install /tmp/brave-plugin --force
+                "https://registry.npmjs.org/@openclaw/{{ .Values.modules.webSearch.provider }}-plugin/-/{{ .Values.modules.webSearch.provider }}-plugin-{{ $search.pluginVersion }}.tgz"
+              printf '%s  %s\n' {{ $search.pluginSha256 | quote }} "$plugin" | sha256sum -c -
+              rm -rf /tmp/web-search-plugin
+              mkdir -p /tmp/web-search-plugin
+              tar -xzf "$plugin" --strip-components=1 -C /tmp/web-search-plugin
+              node /app/dist/index.js plugins install /tmp/web-search-plugin --force
           env:
             - name: HOME
               value: /home/node
@@ -535,7 +535,7 @@ spec:
         - name: gateway
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
-          command: ["node", "/app/dist/index.js", "gateway", "run"]
+          args: ["node", "/app/dist/index.js", "gateway", "run"]
           env:
             {{- $customTmpdir := false }}
             {{- range .Values.openclaw.extraEnv }}

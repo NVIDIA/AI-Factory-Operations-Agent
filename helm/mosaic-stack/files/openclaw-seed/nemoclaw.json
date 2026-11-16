@@ -58,19 +58,21 @@
       "dangerouslyDisableDeviceAuth": true
     }
   },
+  "memory": {
+    "search": {
+      "provider": "none",
+      "store": {
+        "vector": {
+          "enabled": false
+        }
+      }
+    }
+  },
   "agents": {
     "defaults": {
       {{- if .Values.openclaw.bootstrapSkills }}
       "bootstrapMaxChars": {{ add 1024 (len (tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") .)) }},
       {{- end }}
-      "memorySearch": {
-        "provider": "none",
-        "store": {
-          "vector": {
-            "enabled": false
-          }
-        }
-      },
       "workspace": "~/.openclaw/workspace",
       "model": {
         "primary": "llm/{{ include "mosaic-stack.llmModel" . }}"
@@ -95,9 +97,8 @@
         "workspaceAccess": "ro"
       }
     },
-    "list": [
-      {
-        "id": "default",
+    "entries": {
+      "default": {
         "name": {{ default "AI Factory Operations Agent" .Values.openclaw.agentDisplayName | toJson }},
         {{- if .Values.openclaw.agentDisplayName }}
         "identity": {
@@ -108,7 +109,7 @@
         "thinkingDefault": {{ $thinkingDefault | quote }},
         "reasoningDefault": "off"
       }
-    ]
+    }
   },
   {{- if .Values.openclaw.slack.enabled }}
   "session": {
@@ -243,7 +244,7 @@
       "observability",
       "remote-ssh",
       "slurm",
-      "llm"{{- if .Values.openclaw.slack.enabled }},
+      "memory-core"{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
@@ -277,7 +278,7 @@
           "slackEditUserIds": {{ .Values.openclaw.slack.editUserIds | toJson }}
         }
       },
-      "llm": {
+      "memory-core": {
         "enabled": true
       }{{- if .Values.openclaw.slack.enabled }},
       "slack": {
