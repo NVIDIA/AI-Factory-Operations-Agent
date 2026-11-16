@@ -45,6 +45,7 @@ Tenant and operator deployments <docs/multitenancy>
 Use cases <docs/use_cases>
 Slurm root cause analysis <docs/slurm_rca>
 Loki query reference <docs/loki>
+Minerva MCP integration <docs/minerva>
 Headless integration <docs/skills/ai-factory-operations-agent-headless/SKILL>
 ```
 

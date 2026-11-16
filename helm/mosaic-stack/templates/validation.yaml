@@ -222,7 +222,7 @@
 {{- if or (gt (len $name) 30) (not (regexMatch "^[a-z]([-a-z0-9]*[a-z0-9])?$" $name)) -}}
 {{- fail (printf "externalMcpServers.%s has an invalid name" $name) -}}
 {{- end -}}
-{{- if hasKey $.Values.managedMcpServers.servers $name -}}
+{{- if and (hasKey $.Values.managedMcpServers.servers $name) (get $.Values.managedMcpServers.servers $name).enabled -}}
 {{- fail (printf "externalMcpServers.%s conflicts with a managed MCP server" $name) -}}
 {{- end -}}
 {{- if or (not $.Values.modules.execution.enabled) (not $.Values.openclaw.enabled) -}}

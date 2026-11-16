@@ -95,6 +95,14 @@ For questions about one GPU running hotter in a Kubernetes deployment, inspect d
 
 In View, explain a proposed Kubernetes remediation without running it. `run_kubectl` remains inspection-only in every mode; requested changes in Edit or Auto use `run_kubectl_admin`.
 
+{{- if or .Values.managedMcpServers.servers.minerva.enabled (hasKey .Values.externalMcpServers "minerva") }}
+## Minerva
+
+These Minerva investigation instructions are already loaded:
+
+{{ .Files.Get "files/openclaw-seed/skills/minerva/SKILL.md" }}
+{{- end }}
+
 ## Observability And Grafana
 
 For cluster metrics, use the observability tools and Prometheus/Grafana extensions before raw shell parsing. For dashboard requests, create concise Grafana dashboard output from concrete metric names and query evidence.

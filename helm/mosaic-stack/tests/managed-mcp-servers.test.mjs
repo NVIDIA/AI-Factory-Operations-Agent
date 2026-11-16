@@ -64,6 +64,22 @@ test("passes container arguments and secret-backed native MCP headers", () => {
   assert.match(config, /"mcpToolPolicies": \{[\s\S]*?"example": \{"defaultAccess":"view","viewTools":\[\]\}/);
 });
 
+test("runs images without a declared user under the configured non-root UID", () => {
+  for (const uid of [1001, 65532]) {
+    const workload = render(
+      ...enabled,
+      "--set", `managedMcpServers.servers.example.runAsUser=${uid}`,
+      "--show-only", "templates/managed-mcp-servers.yaml",
+    );
+    assert.match(workload, new RegExp(`runAsNonRoot: true\\s+runAsUser: ${uid}`));
+    assert.match(workload, /readOnlyRootFilesystem: true/);
+  }
+  assert.doesNotMatch(
+    render(...enabled, "--show-only", "templates/managed-mcp-servers.yaml"),
+    /runAsUser:/,
+  );
+});
+
 test("mounts an optional private CA only in the managed server", () => {
   const workload = render(
     ...enabled,
@@ -136,6 +152,17 @@ test("accepts an in-cluster external MCP service", () => {
     "--show-only", "templates/openclaw-seed-configmap.yaml",
   );
   assert.match(config, /http:\/\/inventory\.tools\.svc\.cluster\.local:8080\/mcp/);
+});
+
+test("external endpoints conflict only with enabled managed servers", () => {
+  for (const active of [false, true]) {
+    const result = spawnSync("helm", ["template", "mosaic", chart, ...enabled,
+      "--set", `managedMcpServers.servers.example.enabled=${active}`,
+      "--set", "externalMcpServers.example.url=https://example.com/mcp",
+    ], { encoding: "utf8" });
+    assert.equal(result.status === 0, !active);
+    if (!active) assert.match(result.stdout, /"example":\{"transport":"streamable-http","url":"https:\/\/example\.com\/mcp"\}/);
+  }
 });
 
 test("registers Run:ai and external MCP with separate installer policies", () => {

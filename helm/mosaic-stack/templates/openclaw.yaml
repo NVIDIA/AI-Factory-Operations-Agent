@@ -158,6 +158,7 @@ spec:
                 /home/node/.openclaw/workspace/skills/diagnostic-agent \
                 /home/node/.openclaw/workspace/skills/hardware-agent \
                 /home/node/.openclaw/workspace/skills/iraop \
+                /home/node/.openclaw/workspace/skills/minerva \
                 /home/node/.openclaw/workspace/skills/observability \
                 /home/node/.openclaw/workspace/skills/slurm
               rm -f /home/node/.openclaw/extensions/automation-context.ts \
@@ -238,6 +239,10 @@ spec:
               rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
               mkdir -p /home/node/.openclaw/workspace/skills/gpu-networking
               cp /seed/gpu-networking.SKILL.md /home/node/.openclaw/workspace/skills/gpu-networking/SKILL.md
+              {{- if or .Values.managedMcpServers.servers.minerva.enabled (hasKey .Values.externalMcpServers "minerva") }}
+              mkdir -p /home/node/.openclaw/workspace/skills/minerva
+              cp /seed/minerva.SKILL.md /home/node/.openclaw/workspace/skills/minerva/SKILL.md
+              {{- end }}
               documentation=/home/node/.openclaw/workspace/product-docs
               rm -rf "$documentation" /home/node/.openclaw/workspace/skills/agent-documentation
               mkdir -p "$documentation"

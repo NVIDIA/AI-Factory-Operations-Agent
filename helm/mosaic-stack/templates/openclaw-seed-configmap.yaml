@@ -28,6 +28,10 @@ data:
 {{ tpl (.Files.Get "files/openclaw-seed/nemoclaw.json") . | indent 4 }}
   gpu-networking.SKILL.md: |-
 {{ .Files.Get "files/openclaw-seed/skills/gpu-networking/SKILL.md" | indent 4 }}
+  {{- if or .Values.managedMcpServers.servers.minerva.enabled (hasKey .Values.externalMcpServers "minerva") }}
+  minerva.SKILL.md: |-
+{{ .Files.Get "files/openclaw-seed/skills/minerva/SKILL.md" | indent 4 }}
+  {{- end }}
   {{- range $path, $_ := .Files.Glob "files/openclaw-seed/skills/**/references/**" }}
   skill-reference-{{ sha256sum $path }}: |-
 {{ $.Files.Get $path | indent 4 }}

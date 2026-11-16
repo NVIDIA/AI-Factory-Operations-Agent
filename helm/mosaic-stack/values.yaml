@@ -461,6 +461,8 @@ managedMcpServers:
     path: /mcp
     transport: streamable-http
     args: []
+    # Set a non-root UID when the image does not declare one.
+    runAsUser: null
     image:
       pullPolicy: IfNotPresent
     env: {}
@@ -484,6 +486,16 @@ managedMcpServers:
         cpu: 500m
         memory: 512Mi
   servers:
+    minerva:
+      enabled: false
+      image:
+        repository: ""
+        digest: ""
+      # Set port/path and backend configuration for your supplied server image.
+      runAsUser: 65532
+      toolPolicy:
+        defaultAccess: edit
+        viewTools: [list_capabilities, get_capability_schema, druid_query, get_neo4j_schema, neo4j_query]
     runai:
       enabled: false
       image:

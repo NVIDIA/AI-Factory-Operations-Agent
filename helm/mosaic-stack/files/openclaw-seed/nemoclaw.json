@@ -60,7 +60,7 @@
   },
   "agents": {
     "defaults": {
-      {{- if .Values.openclaw.bootstrapSkills }}
+      {{- if or .Values.openclaw.bootstrapSkills .Values.managedMcpServers.servers.minerva.enabled (hasKey .Values.externalMcpServers "minerva") }}
       "bootstrapMaxChars": {{ add 1024 (len (tpl (.Files.Get "files/openclaw-seed/workspace/AGENTS.md") .)) }},
       {{- end }}
       "memorySearch": {
@@ -78,6 +78,9 @@
       "skills": [
         "bcm",
         "gpu-networking",
+        {{- if or .Values.managedMcpServers.servers.minerva.enabled (hasKey .Values.externalMcpServers "minerva") }}
+        "minerva",
+        {{- end }}
         "hardware-agent",
         "iraop",
         "observability",

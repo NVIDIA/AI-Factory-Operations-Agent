@@ -81,6 +81,9 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            {{- with $server.runAsUser }}
+            runAsUser: {{ . }}
+            {{- end }}
           {{- if $server.tls.existingSecret }}
           volumeMounts:
             - name: server-ca
