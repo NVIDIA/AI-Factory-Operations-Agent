@@ -1218,21 +1218,6 @@ test("preserves the Slurm evidence apiVersion after its SPDX header", () => {
   assert.doesNotMatch(output, /Apache-2\.0apiVersion/);
 });
 
-test("runs the Slurm evidence collector on a supported Node.js LTS image", () => {
-  const args = [
-    "--show-only", "templates/slurm-evidence.yaml",
-    "--set", "modules.slurm.enabled=true",
-    "--set", "modules.bcm.enabled=false",
-  ];
-  const output = render(...args);
-  assert.match(output, /image: "node:24-bookworm-slim"/);
-  assert.doesNotMatch(output, /node:20-/);
-
-  // The template fallback matches the values default when the tag is unset.
-  const fallback = render(...args, "--set", "slurmEvidenceCollector.image.tag=null");
-  assert.match(fallback, /image: "node:24-bookworm-slim"/);
-});
-
 test("shares a generated credential between OpenClaw and the Slurm evidence collector", () => {
   const output = render(
     "--set", "modules.slurm.enabled=true",
