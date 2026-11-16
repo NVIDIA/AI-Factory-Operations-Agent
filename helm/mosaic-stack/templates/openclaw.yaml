@@ -124,13 +124,15 @@ spec:
         - name: init-perms
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
-          command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw && chmod 0775 /home/node/.openclaw"]
+          command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw /run/openclaw-tmp && chmod 0775 /home/node/.openclaw && chmod 0700 /run/openclaw-tmp"]
           securityContext:
             runAsUser: 0
             runAsGroup: 0
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
+            - name: runtime-tmp
+              mountPath: /run/openclaw-tmp
         - name: init-config
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
@@ -538,11 +540,17 @@ spec:
           args: ["node", "/app/dist/index.js", "gateway", "run"]
           env:
             {{- $customTmpdir := false }}
+            {{- $customCache := false }}
             {{- range .Values.openclaw.extraEnv }}
             {{- if eq .name "TMPDIR" }}{{- $customTmpdir = true }}{{- end }}
+            {{- if eq .name "XDG_CACHE_HOME" }}{{- $customCache = true }}{{- end }}
             {{- end }}
             {{- if not $customTmpdir }}
             - name: TMPDIR
+              value: /run/openclaw-tmp/runtime
+            {{- end }}
+            {{- if not $customCache }}
+            - name: XDG_CACHE_HOME
               value: /run/openclaw-tmp/runtime
             {{- end }}
             {{- with .Values.openclaw.extraEnv }}
