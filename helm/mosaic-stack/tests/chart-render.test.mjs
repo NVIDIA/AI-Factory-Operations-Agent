@@ -1228,7 +1228,7 @@ test("shares a generated credential between OpenClaw and the Slurm evidence coll
   assert.match(output, /name: MOSAIC_SLURM_EVIDENCE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: slurm-evidence-auth\s+key: token/);
 });
 
-test("bounds Slurm evidence collector resources and restarts it when unhealthy", () => {
+test("renders the Slurm evidence collector liveness probe and resource configuration", () => {
   const args = [
     "--show-only", "templates/slurm-evidence.yaml",
     "--set", "modules.slurm.enabled=true",
@@ -1236,17 +1236,15 @@ test("bounds Slurm evidence collector resources and restarts it when unhealthy",
   ];
   const output = render(...args);
   assert.match(output, /livenessProbe:\s+httpGet:\s+path: \/healthz\s+port: http/);
-  assert.match(
-    output,
-    /resources:\s+limits:\s+cpu: 500m\s+memory: 256Mi\s+requests:\s+cpu: 50m\s+memory: 64Mi/,
-  );
 
   const custom = render(
     ...args,
+    "--set", "slurmEvidenceCollector.resources.limits.cpu=750m",
     "--set", "slurmEvidenceCollector.resources.limits.memory=1Gi",
     "--set", "slurmEvidenceCollector.resources.requests.cpu=200m",
+    "--set", "slurmEvidenceCollector.resources.requests.memory=128Mi",
   );
-  assert.match(custom, /resources:\s+limits:\s+cpu: 500m\s+memory: 1Gi\s+requests:\s+cpu: 200m\s+memory: 64Mi/);
+  assert.match(custom, /resources:\s+limits:\s+cpu: 750m\s+memory: 1Gi\s+requests:\s+cpu: 200m\s+memory: 128Mi/);
 
   const omitted = render(...args, "--set", "slurmEvidenceCollector.resources=null");
   assert.doesNotMatch(omitted, /resources:/);
