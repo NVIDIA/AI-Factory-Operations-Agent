@@ -340,7 +340,7 @@ spec:
             - sh
             - -c
             - |
-              node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force
+              node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force --accept-capabilities
           env:
             - name: HOME
               value: /home/node
@@ -370,7 +370,7 @@ spec:
               rm -rf /tmp/web-search-plugin
               mkdir -p /tmp/web-search-plugin
               tar -xzf "$plugin" --strip-components=1 -C /tmp/web-search-plugin
-              node /app/dist/index.js plugins install /tmp/web-search-plugin --force
+              node /app/dist/index.js plugins install /tmp/web-search-plugin --force --accept-capabilities
           env:
             - name: HOME
               value: /home/node
@@ -503,7 +503,7 @@ spec:
             - -c
             - |
               set -eu
-              node /app/dist/index.js plugins install /openshell-plugin --force
+              node /app/dist/index.js plugins install /openshell-plugin --force --accept-capabilities
               config_root=/home/node/.openclaw/.config/openshell
               gateway_name={{ include "mosaic-stack.openshellGatewayName" . | quote }}
               gateway_endpoint={{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}
