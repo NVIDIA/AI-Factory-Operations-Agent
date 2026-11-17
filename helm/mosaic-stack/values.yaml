@@ -396,6 +396,8 @@ slurmEvidenceCollector:
     - /cm/shared/apps/slurm/etc
     - /run/log/journal
     - /var/log/journal
+  # Optional container resource requests and limits; omitted by default.
+  resources: {}
 
 bcmMcp:
   enabled: false

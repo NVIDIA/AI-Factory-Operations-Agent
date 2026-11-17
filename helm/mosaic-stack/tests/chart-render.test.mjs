@@ -1228,6 +1228,30 @@ test("shares a generated credential between OpenClaw and the Slurm evidence coll
   assert.match(output, /name: MOSAIC_SLURM_EVIDENCE_TOKEN\s+valueFrom:\s+secretKeyRef:\s+name: slurm-evidence-auth\s+key: token/);
 });
 
+test("renders the Slurm evidence collector liveness probe and resource configuration", () => {
+  const args = [
+    "--show-only", "templates/slurm-evidence.yaml",
+    "--set", "modules.slurm.enabled=true",
+    "--set", "modules.bcm.enabled=false",
+  ];
+  const output = render(...args);
+  assert.match(output, /livenessProbe:\s+httpGet:\s+path: \/healthz\s+port: http/);
+  assert.doesNotMatch(output, /resources:/);
+
+  const custom = render(
+    ...args,
+    "--set", "slurmEvidenceCollector.resources.limits.cpu=750m",
+    "--set", "slurmEvidenceCollector.resources.limits.memory=1Gi",
+    "--set", "slurmEvidenceCollector.resources.requests.cpu=200m",
+    "--set", "slurmEvidenceCollector.resources.requests.memory=128Mi",
+  );
+  assert.match(custom, /resources:\s+limits:\s+cpu: 750m\s+memory: 1Gi\s+requests:\s+cpu: 200m\s+memory: 128Mi/);
+
+  const omitted = render(...args, "--set", "slurmEvidenceCollector.resources=null");
+  assert.doesNotMatch(omitted, /resources:/);
+  assert.match(omitted, /livenessProbe:/);
+});
+
 test("rejects an unregistered default Kubernetes cluster", () => {
   const result = spawnSync(
     "helm",
