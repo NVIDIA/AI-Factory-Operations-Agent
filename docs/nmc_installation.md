@@ -2,7 +2,7 @@
 
 This guide installs AI Factory Operations Agent on an NVIDIA Mission Control admin cluster. For upgrades, verification, LLM configuration, module reference, UI access, and headless usage, see the [shared Helm guide](installation.md).
 
-Before using local command execution, complete the [sandbox permission checks](#sandbox-permissions-on-nmc). For SSH to compute nodes, also configure [direct compute-node SSH](#direct-ssh-to-compute-nodes); the head-node BCM connection alone does not enable it.
+Before using local command execution, complete the [sandbox permission checks](#sandbox-permissions-on-nmc). For SSH to compute nodes, also configure [direct compute-node SSH](#direct-ssh-to-compute-nodes); the head-node Base Command Manager connection alone does not enable it.
 
 For self-hosted inference on the separate GPU workload cluster, first follow [Self-hosted inference](#self-hosted-inference), then use its endpoint, served model name, and API key below. The bundled vLLM profile requires GPUs in the same cluster as the agent and should not be used on a GPU-free admin cluster.
 
@@ -214,7 +214,7 @@ Create a dedicated Kubernetes Secret for the connector through the site's creden
 
 Use the destination address from the connector's host configuration in each known-hosts entry. Nonstandard ports require OpenSSH's `[address]:port` form. The verified setup used IP-address entries and port 22.
 
-An existing BCM SSH identity can be reused only if that identity is authorized for the intended compute-node access. The verified installation reused its existing credential through a separate connector Secret without changing the source Secret. Neither private keys nor Secret manifests containing credential data belong in Git, Helm values, documentation, or chat messages.
+An existing Base Command Manager SSH identity can be reused only if that identity is authorized for the intended compute-node access. The verified installation reused its existing credential through a separate connector Secret without changing the source Secret. Neither private keys nor Secret manifests containing credential data belong in Git, Helm values, documentation, or chat messages.
 
 The following example creates a new Secret from protected local files without embedding their contents in Helm values. Set the two file-path variables through your site's credential workflow; do not overwrite an existing Secret without reviewing its consumers.
 
@@ -251,7 +251,7 @@ Enabling the Edit module also exposes the other edit capabilities selected by th
 
 The namespace allowlist configured earlier permits traffic between listed platform namespaces. Compute-node management IPs need a separate permitted path when the site enforces default-deny egress.
 
-The verified Calico configuration permits TCP port 22 from gateway Pods labeled `app=openclaw` and BCM adapter Pods labeled `app=bcm-mcp-tools` in the agent namespace to explicit, inventory-verified compute-node `/32` addresses. The gateway needs this path for `run_remote_ssh`; the BCM adapter needs it for MCP tools that SSH directly to those targets. A successful SSH connection from the head node does not test either Pod's network path.
+The verified Calico configuration permits TCP port 22 from gateway Pods labeled `app=openclaw` and Base Command Manager adapter Pods labeled `app=bcm-mcp-tools` in the agent namespace to explicit, inventory-verified compute-node `/32` addresses. The gateway needs this path for `run_remote_ssh`; the Base Command Manager adapter needs it for MCP tools that SSH directly to those targets. A successful SSH connection from the head node does not test either Pod's network path.
 
 Add this rule through tracked site network-policy source and its Helm release. Preserve the global default deny and unrelated rules. Confirm the actual Pod labels and Calico policy ordering: an allow rule must be evaluated before a matching terminal deny. The verified site used order `100`; inspect the site's policies instead of assuming that number is suitable everywhere. Restrict destinations to the enrolled management addresses and use each target's configured SSH port.
 
@@ -265,7 +265,7 @@ After the agent rollout completes, confirm that `run_remote_ssh` appears in its 
 {"host": "compute-01", "argv": ["ls", "-la", "/root"]}
 ```
 
-Use a directory readable by the configured account. The verified request returned a real directory listing with exit code `0`. A BCM inventory result or an SSH test from the head node is not a substitute for this check.
+Use a directory readable by the configured account. The verified request returned a real directory listing with exit code `0`. A Base Command Manager inventory result or an SSH test from the head node is not a substitute for this check.
 
 If the tool is missing, inspect connector enablement and gateway startup. For connection timeouts, inspect the Pod-to-target network path. For authentication or host-key failures, check the configured account, credential and verified host identity without bypassing verification. A local `exec` result saying the sandbox is not ready belongs to the sandbox checks above and does not establish that an SSH client is missing.
 ## UI endpoint
@@ -283,8 +283,8 @@ Use the [HTTPS settings](installation.md#usage) to attach the chart's HTTPRoute.
 The Gateway must allow routes from the agent namespace.
 
 The site owns MetalLB, IP reservations, Gateway, DNS and certificates; the agent
-chart owns its Service and HTTPRoute. See the [BCM Gateway API release notes](https://docs.nvidia.com/base-command-manager/bcm-11-release-notes/bcm11-33-0.html).
-BCM also supports [custom DNS zones](https://docs.nvidia.com/base-command-manager/product-manuals/admin/configuring)
+chart owns its Service and HTTPRoute. See the [Base Command Manager Gateway API release notes](https://docs.nvidia.com/base-command-manager/bcm-11-release-notes/bcm11-33-0.html).
+Base Command Manager also supports [custom DNS zones](https://docs.nvidia.com/base-command-manager/product-manuals/admin/configuring)
 through its preserved DNS include file. Clients must use a resolver that knows
 the site's AFOA record and trust its certificate issuer. An IP assignment alone
 does not configure DNS or client trust.

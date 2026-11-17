@@ -298,7 +298,7 @@ mosaicUi:
 The chart creates an `HTTPRoute` to the internal UI Service and preserves the
 existing login. The site manages Kgateway, the MetalLB address, DNS and a trusted
 certificate covering the hostname. The Gateway must be in the same cluster and
-allow routes from the agent namespace. For BCM-managed NMC installations, use a
+allow routes from the agent namespace. For Base Command Manager-managed NMC installations, use a
 dedicated HTTPS Gateway to follow the Run:ai endpoint pattern. Keep development
 and shared-user releases in separate namespaces to isolate upgrades.
 

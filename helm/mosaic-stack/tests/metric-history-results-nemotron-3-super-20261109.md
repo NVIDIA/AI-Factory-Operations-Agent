@@ -11,12 +11,12 @@ The source-sample helper is useful; this result does **not** justify closing #10
 | Field | Value |
 | --- | --- |
 | Model | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4` |
-| Weights revision | `ff433f5493e25d631c9f12b5d55c674229923d02` |
+| Weights revision | Recorded in the companion machine-readable results |
 | Precision | Unchanged ModelOpt mixed policy: 40,961 NVFP4 and 139 FP8 entries; FP8 KV cache |
 | Hardware / serving | DGX Spark GB10; driver 580.173.02; Linux ARM64; vLLM 0.27.1; Torch 2.13.0+cu130 |
-| ARM64 image | `vllm/vllm-openai@sha256:1c8e60a0841b333c700488cb029d3664807249da0c071e862191b00fe34b228c` |
-| Baseline | `307afa7e485a334389b4f2c8c68128fbf84ff007` |
-| Candidate | `8305d59e44470e10d268a4e60fc36870929b2e27` |
+| ARM64 image | Pinned vLLM image recorded in the companion results |
+| Baseline | Recorded in the companion machine-readable results |
+| Candidate | Recorded in the companion machine-readable results |
 | Protocol | Checkpoint-pinned tokenizer/template and `super_v3` reasoning parser; `qwen3_coder` tool parser |
 | Generation | Temperature 1.0; top_p 0.95; thinking explicitly disabled; seeds 1, 2, 3 |
 | Budgets | 24 model turns; 8,192 generated tokens per turn; 180,000 ms per request |

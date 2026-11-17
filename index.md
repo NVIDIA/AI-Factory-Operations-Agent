@@ -46,6 +46,8 @@ Use cases <docs/use_cases>
 Slurm root cause analysis <docs/slurm_rca>
 Loki query reference <docs/loki>
 Alertmanager webhook <docs/alertmanager_webhook>
+Teams Graph bridge <utils/teams_graph_channel/README>
+Teams Graph validation <utils/teams_graph_channel/VALIDATION>
 Headless integration <docs/skills/ai-factory-operations-agent-headless/SKILL>
 ```
 

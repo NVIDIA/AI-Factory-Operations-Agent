@@ -19,6 +19,9 @@ The optional **Read-only Redfish** checkbox appears inside the Base Command Mana
 For a checksum-verified mirrored or source-built sandbox backend package, configure the advanced values described under [OpenShell dependency](installation.md#openshell-dependency).
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
+
+For a site-managed endpoint, configure the advanced [MetalLB Service](installation.md#direct-ip-access-with-metallb) or [HTTPS Gateway route](installation.md#usage) settings. Port forwarding and local login remain available.
+
 Select **Alertmanager webhook (push)** to install the optional receiver. Create
 the dedicated inbound Secret and configure Alertmanager using the
 [webhook guide](alertmanager_webhook.md); the generated command does not change

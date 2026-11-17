@@ -247,7 +247,7 @@ network. Update the Shorewall configuration if the Kind network is recreated.
 ## Head-node scripts
 
 In `bcmMcp.mode: ssh-adapter`, `bcm_execute_headnode_script` runs selected
-read-only BCM utilities over the configured head-node SSH connection. It is
+read-only Base Command Manager utilities over the configured head-node SSH connection. It is
 available in View mode independently of CMSH and does not require Edit mode.
 
 The initial allowlist contains `cm-get-product-key`, executed at
