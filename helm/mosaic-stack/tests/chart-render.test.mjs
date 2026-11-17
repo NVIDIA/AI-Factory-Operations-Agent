@@ -548,7 +548,7 @@ test("does not render Slack runtime behavior when disabled", () => {
   const output = render();
   assert.doesNotMatch(output, /"maxConcurrent": 8/);
   assert.doesNotMatch(output, /"dmScope": "per-channel-peer"/);
-  assert.equal(JSON.parse(configMapBlock(output, "nemoclaw.json")).diagnostics, undefined);
+  assert.equal(JSON.parse(configMapBlock(output, "openclaw.json")).diagnostics, undefined);
   assert.doesNotMatch(output, /slack-enterprise-grid-patch\.mjs/);
   assert.doesNotMatch(output, /init-slack-plugin|SLACK_(?:BOT|APP)_TOKEN/);
   assert.match(output, /"slackEnabled": false/);
@@ -575,7 +575,7 @@ test("renders native Slack Socket Mode with isolated execution", () => {
   assert.match(output, /"streaming": \{"mode":"partial","nativeTransport":true\}/);
   assert.match(output, /"maxConcurrent": 8/);
   assert.match(output, /"dmScope": "per-channel-peer"/);
-  const diagnostics = JSON.parse(configMapBlock(output, "nemoclaw.json")).diagnostics;
+  const diagnostics = JSON.parse(configMapBlock(output, "openclaw.json")).diagnostics;
   assert.equal(diagnostics.enabled, true);
   for (const retired of ["stuckSessionWarnMs", "stuckSessionAbortMs"]) {
     assert.equal(Object.hasOwn(diagnostics, retired), false);
