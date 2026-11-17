@@ -166,12 +166,13 @@ async function slurmJobEvidence(jobId) {
     searched_roots: roots,
     matched_files: files,
     snippets,
-    slurm_logs: await searchFiles(line => containsJobId(line, jobId), '/var/log', isSlurmPath),
+    // These fixed roots may be absent on the node or excluded from EVIDENCE_ROOTS.
+    slurm_logs: await searchFiles(line => containsJobId(line, jobId), '/var/log', isSlurmPath).catch(() => []),
     slurm_config: await searchFiles(
       line => ['slurmctldlogfile', 'slurmdlogfile', 'accountingstorage', 'statesavelocation']
         .some(key => line.toLowerCase().includes(key)),
       '/etc/slurm',
-    ),
+    ).catch(() => []),
   };
 }
 
