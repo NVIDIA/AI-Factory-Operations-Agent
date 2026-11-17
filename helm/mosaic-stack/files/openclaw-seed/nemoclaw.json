@@ -110,7 +110,7 @@
       }
     ]
   },
-  {{- if and .Values.openclaw.msteams.enabled (not .Values.openclaw.slack.enabled) }}
+  {{- if and (or .Values.openclaw.msteams.enabled .Values.openclaw.feishu.enabled) (not .Values.openclaw.slack.enabled) }}
   "session": {
     "dmScope": "per-channel-peer"
   },
@@ -159,7 +159,7 @@
     "servers": {{ $managedMcpServers | toJson }}
   },
   {{- end }}
-  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
+  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled .Values.openclaw.feishu.enabled }}
   "channels": {
     {{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
     "msteams": {
@@ -179,6 +179,27 @@
       {{- end }}
       "teams": {{ .Values.openclaw.msteams.teams | toJson }},
       "webhook": { "port": 3978, "path": "/api/messages" }
+    }{{- if or .Values.openclaw.slack.enabled .Values.openclaw.feishu.enabled }},{{- end }}
+    {{- end }}
+    {{- if .Values.openclaw.feishu.enabled }}
+    "feishu": {
+      "enabled": true,
+      "domain": {{ .Values.openclaw.feishu.domain | quote }},
+      "connectionMode": "websocket",
+      "appId": "${FEISHU_APP_ID}",
+      "appSecret": "${FEISHU_APP_SECRET}",
+      "configWrites": false,
+      "dmPolicy": "allowlist",
+      "allowFrom": {{ .Values.openclaw.feishu.allowedUserIds | toJson }},
+      "groupPolicy": {{ ternary "allowlist" "disabled" (not (empty .Values.openclaw.feishu.allowedGroupIds)) | quote }},
+      "groupAllowFrom": {{ .Values.openclaw.feishu.allowedGroupIds | toJson }},
+      "groupSenderAllowFrom": {{ .Values.openclaw.feishu.allowedUserIds | toJson }},
+      "groupSessionScope": "group_sender",
+      "requireMention": true,
+      "tools": {
+        "doc": false, "chat": false, "wiki": false, "drive": false,
+        "perm": false, "scopes": false, "bitable": false, "base": false
+      }
     }{{- if .Values.openclaw.slack.enabled }},{{- end }}
     {{- end }}
     {{- if .Values.openclaw.slack.enabled }}
@@ -271,7 +292,8 @@
       "remote-ssh",
       "slurm",
       "llm"{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
-      "msteams"{{- end }}{{- if .Values.openclaw.slack.enabled }},
+      "msteams"{{- end }}{{- if .Values.openclaw.feishu.enabled }},
+      "feishu"{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
@@ -309,6 +331,9 @@
         "enabled": true
       }{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
       "msteams": {
+        "enabled": true
+      }{{- end }}{{- if .Values.openclaw.feishu.enabled }},
+      "feishu": {
         "enabled": true
       }{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack": {
