@@ -47,7 +47,7 @@ Action: The assistant queries cluster management and diagnostic tools, normalize
 ### Use Case 9. Observability Dashboard Creation
 Summary: An operator wants a Grafana view for a specific operational question without manually writing dashboard JSON.
 Problem: The operator needs to inspect GPU temperature, utilization, memory temperature, or exporter coverage across nodes.
-Action: The assistant queries Prometheus/Grafana metadata, creates a dashboard focused on the requested metric, and opens it in the side panel for immediate inspection.
+Action: The assistant queries Prometheus/Grafana metadata, creates a dashboard focused on the requested metric, and opens it in the side panel for immediate inspection. Dashboard creation and open actions carry the originating conversation ID so the UI can keep each investigation's dashboard separate.
 
 ### Use Case 10. Operator-To-Tenant Notification
 Summary: An operator discovers a workload-level issue while investigating cluster telemetry.

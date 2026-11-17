@@ -30,7 +30,7 @@ for(const [register,name] of [[registerGrafanaTools,'dashboard_create'],[plugin.
   }).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
   t.after(()=>{server.closeAllConnections();server.close()});
   const url=`http://127.0.0.1:${server.address().port}`;
-  const tools={};register({pluginConfig:{grafanaEnabled:true,grafanaUrl:url+'/monitoring',prometheusUrl:url,uiUrl:url,datasourceUid:'metrics-test',...(metricsType === 'prometheus' ? {} : {datasourceType:metricsType})},registerTool:x=>tools[x.name]=x});
+  const tools={};register({pluginConfig:{grafanaEnabled:true,grafanaUrl:url+'/monitoring',prometheusUrl:url,uiUrl:url,datasourceUid:'metrics-test',...(metricsType === 'prometheus' ? {} : {datasourceType:metricsType})},registerTool:x=>{const tool=typeof x === 'function' ? x({sessionKey:'agent:default:mixed'}) : x;tools[tool.name]=tool}});
   const panels=[{title:'Health',query:'up',visualization:'stat'},{title:'Events',query:'{service="example"}',visualization:'logs',datasource:{uid:'logs-test',type:'loki'}}];
   const result=await tools[name].execute('test',{title:'Correlation',panels,openInUi:false});
   assert.equal(result.details.created,true);

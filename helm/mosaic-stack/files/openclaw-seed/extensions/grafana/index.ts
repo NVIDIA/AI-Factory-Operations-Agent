@@ -408,9 +408,9 @@ export default definePluginEntry({
       type: resolveString(api.pluginConfig, "datasourceType", "prometheus") as NonNullable<PanelSpec["datasource"]>["type"],
     };
     const headers = authHeaders(api.pluginConfig);
-    const registerTool = (tool: Parameters<typeof api.registerTool>[0]) => {
-      if (isToolEnabled(api.pluginConfig, tool.name)) {
-        api.registerTool(tool);
+    const registerTool = (tool: Parameters<typeof api.registerTool>[0], name = tool.name) => {
+      if (isToolEnabled(api.pluginConfig, name)) {
+        api.registerTool(tool, { name });
       }
     };
 
@@ -482,7 +482,7 @@ export default definePluginEntry({
       },
     });
 
-    registerTool({
+    registerTool(({ sessionKey }: { sessionKey?: string }) => ({
       name: "grafana_dashboard_create",
       label: "Create Grafana Dashboard",
       description: "Create a Grafana dashboard after validating every Prometheus, VictoriaMetrics or Loki panel query, then open it in the UI Grafana tab.",
@@ -541,6 +541,7 @@ export default definePluginEntry({
               headers: uiAuthHeaders(),
               body: JSON.stringify({
                 type: "open_grafana",
+                sessionKey,
                 title,
                 iframeUrl,
                 dashboardUid: uid,
@@ -563,9 +564,9 @@ export default definePluginEntry({
           uiNotification,
         });
       },
-    });
+    }), "grafana_dashboard_create");
 
-    registerTool({
+    registerTool(({ sessionKey }: { sessionKey?: string }) => ({
       name: "grafana_dashboard_open",
       label: "Open Grafana Dashboard",
       description: "Open an existing Grafana dashboard UID in the UI Grafana tab.",
@@ -591,6 +592,7 @@ export default definePluginEntry({
           headers: uiAuthHeaders(),
           body: JSON.stringify({
             type: "open_grafana",
+            sessionKey,
             title,
             iframeUrl,
             dashboardUid: uid,
@@ -599,6 +601,6 @@ export default definePluginEntry({
         });
         return jsonToolResult({ opened: true, uid, iframeUrl, uiNotification });
       },
-    });
+    }), "grafana_dashboard_open");
   },
 });
