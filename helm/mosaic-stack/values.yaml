@@ -396,6 +396,14 @@ slurmEvidenceCollector:
     - /cm/shared/apps/slurm/etc
     - /run/log/journal
     - /var/log/journal
+  # The collector runs on the same nodes as Slurm jobs. Set to null to omit.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
 bcmMcp:
   enabled: false
