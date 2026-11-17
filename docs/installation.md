@@ -273,9 +273,13 @@ kubectl -n aifoa get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base
 
 Open `http://localhost:3000` and sign in with the username and password above.
 
-### Keycloak single sign-on
+### Optional Keycloak single sign-on
 
-Use a frontend image that supports OIDC, then opt in to an existing Keycloak realm.
+Keycloak single sign-on is optional and disabled by default
+(`mosaicUi.auth.oidc.enabled: false`). Normal installation and local username/password
+sign-in do not require Keycloak or Base Command Manager LDAP federation.
+
+To enable single sign-on, use a frontend image that supports OIDC and configure an existing Keycloak realm.
 The local account, its current capabilities, existing sessions and conversation
 data remain available. The client must use authorization code flow with PKCE, an
 exact registered callback and a signed ID token containing the approved groups
@@ -309,9 +313,10 @@ for other applications remain under the identity provider's control.
 Group membership is evaluated at sign-in; existing sessions remain valid until
 their token-bound expiry or local revocation.
 
-For Keycloak associated with Base Command Manager, first verify the actual issuer, realm, client,
+If you choose Keycloak associated with Base Command Manager, first verify the actual issuer, realm, client,
 federation and certificate chain. Base Command Manager's documented LDAP federation helpers require
-Base Command Manager 11.34 or later on Ubuntu 24.04 or Ubuntu 26.04; see
+Base Command Manager 11.34 or later on Ubuntu 24.04 or Ubuntu 26.04. These requirements
+apply only when using those federation helpers; see
 [Keycloak integration](https://docs.nvidia.com/base-command-manager/product-manuals/11/admin/usermanagement#64-keycloak-integration).
 This chart uses an existing identity provider and does not install Base Command Manager or change
 shared Keycloak or LDAP configuration.
