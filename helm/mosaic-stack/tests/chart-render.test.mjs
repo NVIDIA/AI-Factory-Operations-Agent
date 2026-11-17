@@ -1236,6 +1236,7 @@ test("renders the Slurm evidence collector liveness probe and resource configura
   ];
   const output = render(...args);
   assert.match(output, /livenessProbe:\s+httpGet:\s+path: \/healthz\s+port: http/);
+  assert.doesNotMatch(output, /resources:/);
 
   const custom = render(
     ...args,
