@@ -1,6 +1,6 @@
 ---
 name: hardware-agent
-description: "Triage hardware faults on NVIDIA GPU compute nodes through the Hardware Agent. Starting a triage is read-only log collection and hardware_analyze_dut is available in View mode; never require Edit or Auto. Before asking to start any fresh NVDebug collection, you MUST say: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Stop and wait for the next user response. An ordinary affirmative such as yes, let's go, do it, or proceed is sufficient; start immediately without demanding formal confirmation or asking twice. Use recent Hardware Agent triages for quick answers when possible. The backend owns DUT lookup and credentials; do not prompt for BMC credentials. Not for ML training, CI, or unrelated application errors."
+description: "Triage hardware faults on NVIDIA GPU compute nodes through the Hardware Agent. Starting a triage is read-only log collection and hardware_analyze_dut is available in View mode; never require Edit or Auto. Before asking to start any fresh NVDebug collection, you MUST say: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Stop and wait for the next user response. An ordinary affirmative such as yes, let's go, do it, or proceed is sufficient; start immediately without demanding formal confirmation or asking twice. Use recent Hardware Agent triages for quick answers when possible. For hostname-only requests, check inventory lookup availability in the tool description; if disabled, direct the user to private authenticated API submission instead. The backend owns configured DUT lookup and credentials; do not prompt for BMC credentials. Not for ML training, CI, or unrelated application errors."
 metadata:
   {
     "openclaw":
@@ -30,7 +30,7 @@ SPDX-License-Identifier: Apache-2.0
 # Hardware Agent
 
 Delegate hardware failure analysis to the Hardware Agent service. The backend handles:
-- DUT and credential lookup
+- DUT and credential lookup when configured
 - Targeted nvdebug collection
 - LLM diagnosis via the Hardware Agent backend's configured inference endpoint
 - Typed `recommended_actions`
@@ -41,10 +41,17 @@ Submission is immediate. A fresh NVDebug collection and diagnosis commonly takes
 5–30 minutes.
 
 1. POST returns `202 Accepted` with a `triage_id`.
-2. Backend runs Base Command Manager (BCM) lookup, nvdebug collection, and diagnosis.
+2. Backend uses supplied DUT details or configured inventory lookup, then runs nvdebug collection and diagnosis.
 3. The tool returns the `triage_id` immediately. Do not wait or poll in the same turn.
 
 ## Mandatory duration disclosure
+
+Check the `hardware_analyze_dut` tool description for inventory lookup availability.
+When lookup is disabled, direct hostname-only requests to the private authenticated
+API workflow in the Hardware Agent installation guide before offering collection.
+Do not ask for credentials in chat or submit an unresolved hostname. Existing
+triage listing, status, and report tools remain available. The hostname collection
+instructions below apply when lookup is enabled.
 
 This is a hard requirement. Before asking for confirmation or invoking a fresh
 NVDebug collection, send this sentence to the user:
@@ -75,24 +82,30 @@ stop until the user answers.
 ## Invocation
 
 Starting a Hardware Agent triage only collects logs and diagnostic information.
-It is a read-only operation permitted in View mode. Call `hardware_analyze_dut`
-after confirmation even when the runtime access mode is View. Do not ask the
-user to switch to Edit or Auto, and do not infer an Edit requirement from the
+It is a read-only operation permitted in View mode. For hostname requests with
+inventory lookup enabled, call `hardware_analyze_dut` after confirmation even
+when the runtime access mode is View. Do not ask the user to switch to Edit or Auto, and do not infer an Edit requirement from the
 backend's access to the target.
 
-Preferred path: use the OpenClaw `hardware_analyze_dut` tool. It submits to
+Hostname-only chat requests require configured inventory lookup. Without it,
+direct BMC credentials can be submitted through the authenticated backend API
+as described in the product installation guide. Do not ask for credentials in
+chat.
+
+With inventory lookup enabled, use `hardware_analyze_dut`. It submits to
 `/api/v1/analyze-dut`, returns the queued triage id, and emits a live NVDebug
 subagent card in the UI. The Hardware Agent backend owns NVDebug collection,
 collection validation, retry policy, RCA generation, and completion notification.
 
-After the user confirms a fresh collection, use only `hardware_analyze_dut`
-for the turn. Do not call Base Command Manager, Kubernetes, Prometheus, Grafana, DCGM,
+After confirmation for a collection through configured lookup, use only
+`hardware_analyze_dut` for the turn. Do not call Base Command Manager, Kubernetes, Prometheus, Grafana, DCGM,
 observability, or other tools before or after the NVDebug RCA unless the user
 asks for those follow-up checks in a separate message.
 
-For a fresh RCA, call `hardware_analyze_dut` once and return the queued triage id. Do not
+For a fresh RCA through configured lookup, call `hardware_analyze_dut` once and
+return the queued triage id. Do not
 call `bcm_*`, `bcm_execute_cmsh`, or other Base Command Manager tools for prerequisite lookup:
-the Hardware Agent backend performs the DUT lookup and NVDebug orchestration.
+the Hardware Agent backend performs the configured DUT lookup and NVDebug orchestration.
 Use `hardware_triage_status` and `hardware_triage_report` only for a triage
 returned by `hardware_triage_list` or an id supplied by the user.
 
@@ -106,9 +119,10 @@ For DGX/HGX B200 hosts, pass `dut.baseboard:
 specific supported baseboard. This avoids an unclassified full collection.
 
 Short operator prompts should still route here. First search recent triages. If
-none match, ask for confirmation before collecting. Normalize the DUT hostname
+none match and inventory lookup is enabled, ask for confirmation before collecting.
+Normalize the DUT hostname
 when the cluster naming pattern makes it clear. Do not ask for BMC credentials;
-the Hardware Agent resolves the target.
+configured inventory lookup resolves the target.
 
 Pass `ai_factory_operations_agent_chat_session_key` when the current chat session key was explicitly
 supplied so the Hardware Agent backend can stream NVDebug collection activity

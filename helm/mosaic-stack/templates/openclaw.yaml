@@ -668,6 +668,8 @@ spec:
                   key: {{ .Values.bcmMcp.authTokenSecretKey }}
             {{- end }}
             {{- if .Values.modules.diagnostics.enabled }}
+            - name: DIAGNOSTIC_AGENT_BCM_LOOKUP_ENABLED
+              value: {{ .Values.diagnosticAgent.config.bcmLookupEnabled | quote }}
             - name: DIAGNOSTIC_AGENT_API_KEY
               valueFrom:
                 secretKeyRef:
