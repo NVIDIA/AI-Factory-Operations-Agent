@@ -243,3 +243,22 @@ kubectl --kubeconfig /etc/afoa-bcm/kubeconfig wait --for=condition=Ready "node/$
 An HTTP response such as `401` with `tls=0` confirms network egress and
 successful TLS verification. The bridge name belongs to the current Docker
 network. Update the Shorewall configuration if the Kind network is recreated.
+
+## Head-node scripts
+
+In `bcmMcp.mode: ssh-adapter`, `bcm_execute_headnode_script` runs selected
+read-only BCM utilities over the configured head-node SSH connection. It is
+available in View mode independently of CMSH and does not require Edit mode.
+
+The initial allowlist contains `cm-get-product-key`, executed at
+`/cm/local/apps/cmd/sbin/cm-get-product-key` without arguments. Request it with
+`{"script":"cm-get-product-key"}` to read the cluster product key. License
+status remains available through CMSH `licenseinfo`. Missing utilities and
+command failures are returned to the caller.
+
+The adapter owns the allowlist: callers cannot supply executable paths, shell
+commands, arguments, or target hosts. To add another utility, review its behavior
+and add its fixed argument vector to `HEADNODE_SCRIPTS` in the tracked adapter,
+then update the AFA tool schema and validate it. This read tool is only for
+utilities verified to be read-only. Treat returned product keys as sensitive
+and retrieve them only on request.

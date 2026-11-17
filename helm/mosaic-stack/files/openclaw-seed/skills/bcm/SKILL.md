@@ -59,3 +59,5 @@ Examples:
 
 - "What's the power state and health of dgx-03 according to its BMC?" → `bcm_redfish_system_summary` with `hostname: "dgx-03"`.
 - "Show the last 20 SEL entries on dgx-03" → `bcm_redfish_sel` with `hostname: "dgx-03", limit: 20`; report timestamp, severity, source, and message for each entry.
+
+For BCM head-node utilities outside CMSH, use `bcm_execute_headnode_script` when available. Its `script` field selects a reviewed read-only script. `cm-get-product-key` reads the product key from the cluster certificate request without changing licensing; it accepts no arguments. Use `bcm_execute_cmsh` with `licenseinfo` for license status. Only retrieve the product key when requested and keep it out of investigation notes and telemetry. Additional scripts require review and an explicit entry in the adapter allowlist; never substitute arbitrary shell execution.

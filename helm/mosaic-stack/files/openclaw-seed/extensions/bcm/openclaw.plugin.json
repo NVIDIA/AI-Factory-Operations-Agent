@@ -11,6 +11,7 @@
       "bcm_node_health_summary",
       "bcm_search_tools",
       "bcm_execute_tool",
+      "bcm_execute_headnode_script",
       "bcm_execute_cmsh",
       "bcm_execute_cmsh_admin",
       "slurm_job_evidence",
