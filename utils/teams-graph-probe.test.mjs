@@ -20,7 +20,7 @@ const source = readFileSync(new URL('./teams_graph_probe/probe.cjs', import.meta
 async function run(scenario = 'send', config = {}) {
   const requests = [], output = [];
   const env = { MOSAIC_TEST_RUN_ID: 'test-fixture', MOSAIC_TEAMS_RECIPIENT_ID: recipientId };
-  if (scenario !== 'default') env.MOSAIC_TEST_PROBE_MODE = scenario === 'identity' ? 'identity' : 'send';
+  if (scenario !== 'default') env.MOSAIC_TEST_PROBE_MODE = ['identity','bind'].includes(scenario) ? scenario : 'send';
   Object.assign(env, config);
   const processMock = { env, stdout: { write: value => output.push(value) }, exitCode: 0 };
   const context = vm.createContext({ URLSearchParams, AbortSignal, Date, JSON, encodeURIComponent,
@@ -36,7 +36,7 @@ async function run(scenario = 'send', config = {}) {
         assert.equal(options.body.get('grant_type'), 'password');
         if (scenario === 'identity' || scenario === 'default')
           assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read');
-        else assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send');
+        else assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send' + (scenario === 'bind' ? ' https://graph.microsoft.com/Chat.ReadWrite' : ''));
         if (scenario === 'mfa' || scenario === 'consent') return new Response(JSON.stringify({
           error: 'invalid_grant', error_codes: [scenario === 'mfa' ? 50076 : 65001],
           error_description: 'sensitive echo ' + password,
@@ -56,7 +56,7 @@ async function run(scenario = 'send', config = {}) {
         if (scenario === 'graph-error') return new Response(JSON.stringify({ error: {
           code: 'Forbidden', message: JSON.stringify({ password, token }),
         }}), { status: 403 });
-        return new Response(JSON.stringify({ id: 'fixture-chat' }), { status: 201 });
+        return new Response(JSON.stringify({ id: 'fixture-chat', chatType: 'oneOnOne' }), { status: 201 });
       }
       if (url.endsWith('/messages')) {
         assert.match(JSON.parse(options.body).body.content, /Run ID: test-fixture/);
@@ -84,6 +84,14 @@ test('Teams send uses explicit GUID members, preserves password characters and n
   assert.equal(result.requests.length, 4);
   assert.equal(result.event.stage, 'sent');
   assert.equal(result.event.messageId, 'fixture-message');
+});
+
+test('Teams bind reuses the probe to establish a fixed chat without sending a message', async () => {
+  const result = await run('bind');
+  assert.equal(result.event.stage, 'bound');
+  assert.equal(result.event.chatId, 'fixture-chat');
+  assert.equal(result.requests.length, 3);
+  assert.ok(result.requests.every(r => !r.url.endsWith('/messages')));
 });
 
 for (const scenario of ['mfa', 'consent']) test(`Teams ${scenario} failure is retained without another password attempt`, async () => {

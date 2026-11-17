@@ -66,7 +66,8 @@ async function authenticate() {
   const fields = { client_id: c.clientId, grant_type: 'password', username: c.username,
     password: c.password, scope: probeMode === 'identity'
       ? 'https://graph.microsoft.com/User.Read'
-      : 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send' };
+      : 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send' +
+        (probeMode === 'bind' ? ' https://graph.microsoft.com/Chat.ReadWrite' : '') };
   if (c.clientSecret) fields.client_secret = c.clientSecret;
   const response = await fetch(endpoint, { method: 'POST', body: new URLSearchParams(fields),
     signal: AbortSignal.timeout(30000) });
@@ -113,8 +114,8 @@ async function graph(token, method, path, body) {
 
 async function main() {
   if (!/^[a-z0-9-]+$/i.test(runId || '')) throw new Error('invalid_run_id');
-  if (!['send', 'identity'].includes(probeMode)) throw new Error('invalid_probe_mode');
-  if (probeMode === 'send' && !guid.test(recipient)) throw new Error('recipient_guid_required');
+  if (!['send', 'identity', 'bind'].includes(probeMode)) throw new Error('invalid_probe_mode');
+  if (probeMode !== 'identity' && !guid.test(recipient)) throw new Error('recipient_guid_required');
   const { token, username } = await authenticate();
   const me = await graph(token, 'GET', '/me?$select=id,userPrincipalName,displayName');
   if (me.userPrincipalName?.toLowerCase() !== username.toLowerCase()) {
@@ -135,6 +136,14 @@ async function main() {
       'user@odata.bind': `https://graph.microsoft.com/v1.0/users/${recipient}` },
   ] });
   if (typeof chat.id !== 'string' || !chat.id) throw new Error('chat_id_missing');
+  if (probeMode === 'bind') {
+    if (chat.chatType !== 'oneOnOne') throw new Error('chat_type_mismatch');
+    emit({ runId, stage: 'bound', startedAt, completedAt: new Date().toISOString(),
+      sender: me, recipient, chatId: chat.id, chatType: chat.chatType, events,
+      scope: 'Fixed delegated Graph conversation binding; no message sent',
+      passwordRotationEnabled: false, passwordResetPerformed: false });
+    return;
+  }
   const content = 'MOSAIC isolated Teams delegated validation\nRun ID: ' + runId;
   const sent = await graph(token, 'POST', `/chats/${encodeURIComponent(chat.id)}/messages`,
     { body: { contentType: 'text', content } });
@@ -152,7 +161,7 @@ main().catch(error => {
       'graph_request_failed', 'graph_http_failed', 'authenticated_identity_mismatch',
       'invalid_user_principal_name', 'invalid_application_id', 'invalid_tenant_id',
       'invalid_run_id', 'invalid_probe_mode', 'recipient_guid_required', 'invalid_sender_guid',
-      'distinct_test_recipient_required', 'chat_id_missing', 'message_submission_unconfirmed'].includes(error.message) || error.message.startsWith('credential_field_missing_')
+      'distinct_test_recipient_required', 'chat_id_missing', 'chat_type_mismatch', 'message_submission_unconfirmed'].includes(error.message) || error.message.startsWith('credential_field_missing_')
       ? error.message : 'probe_failed', events, passwordResetPerformed: false,
     passwordRotationEnabled: false, secretValuesLogged: false });
   process.exitCode = 2;
