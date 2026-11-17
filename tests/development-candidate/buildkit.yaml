@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: candidate-buildkit
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: t1-k8s-admin-3
+  automountServiceAccountToken: false
+  securityContext:
+    fsGroup: 1000
+  containers:
+    - name: buildkit
+      image: moby/buildkit:v0.25.1-rootless
+      args: [--oci-worker-no-process-sandbox]
+      readinessProbe:
+        exec:
+          command: [buildctl, debug, workers]
+        periodSeconds: 5
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: Unconfined
+        appArmorProfile:
+          type: Unconfined
+      volumeMounts:
+        - name: cache
+          mountPath: /home/user/.local/share/buildkit
+        - name: source
+          mountPath: /source
+  volumes:
+    - name: cache
+      emptyDir: {}
+    - name: source
+      emptyDir: {}
