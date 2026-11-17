@@ -18,6 +18,10 @@ For a checksum-verified mirrored or source-built sandbox backend package, config
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
+Optional [Keycloak single sign-on](installation.md#keycloak-single-sign-on) uses
+advanced site values, an existing client Secret and explicitly approved operator
+groups. The local account and its current capabilities remain available.
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```

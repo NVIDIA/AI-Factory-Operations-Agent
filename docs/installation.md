@@ -273,6 +273,54 @@ kubectl -n aifoa get secret mosaic-ui-auth -o jsonpath='{.data.password}' | base
 
 Open `http://localhost:3000` and sign in with the username and password above.
 
+### Keycloak single sign-on
+
+Use a frontend image that supports OIDC, then opt in to an existing Keycloak realm.
+The local account, its current capabilities, existing sessions and conversation
+data remain available. The client must use authorization code flow with PKCE, an
+exact registered callback and a signed ID token containing the approved groups
+in its `groups` claim.
+
+```yaml
+mosaicUi:
+  auth:
+    oidc:
+      enabled: true
+      issuerUrl: https://identity.example.com/realms/operations
+      clientId: mosaic
+      redirectUri: https://mosaic.example.com/api/auth/oidc/callback
+      operatorGroups: ["/mosaic/operators"]
+      existingSecret: mosaic-oidc-client
+      clientSecretKey: clientSecret
+      caCertificateSecret: identity-ca
+      caCertificateKey: ca.crt
+```
+
+The referenced client Secret and optional CA Secret must already exist in the
+release namespace. Keep client secrets out of values files. The CA extends the
+Node.js trust store; TLS verification remains enabled. Redeploy the managed UI
+when changing Secret values so its environment and trust store reload them.
+
+No realm user is admitted without an explicit operator-group binding. Admitted
+operators use the existing shared workspace and View/Edit/Auto controls. OIDC
+sessions use private opaque cookies, expire no later than their ID tokens or the
+existing eight-hour limit, and are revoked by Mosaic sign-out. Keycloak's sessions
+for other applications remain under the identity provider's control.
+Group membership is evaluated at sign-in; existing sessions remain valid until
+their token-bound expiry or local revocation.
+
+For Keycloak associated with Base Command Manager, first verify the actual issuer, realm, client,
+federation and certificate chain. Base Command Manager's documented LDAP federation helpers require
+Base Command Manager 11.34 or later on Ubuntu 24.04 or Ubuntu 26.04; see
+[Keycloak integration](https://docs.nvidia.com/base-command-manager/product-manuals/11/admin/usermanagement#64-keycloak-integration).
+This chart uses an existing identity provider and does not install Base Command Manager or change
+shared Keycloak or LDAP configuration.
+
+Mosaic login establishes identity. Per-user Base Command Manager and Run:ai API permissions and delegated
+credentials require a separate reviewed authorization design; current service
+credentials and conversation visibility retain their existing policy. Publish a
+matching frontend before enabling this setting.
+
 ## Extensions
 
 All module changes below update an existing AI Factory Operations Agent release and preserve its current site configuration.
