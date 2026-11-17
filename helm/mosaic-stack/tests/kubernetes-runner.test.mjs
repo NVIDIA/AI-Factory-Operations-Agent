@@ -56,6 +56,20 @@ test("passes an apply manifest only over stdin", async () => {
   });
 });
 
+test("alternate client configs replace registered connection settings", async () => {
+  const echoArgs = path.join(directory, "echo-args");
+  writeFileSync(echoArgs, `#!${process.execPath}\nconsole.log(JSON.stringify(process.argv.slice(2)));`, { mode: 0o755 });
+  for (const flag of [["--kubeconfig", "/configs/alternate one"], ["--kubeconfig=/configs/alternate-two"]]) {
+    const args = [...flag, "get", "namespaces"];
+    const result = await runKubectl(echoArgs, args, kubeconfig, 1_000, 1_024, undefined, "https://registered.example", "registered.example");
+    assert.equal(result.code, 0);
+    assert.deepEqual(JSON.parse(result.stdout), args);
+  }
+  const args = ["exec", "pod", "--", "program", "--kubeconfig", "/child/config"];
+  const result = await runKubectl(echoArgs, args, kubeconfig, 1_000, 1_024);
+  assert.deepEqual(JSON.parse(result.stdout), ["--kubeconfig", "<kubeconfig>", ...args]);
+});
+
 test("preserves raw command streams and structured execution metadata", () => {
   for (const stdout of ["name\tvalue\nalpha\t+7\nbeta\t-3\n", 'title: "a\\b"\nmessage: café\n']) {
     const payload = {command: ["kubectl", "example"], cluster: "sample", exitCode: 7, stdout, stderr: "warning\nnext line\n"};

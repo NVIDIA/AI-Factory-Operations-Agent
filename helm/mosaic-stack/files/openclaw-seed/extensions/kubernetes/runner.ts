@@ -9,6 +9,9 @@ export function kubectlArgv(
   server?: string,
   tlsServerName?: string,
 ) {
+  const separator = args.indexOf("--");
+  const clientArgs = separator < 0 ? args : args.slice(0, separator);
+  if (clientArgs.some(arg => arg === "--kubeconfig" || arg.startsWith("--kubeconfig="))) return args;
   return [
     "--kubeconfig", kubeconfig,
     ...(server ? ["--server", server] : []),

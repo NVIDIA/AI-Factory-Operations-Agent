@@ -168,7 +168,7 @@ export default definePluginEntry({
       name: "run_kubectl",
       label: "Kubernetes Agent",
       description:
-        "Run one read-only kubectl operation against a registered cluster. Pass argv without the kubectl prefix. The Kubernetes credential enforces read-only access. Mutations use run_kubectl_admin when edit mode is enabled. Interactive access, Secrets, credential overrides, and shell syntax are rejected.",
+        "Run one read-only kubectl operation in the gateway container against a registered cluster. Pass argv without the kubectl prefix. The Kubernetes credential enforces read-only access. Mutations use run_kubectl_admin when edit mode is enabled. Interactive access, Secrets, credential overrides, and shell syntax are rejected. A config discovered on an SSH host is not a gateway cluster registration or a gateway file. For host-local configs, use run_remote_ssh on the configured host in Edit or Auto. The config path is enough; its contents need not be read.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -176,7 +176,7 @@ export default definePluginEntry({
         properties: {
           cluster: {
             type: "string",
-            description: "Registered cluster name. Defaults to " + settings.defaultCluster + ".",
+            description: "Registered gateway cluster names: " + JSON.stringify(Object.keys(settings.clusters)) + ". Defaults to " + settings.defaultCluster + ". Host-local config names are not registered gateway clusters.",
           },
           args: {
             type: "array",
@@ -206,7 +206,7 @@ export default definePluginEntry({
       name: "run_kubectl_admin",
       label: "Kubernetes Admin",
       description:
-        "Run exact kubectl arguments, including noninteractive exec inside existing pods for diagnostics or authorized changes. Pod exec uses this tool even when the child command only reads data; run_kubectl cannot execute commands in pods. Execution has the container’s existing device mounts and privileges. Edit mode requires approval and Auto mode does not. For scripts, use exec with -i before -- and send the script through stdin to bash -s. Without -i, kubectl does not forward stdin into the container. Use run_kubectl for resource reads.",
+        "Run exact kubectl arguments in the gateway container. An alternate --kubeconfig path must exist in that container; use it directly without reading or copying authentication material. For host-local inputs, use run_remote_ssh on the configured host in Edit or Auto. For configuration inventory, config view with --kubeconfig returns native redacted metadata. Edit requires approval and Auto does not. Use run_kubectl for reads with registered gateway credentials. Supports noninteractive pod exec and authorized changes; pod exec uses this tool even for reads and retains the container’s existing mounts and privileges. For scripts, exec with -i before -- forwards stdin to bash -s. Without -i, kubectl does not forward stdin into the container.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -214,7 +214,7 @@ export default definePluginEntry({
         properties: {
           cluster: {
             type: "string",
-            description: "Registered cluster name. Defaults to " + settings.defaultCluster + ".",
+            description: "Registered gateway cluster names: " + JSON.stringify(Object.keys(settings.clusters)) + ". Defaults to " + settings.defaultCluster + ". Host-local config names are not registered gateway clusters.",
           },
           args: {
             type: "array",

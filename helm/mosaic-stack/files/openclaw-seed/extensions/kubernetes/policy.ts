@@ -64,6 +64,7 @@ function validateArgs(value: unknown, admin = false) {
   const clientArgs = separator < 0 ? args : args.slice(0, separator);
   for (const arg of clientArgs) {
     const flag = flagName(arg);
+    if (admin && flag === "--kubeconfig") continue;
     if (FORBIDDEN_FLAGS.has(flag) || FORBIDDEN_SHORT_FLAGS.has(flag)) throw new Error("kubectl option is not allowed: " + flag);
   }
   const isPermissionCheck = args[0].toLowerCase() === "auth" && args[1]?.toLowerCase() === "can-i";
