@@ -1300,6 +1300,10 @@ for (const scenario of [
       writeFileSync(join(legacySkill, "SKILL.md"), "Previous documentation skill");
       writeFileSync(join(home, "workspace/docs/existing-manual.md"), "Existing manual");
       chmodSync(join(home, "tmp"), 0o555);
+      for (const name of ["identity", "devices"]) {
+        execFileSync("mkdir", ["-p", join(home, name)]);
+        writeFileSync(join(home, name, "state.json"), JSON.stringify({ retained: name }));
+      }
     }
     const seedSection = output.split("name: openclaw-seed\n")[1].split("\n---")[0];
     const binaryData = seedSection.split("binaryData:\n")[1].split("\ndata:")[0];
@@ -1342,6 +1346,9 @@ for (const scenario of [
     }
     assert.equal(JSON.parse(readFileSync(join(documentation, "deployment.json"), "utf8")).modules.kubernetes, scenario.kubernetes);
     if (scenario.existing) assert.equal(readFileSync(join(home, "workspace/docs/existing-manual.md"), "utf8"), "Existing manual");
+    if (scenario.existing) for (const name of ["identity", "devices"]) {
+      assert.deepEqual(JSON.parse(readFileSync(join(home, name, "state.json"), "utf8")), { retained: name });
+    }
     const relative = "skills/gpu-networking";
     const workspace = join(home, "workspace");
     const references = join(workspace, relative, "references");

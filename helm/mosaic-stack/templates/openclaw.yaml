@@ -235,7 +235,6 @@ spec:
               chmod 600 /var/run/mosaic-kubernetes/local/config
               {{- end }}
               cp /seed/openclaw.json /home/node/.openclaw/openclaw.json
-              rm -rf /home/node/.openclaw/identity /home/node/.openclaw/devices
               mkdir -p /home/node/.openclaw/workspace/skills/gpu-networking
               cp /seed/gpu-networking.SKILL.md /home/node/.openclaw/workspace/skills/gpu-networking/SKILL.md
               documentation=/home/node/.openclaw/workspace/product-docs
