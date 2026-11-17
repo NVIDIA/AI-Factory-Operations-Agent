@@ -27,6 +27,14 @@ function configMapBlock(output, key) {
   return body.join("\n");
 }
 
+test("enables isolated LLM tasks for conversation titles", () => {
+  const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
+  const config = JSON.parse(configMapBlock(seed, "openclaw.json"));
+  assert.ok(config.plugins.allow.includes("llm-task"));
+  assert.equal(config.plugins.entries["llm-task"].enabled, true);
+  assert.ok(config.tools.alsoAllow.includes("group:plugins"));
+});
+
 test("startup-loads the Kubernetes approval hook", () => {
   const manifest = JSON.parse(
     readFileSync(new URL("../files/openclaw-seed/extensions/kubernetes/openclaw.plugin.json", import.meta.url)),

@@ -291,6 +291,7 @@
       "observability",
       "remote-ssh",
       "slurm",
+      "llm-task",
       "llm"{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
       "msteams"{{- end }}{{- if .Values.openclaw.feishu.enabled }},
       "feishu"{{- end }}{{- if .Values.openclaw.slack.enabled }},
@@ -298,6 +299,9 @@
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
     "entries": {
+      "llm-task": {
+        "enabled": true
+      },
       "automation-guard": {
         "enabled": true,
         "hooks": {
