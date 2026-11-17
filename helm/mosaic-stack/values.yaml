@@ -566,6 +566,8 @@ diagnosticAgent:
   hostSshKeySecretName: bcm-host-ssh-key
   config:
     nvdebugTimeoutSeconds: "1800"
+    # Disable for direct BMC credentials submitted through the Hardware Agent API.
+    bcmLookupEnabled: true
     bcmWebhookTimeoutSeconds: "60"
     inferenceBackend: nvidia_api
     inferenceApiKey: dummy

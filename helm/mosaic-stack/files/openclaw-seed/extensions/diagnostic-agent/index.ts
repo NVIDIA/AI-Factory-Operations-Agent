@@ -12,6 +12,7 @@ type DiagnosticConfig = {
   baseUrl: string;
   apiKey?: string;
   timeoutMs: number;
+  bcmLookupEnabled: boolean;
   subagentEventsUrl: string;
 };
 
@@ -113,6 +114,7 @@ function readConfig(pluginConfig: unknown): DiagnosticConfig {
     baseUrl: normalizeBaseUrl(configuredUrl || DEFAULT_BASE_URL),
     apiKey: configuredApiKey || undefined,
     timeoutMs: numberConfig(pluginConfig, "timeoutMs", DEFAULT_TIMEOUT_MS),
+    bcmLookupEnabled: process.env.DIAGNOSTIC_AGENT_BCM_LOOKUP_ENABLED !== "false",
     subagentEventsUrl: resolveSubagentEventsUrl(pluginConfig),
   };
 }
@@ -377,7 +379,11 @@ export default definePluginEntry({
       name: "hardware_analyze_dut",
       label: "NVDebug Analyze DUT",
       description:
-        "Start a fresh, long-running NVDebug hardware collection. Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Interpret an ordinary affirmative response in conversation, then invoke this tool without encoding the user's wording into its arguments. Never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
+        "Start a fresh, long-running NVDebug hardware collection. " +
+        (config.bcmLookupEnabled
+          ? "Inventory lookup is enabled; hostname-only collection is available. "
+          : "Inventory lookup is disabled; for hostname-only requests, direct the user to the private authenticated API submission in the Hardware Agent installation guide. Do not request credentials in chat. ") +
+        "Before asking for approval, say exactly: 'A fresh NVDebug collection can take 5-30 minutes. Do you want me to start it?' Wait for the next user reply. Interpret an ordinary affirmative response in conversation, then invoke this tool without encoding the user's wording into its arguments. Never demand a formal phrase. For generic hardware questions, use hardware_triage_list first.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -386,7 +392,7 @@ export default definePluginEntry({
           dut: {
             type: "object",
             additionalProperties: true,
-            description: "DUTInfo-style object. Provide the hostname as id; the Hardware Agent resolves BMC details and credentials.",
+            description: "DUTInfo-style object. Provide a hostname for configured inventory lookup. Do not supply BMC credentials in chat; use the private authenticated API workflow for direct collection. Keep credentials out of progress messages and reports.",
           },
           event_text: {
             type: "string",
