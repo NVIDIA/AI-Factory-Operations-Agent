@@ -906,6 +906,8 @@ OpenClaw `2026.11.4` preserves conversations across calendar days by default. Co
 
 The chart retains the official container entrypoint so OpenClaw runs its supported Doctor migrations before starting the gateway. Installations retaining pre-July plugin, sandbox, or browser JSON state must first follow the upstream intermediate upgrade through OpenClaw `2026.9.7`; the latest runtime refuses those retired formats rather than silently discarding them. Follow the [upstream state migration procedure](https://docs.openclaw.ai/cli/doctor/state-migrations) against a verified backup before activating this chart.
 
+The Mosaic UI backend signs gateway connection challenges using a persistent device identity stored as `gateway-device.pem` in its audit volume. Keep this private key and the gateway's paired-device state across restarts. Before remote UI operations can succeed, inspect and approve that exact backend device through OpenClaw's normal device pairing flow. The backend does not approve itself; existing UI login and one-time tool approval decisions remain in place. Validate this pairing and a conversation across a restart in an isolated release before upgrading a shared installation.
+
 Retain the working site configuration with:
 
 ```bash
