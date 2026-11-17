@@ -301,9 +301,6 @@ openclaw:
     maxConcurrent: 8
     session:
       dmScope: per-channel-peer
-    diagnostics:
-      stuckSessionWarnMs: 60000
-      stuckSessionAbortMs: 150000
     existingSecret: ""
     botTokenKey: SLACK_BOT_TOKEN
     appTokenKey: SLACK_APP_TOKEN

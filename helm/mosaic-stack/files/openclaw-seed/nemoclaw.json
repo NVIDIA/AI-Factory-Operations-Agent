@@ -116,9 +116,7 @@
     "dmScope": {{ .Values.openclaw.slack.session.dmScope | quote }}
   },
   "diagnostics": {
-    "enabled": true,
-    "stuckSessionWarnMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionWarnMs }},
-    "stuckSessionAbortMs": {{ .Values.openclaw.slack.diagnostics.stuckSessionAbortMs }}
+    "enabled": true
   },
   "messages": {
     "queue": {
