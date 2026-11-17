@@ -16,7 +16,7 @@ paths = subprocess.check_output(
 ).decode().split("\0")
 archive = io.BytesIO()
 with tarfile.open(fileobj=archive, mode="w") as tar:
-    for name in sorted(name for name in paths if name.endswith(".md")):
+    for name in sorted({name for name in paths if name.endswith(".md")}):
         content = (root / name).read_bytes()
         entry = tarfile.TarInfo(name)
         entry.size, entry.mode = len(content), 0o644
