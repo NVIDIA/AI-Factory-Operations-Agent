@@ -28,6 +28,11 @@ the dedicated inbound Secret and configure Alertmanager using the
 Alertmanager's routes. **Alertmanager alerts (pull)** configures the existing
 polling endpoint. Use one delivery mode and keep the Mosaic page open for
 browser-triggered Auto investigate.
+[Keycloak single sign-on](installation.md#optional-keycloak-single-sign-on) is optional
+and disabled by default. Normal installation and local sign-in need neither Keycloak
+nor Base Command Manager LDAP federation. To opt in, configure advanced site values,
+an existing client Secret and explicitly approved operator groups. The local account
+and its current capabilities remain available.
 
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>

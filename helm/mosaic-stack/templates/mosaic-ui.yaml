@@ -4,6 +4,7 @@
 {{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled }}
 {{- $observability := default dict .Values.observability }}
 {{- $uiAuth := .Values.mosaicUi.auth | default dict }}
+{{- $oidc := $uiAuth.oidc | default dict }}
 {{- $uiAuthSecret := $uiAuth.existingSecret | default ($uiAuth.name | default "mosaic-ui-auth") }}
 {{- $sessionAccessPlugins := list "automation-guard" }}
 {{- if .Values.modules.kubernetes.enabled }}
@@ -74,6 +75,25 @@ spec:
                   key: machineToken
             - name: NEXT_PUBLIC_MOSAIC_DEPLOYMENT_VERSION
               value: {{ .Values.mosaicUi.deploymentVersion | quote }}
+            {{- if $oidc.enabled }}
+            - name: MOSAIC_OIDC_ISSUER
+              value: {{ $oidc.issuerUrl | quote }}
+            - name: MOSAIC_OIDC_CLIENT_ID
+              value: {{ $oidc.clientId | quote }}
+            - name: MOSAIC_OIDC_REDIRECT_URI
+              value: {{ $oidc.redirectUri | quote }}
+            - name: MOSAIC_OIDC_OPERATOR_GROUPS
+              value: {{ $oidc.operatorGroups | toJson | quote }}
+            - name: MOSAIC_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $oidc.existingSecret }}
+                  key: {{ $oidc.clientSecretKey }}
+            {{- if $oidc.caCertificateSecret }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/mosaic-oidc/ca.crt
+            {{- end }}
+            {{- end }}
             - name: MOSAIC_TERMINAL_ENABLED
               value: {{ .Values.modules.terminal.enabled | quote }}
             - name: MOSAIC_EDIT_ENABLED
@@ -171,6 +191,11 @@ spec:
           volumeMounts:
             - name: audit-log
               mountPath: /var/lib/mosaic-audit
+            {{- if and $oidc.enabled $oidc.caCertificateSecret }}
+            - name: oidc-ca
+              mountPath: /etc/mosaic-oidc
+              readOnly: true
+            {{- end }}
             {{- if .Values.modules.research.enabled }}
             - name: research-corpus
               mountPath: {{ .Values.researchAgent.iraop.config.CORPUS_DIR }}
@@ -179,6 +204,14 @@ spec:
         - name: audit-log
           persistentVolumeClaim:
             claimName: mosaic-audit-log
+        {{- if and $oidc.enabled $oidc.caCertificateSecret }}
+        - name: oidc-ca
+          secret:
+            secretName: {{ $oidc.caCertificateSecret }}
+            items:
+              - key: {{ $oidc.caCertificateKey }}
+                path: ca.crt
+        {{- end }}
         {{- if .Values.modules.research.enabled }}
         - name: research-corpus
           hostPath:

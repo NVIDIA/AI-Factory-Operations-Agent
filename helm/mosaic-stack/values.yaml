@@ -305,6 +305,16 @@ mosaicUi:
     username: operator
     password: ""
     machineToken: ""
+    oidc:
+      enabled: false
+      issuerUrl: ""
+      clientId: ""
+      redirectUri: ""
+      operatorGroups: []
+      existingSecret: ""
+      clientSecretKey: clientSecret
+      caCertificateSecret: ""
+      caCertificateKey: ca.crt
 openclaw:
   enabled: true
   # Optional display name and channel identity for the default agent; empty preserves the seed defaults.

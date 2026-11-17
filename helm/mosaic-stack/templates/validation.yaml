@@ -452,3 +452,32 @@
 {{- if and .Values.modules.diagnostics.enabled .Values.diagnosticAgent.config.bcmLookupEnabled (not (has .Values.bcmMcp.mode (list "ssh-adapter" "external"))) -}}
 {{- fail "modules.diagnostics.enabled=true requires bcmMcp.mode=ssh-adapter or external" -}}
 {{- end -}}
+
+{{- $oidc := (.Values.mosaicUi.auth | default dict).oidc | default dict -}}
+{{- if and .Values.modules.ui.enabled .Values.mosaicUi.enabled $oidc.enabled -}}
+{{- $issuer := urlParse (required "mosaicUi.auth.oidc.issuerUrl is required" $oidc.issuerUrl) -}}
+{{- $redirect := urlParse (required "mosaicUi.auth.oidc.redirectUri is required" $oidc.redirectUri) -}}
+{{- if or (ne $issuer.scheme "https") (empty $issuer.host) $issuer.userinfo $issuer.query $issuer.fragment -}}
+{{- fail "OIDC issuerUrl must be an HTTPS issuer without credentials, query or fragment" -}}
+{{- end -}}
+{{- if or (ne $redirect.scheme "https") (empty $redirect.host) (ne $redirect.path "/api/auth/oidc/callback") $redirect.userinfo $redirect.query $redirect.fragment -}}
+{{- fail "OIDC redirectUri must be the exact HTTPS /api/auth/oidc/callback URL" -}}
+{{- end -}}
+{{- if or (empty $oidc.clientId) (empty $oidc.existingSecret) (empty $oidc.clientSecretKey) -}}
+{{- fail "OIDC requires a clientId and an existing client Secret/key" -}}
+{{- end -}}
+{{- if or (not (kindIs "slice" $oidc.operatorGroups)) (empty $oidc.operatorGroups) -}}
+{{- fail "OIDC requires explicitly approved operatorGroups" -}}
+{{- end -}}
+{{- range $group := $oidc.operatorGroups -}}
+{{- if not (kindIs "string" $group) -}}
+{{- fail "OIDC operatorGroups must contain nonempty group names" -}}
+{{- end -}}
+{{- if empty (trim $group) -}}
+{{- fail "OIDC operatorGroups must contain nonempty group names" -}}
+{{- end -}}
+{{- end -}}
+{{- if and $oidc.caCertificateSecret (empty $oidc.caCertificateKey) -}}
+{{- fail "OIDC caCertificateKey is required when caCertificateSecret is set" -}}
+{{- end -}}
+{{- end -}}
