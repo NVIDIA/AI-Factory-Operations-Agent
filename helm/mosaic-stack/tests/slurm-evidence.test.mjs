@@ -94,3 +94,39 @@ test("reads only the last MAX_FILE_BYTES of a large file", async () => {
     await rm(host, { recursive: true, force: true });
   }
 });
+
+for (const [name, roots] of [
+  ["a site-specific root", "/shared/slurm"],
+  ["an /etc/slurm root that is missing on the node", "/var/log:/shared/slurm:/etc/slurm"],
+]) {
+  test(`collects job evidence with ${name}`, async () => {
+    const host = await mkdtemp(path.join(tmpdir(), "slurm-evidence-roots-"));
+    await mkdir(path.join(host, "shared/slurm"), { recursive: true });
+    await mkdir(path.join(host, "var/log"), { recursive: true });
+    await writeFile(path.join(host, "shared/slurm/slurm-4242.out"), "NCCL error: unhandled system error\n");
+    process.env.HOST_ROOT = host;
+    process.env.EVIDENCE_ROOTS = roots;
+    process.env.EVIDENCE_AUTH_TOKEN = "test-token";
+    process.env.EVIDENCE_TEST_MODE = "1";
+    const { createEvidenceServer } = await import(`../files/slurm-evidence/server.mjs?${Date.now()}`);
+    const server = createEvidenceServer().listen(0, "127.0.0.1");
+    await new Promise(resolve => server.once("listening", resolve));
+    const { port } = server.address();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/slurm/job?id=4242`, {
+        headers: { authorization: "Bearer test-token" },
+      });
+      const body = await response.json();
+      assert.equal(response.status, 200, body.error);
+      assert.deepEqual(body.matched_files, [{ path: "/shared/slurm/slurm-4242.out", bytes: 35 }]);
+      assert.deepEqual(body.snippets[0].interesting_lines, ["NCCL error: unhandled system error"]);
+      assert.deepEqual(body.slurm_logs, []);
+      assert.deepEqual(body.slurm_config, []);
+    } finally {
+      server.close();
+      delete process.env.EVIDENCE_ROOTS;
+      await rm(host, { recursive: true, force: true });
+    }
+  });
+}
