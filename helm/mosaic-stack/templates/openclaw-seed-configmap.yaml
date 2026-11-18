@@ -143,6 +143,8 @@ data:
   {{- if .Values.modules.observability.enabled }}
   observability.index.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/index.ts" | indent 4 }}
+  observability.victorialogs.ts: |-
+{{ .Files.Get "files/openclaw-seed/extensions/observability/victorialogs.ts" | indent 4 }}
   observability.loki.ts: |-
 {{ .Files.Get "files/openclaw-seed/extensions/observability/loki.ts" | indent 4 }}
   observability.grafana.ts: |-

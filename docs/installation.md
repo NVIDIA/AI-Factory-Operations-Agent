@@ -303,6 +303,21 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Read-only VictoriaLogs
+
+Connect to an existing VictoriaLogs single-node service, cluster query endpoint
+(vlselect), or authentication proxy by adding these flags to your Helm install:
+
+```bash
+--set modules.observability.enabled=true \
+--set-string observability.victoriaLogs.url=https://victorialogs.example.com
+```
+
+This enables LogsQL field discovery and queries in View mode. No server or
+collector is installed. Loki can be configured at the same time.
+See [VictoriaLogs connection options and queries](victorialogs.md) for tenant
+headers, Secret-backed authentication, and verification.
+
 ### Read-only Loki logs
 
 To connect Mosaic to an existing Loki service, run:

@@ -29,6 +29,13 @@ observability:
     auth:
       existingSecret: ""
       authorizationKey: authorization
+  victoriaLogs:
+    url: ""
+    accountId: ""
+    projectId: ""
+    auth:
+      existingSecret: ""
+      authorizationKey: authorization
   grafanaAuth:
     existingSecret: ""
     usernameKey: username

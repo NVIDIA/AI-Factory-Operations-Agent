@@ -3,6 +3,7 @@
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { registerLokiTools } from "./loki.ts";
+import { registerVictoriaLogsTools } from "./victorialogs.ts";
 import { registerGrafanaTools } from "./grafana.ts";
 
 type PrometheusVectorSample = {
@@ -178,6 +179,7 @@ export default definePluginEntry({
     };
 
     registerLokiTools(api.pluginConfig, registerTool);
+    registerVictoriaLogsTools(api.pluginConfig, registerTool);
     const baseUrl = resolveBaseUrl(api.pluginConfig);
     if (!baseUrl) return;
 
