@@ -9,7 +9,9 @@
       "dashboard_create",
       "dashboard_open",
       "observability_log_labels",
-      "observability_logs"
+      "observability_logs",
+      "observability_victorialogs_fields",
+      "observability_victorialogs_query"
     ]
   },
   "configSchema": {
@@ -77,6 +79,18 @@
           "victoriametrics-metrics-datasource"
         ],
         "description": "Grafana metrics datasource type. Defaults to prometheus."
+      },
+      "victoriaLogsUrl": {
+        "type": "string",
+        "description": "Optional VictoriaLogs query base URL; empty disables VictoriaLogs tools."
+      },
+      "victoriaLogsAccountId": {
+        "type": "string",
+        "description": "Operator-configured VictoriaLogs AccountID."
+      },
+      "victoriaLogsProjectId": {
+        "type": "string",
+        "description": "Operator-configured VictoriaLogs ProjectID."
       }
     }
   }

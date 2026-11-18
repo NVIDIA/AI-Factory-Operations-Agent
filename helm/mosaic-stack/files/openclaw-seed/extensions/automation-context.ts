@@ -74,6 +74,8 @@ const READ_ONLY_TOOLS = new Set([
   "observability_query",
   "observability_range_query",
   "observability_log_labels",
+  "observability_victorialogs_fields",
+  "observability_victorialogs_query",
   "observability_logs",
   "pdf",
   "read",

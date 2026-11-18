@@ -208,3 +208,15 @@ test('namespace selection defaults to aifoa and preserves custom installations',
     assert.equal(args[args.indexOf('--namespace') + 1], namespace ?? 'aifoa');
   }
 });
+
+test('VictoriaLogs can be selected independently or alongside Loki', () => {
+  const state = {...example, inference:'external', modules:['victoriaLogs', 'loki'],
+    victoriaLogsUrl:'https://vl.example.com/proxy', victoriaLogsAccount:'12', victoriaLogsProject:'3',
+    victoriaLogsSecret:'vl-readonly', victoriaLogsKey:'header', lokiUrl:'https://loki.example.com'};
+  const args = argumentsFor(state);
+  assert.ok(enabledModules(state).has('observability'));
+  for (const value of ['observability.victoriaLogs.url=https://vl.example.com/proxy', 'observability.victoriaLogs.accountId=12',
+    'observability.victoriaLogs.projectId=3', 'observability.victoriaLogs.auth.existingSecret=vl-readonly',
+    'observability.victoriaLogs.auth.authorizationKey=header', 'observability.loki.url=https://loki.example.com']) assert.ok(args.includes(value));
+  assert.ok(!args.some(arg => arg.startsWith('modules.victoriaLogs.')));
+});

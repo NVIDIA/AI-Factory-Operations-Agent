@@ -21,3 +21,5 @@ To customize the default agent’s name, follow [Agent display name](installatio
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```
+
+For VictoriaLogs, select **VictoriaLogs** and enter the existing query endpoint. Optional account and project IDs set tenant headers; authentication uses an existing Secret. See [VictoriaLogs](victorialogs.md) for setup and verification.

@@ -7,12 +7,12 @@ export const inferenceProfiles = {
   qwen: {label: 'Qwen3.8 Flash-Next (1 B200)', file: 'vllm-qwen-1gpu.yaml', model: 'qwen3.8-flash-next'},
 };
 export const modules = {
-  kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', grafana: 'Grafana',
+  kubernetes: 'Kubernetes', prometheus: 'Prometheus metrics', alertmanager: 'Alertmanager alerts', loki: 'Loki logs', victoriaLogs: 'VictoriaLogs', grafana: 'Grafana',
   bcm: 'Base Command Manager', slurm: 'Slurm', diagnostics: 'Hardware diagnostics',
   research: 'Research', terminal: 'Browser terminal', edit: 'Guarded Kubernetes edits', clusters: 'Cluster monitoring',
   webSearch: 'Web search (DuckDuckGo)',
 };
-const observabilityServices = ['prometheus', 'alertmanager', 'loki'];
+const observabilityServices = ['prometheus', 'alertmanager', 'loki', 'victoriaLogs'];
 const fields = {
   namespace: ['Namespace', 'aifoa'], pullSecret: ['NGC pull Secret', 'nvcr-image-pull-secret'],
   version: ['Pinned chart version (optional)', '', 'e.g. 0.0.1'],
@@ -20,6 +20,11 @@ const fields = {
   model: ['Inference model', '', 'Your served model name'], llmSecret: ['Inference Secret (apiKey)', 'mosaic-external-llm'],
   prometheusUrl: ['Prometheus URL', '', 'http://prometheus:9090'],
   alertmanagerUrl: ['Alertmanager URL', '', 'http://alertmanager:9093'],
+  victoriaLogsUrl: ['VictoriaLogs URL', '', 'https://victorialogs.example.com'],
+  victoriaLogsAccount: ['VictoriaLogs account ID (optional)', ''],
+  victoriaLogsProject: ['VictoriaLogs project ID (optional)', ''],
+  victoriaLogsSecret: ['VictoriaLogs Authorization Secret (optional)', ''],
+  victoriaLogsKey: ['VictoriaLogs Secret key', 'authorization'],
   lokiUrl: ['Loki URL', '', 'https://logs.example.com'],
   lokiTenant: ['Loki tenant ID (optional)', ''],
   lokiSecret: ['Loki Authorization Secret (optional)', ''],
@@ -63,6 +68,12 @@ export function buildCommand(state) {
   if (enabled.has('loki')) {
     for (const [key, field] of Object.entries({tenantId:'lokiTenant', 'auth.existingSecret':'lokiSecret', 'auth.authorizationKey':'lokiKey'})) {
       set(`observability.loki.${key}`, state[field]?.trim() || fields[field][1], true);
+    }
+  }
+  set('observability.victoriaLogs.url', enabled.has('victoriaLogs') ? value('victoriaLogsUrl') : '', true);
+  if (enabled.has('victoriaLogs')) {
+    for (const [key, field] of Object.entries({accountId:'victoriaLogsAccount', projectId:'victoriaLogsProject', 'auth.existingSecret':'victoriaLogsSecret', 'auth.authorizationKey':'victoriaLogsKey'})) {
+      set(`observability.victoriaLogs.${key}`, state[field]?.trim() || fields[field][1], true);
     }
   }
   if (enabled.has('grafana')) {
@@ -167,6 +178,7 @@ if (root) {
       if (state.inference === 'external') keys.push('baseUrl', 'model', 'llmSecret');
       if (enabled.has('prometheus')) keys.push('prometheusUrl');
       if (enabled.has('alertmanager')) keys.push('alertmanagerUrl');
+      if (enabled.has('victoriaLogs')) keys.push('victoriaLogsUrl', 'victoriaLogsAccount', 'victoriaLogsProject', 'victoriaLogsSecret', 'victoriaLogsKey');
       if (enabled.has('loki')) keys.push('lokiUrl', 'lokiTenant', 'lokiSecret', 'lokiKey');
       if (enabled.has('grafana')) keys.push('grafanaUrl', 'grafanaUid', 'grafanaType', 'grafanaSecret');
       if (enabled.has('slurm')) settingsBody.append(select('slurmBackend', 'Slurm integration', [['bcm', 'Through BCM'], ['vanilla', 'Standalone Slurm']]));
@@ -196,6 +208,10 @@ if (root) {
     }
     const notes = ['Complete namespace and NGC access setup first. Replace all <placeholders> before running.'];
     if (state.inference === 'external') notes.push(`Create ${state.llmSecret || fields.llmSecret[1]} with key apiKey.`);
+    if (enabled.has('victoriaLogs')) {
+      notes.push('Connect to an existing VictoriaLogs query endpoint; no server or collector is installed.');
+      if (state.victoriaLogsSecret?.trim()) notes.push(`Create ${state.victoriaLogsSecret.trim()} in the release namespace with key ${state.victoriaLogsKey?.trim() || fields.victoriaLogsKey[1]} containing the complete Authorization header. Do not enter credentials in this form.`);
+    }
     if (enabled.has('loki')) {
       notes.push('Connect to an existing Loki endpoint; no Loki server or collector is installed.');
       if (state.lokiUrl?.trim() && state.lokiSecret?.trim()) notes.push(`Create ${state.lokiSecret.trim()} in the release namespace with key ${state.lokiKey?.trim() || fields.lokiKey[1]} containing the complete Authorization header. Do not enter credentials in this form.`);
