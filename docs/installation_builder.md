@@ -18,6 +18,8 @@ For a checksum-verified mirrored or source-built sandbox backend package, config
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
+Select Research to expose the optional **Search tool compatibility workaround** checkbox. Leave it off unless the inference backend returns named search arguments as ordinary text and the agent fails to execute the search. See [research evidence validation](installation.md#research) and [the compatibility guide](installation.md#optional-research-tool-compatibility) for the supported schema and verification steps. The builder does not enable full request-body tracing; temporary tracing requires separate controlled configuration and export.
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```
