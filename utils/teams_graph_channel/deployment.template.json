@@ -1,0 +1,207 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "PersistentVolumeClaim",
+      "metadata": {
+        "name": "mosaic-teams-graph",
+        "namespace": "mosaic",
+        "labels": {
+          "app": "mosaic-teams-graph",
+          "mosaic-component": "teams-graph-channel"
+        }
+      },
+      "spec": {
+        "accessModes": [
+          "ReadWriteOnce"
+        ],
+        "storageClassName": "standard",
+        "resources": {
+          "requests": {
+            "storage": "1Gi"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "mosaic-teams-graph",
+        "namespace": "mosaic",
+        "labels": {
+          "app": "mosaic-teams-graph",
+          "mosaic-component": "teams-graph-channel"
+        }
+      },
+      "spec": {
+        "replicas": 1,
+        "strategy": {
+          "type": "Recreate"
+        },
+        "selector": {
+          "matchLabels": {
+            "app": "mosaic-teams-graph"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "mosaic-teams-graph",
+              "mosaic-component": "teams-graph-channel"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "terminationGracePeriodSeconds": 700,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "runAsGroup": 1000,
+              "fsGroup": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "channel",
+                "image": "ghcr.io/openclaw/openclaw:2026.6.10",
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                  "node",
+                  "--network-family-autoselection-attempt-timeout=2000",
+                  "/config/channel.mjs",
+                  "/config/channel.json"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "64Mi"
+                  },
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  }
+                },
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "node",
+                      "-e",
+                      "const f=require('fs'); const x=JSON.parse(f.readFileSync('/state/health.json'));process.exit(x.ready && Date.now()-Date.parse(x.at)<960000?0:1)"
+                    ]
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10
+                },
+                "volumeMounts": [
+                  {
+                    "name": "config",
+                    "mountPath": "/config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "credentials",
+                    "mountPath": "/credentials",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "ui-auth",
+                    "mountPath": "/ui-auth",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "webhook-auth",
+                    "mountPath": "/webhook-auth",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "state",
+                    "mountPath": "/state"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "config",
+                "configMap": {
+                  "name": "mosaic-teams-graph"
+                }
+              },
+              {
+                "name": "credentials",
+                "secret": {
+                  "secretName": "mosaic-teams-graph",
+                  "defaultMode": 288
+                }
+              },
+              {
+                "name": "ui-auth",
+                "secret": {
+                  "secretName": "mosaic-ui-auth",
+                  "items": [
+                    {
+                      "key": "machineToken",
+                      "path": "machineToken"
+                    }
+                  ],
+                  "defaultMode": 288
+                }
+              },
+              {
+                "name": "webhook-auth",
+                "secret": {
+                  "secretName": "mosaic-teams-alert-webhook",
+                  "defaultMode": 288
+                }
+              },
+              {
+                "name": "state",
+                "persistentVolumeClaim": {
+                  "claimName": "mosaic-teams-graph"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "mosaic-teams-graph",
+        "namespace": "mosaic",
+        "labels": {
+          "app": "mosaic-teams-graph",
+          "mosaic-component": "teams-graph-channel"
+        }
+      },
+      "spec": {
+        "selector": {
+          "app": "mosaic-teams-graph"
+        },
+        "ports": [
+          {
+            "name": "webhook",
+            "port": 8789,
+            "targetPort": 8789
+          }
+        ]
+      }
+    }
+  ]
+}
