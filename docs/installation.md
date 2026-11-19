@@ -865,7 +865,7 @@ Brave Search is an API-backed provider. It needs a paid Brave account; at the ti
      --timeout 12m
    ```
 
-OpenClaw `2026.6.10` does not bundle the Brave provider. When `provider=brave`, an init container downloads `@openclaw/brave-plugin` at `modules.webSearch.brave.pluginVersion` from `registry.npmjs.org`, verifies it against `modules.webSearch.brave.pluginSha256`, and installs it before the gateway starts. The `openclaw` pod then also needs HTTPS egress to `registry.npmjs.org` and `api.search.brave.com`. To rotate the key, update the Secret and run `kubectl -n aifoa rollout restart deployment/openclaw`. Updating only the Secret does not restart the pod.
+OpenClaw `2026.11.4` loads web search from official provider packages. An init container downloads the selected `@openclaw/duckduckgo-plugin` or `@openclaw/brave-plugin` package from `registry.npmjs.org`, verifies it against the corresponding `modules.webSearch.<provider>.pluginSha256`, and installs it before the gateway starts. The `openclaw` pod needs HTTPS egress to `registry.npmjs.org` and the selected search provider. To rotate the key, update the Secret and run `kubectl -n aifoa rollout restart deployment/openclaw`. Updating only the Secret does not restart the pod.
 
 After enabling the required plugins, use the earlier port-forward to open the UI.
 
@@ -893,14 +893,22 @@ helm upgrade aifoa "$MOSAIC_CHART" \
 ```
 
 The default is empty: the agent keeps the seed name `AI Factory Operations Agent`
-and no explicit identity override. A nonempty value sets both `agents.list[].name`
-and `agents.list[].identity.name`. Channels that display the agent identity can
+and no explicit identity override. A nonempty value sets both `agents.entries.<id>.name`
+and `agents.entries.<id>.identity.name`. Channels that display the agent identity can
 then show the configured name; each channel controls its message presentation.
 The internal agent ID remains `default`, preserving routing and session keys.
 The messaging platform's application or bot profile name is managed separately
 in that platform's administration console.
 
 ## Upgrade An Existing Installation
+
+OpenClaw `2026.11.4` preserves conversations across calendar days by default. Context growth is handled by compaction; `/new` and `/reset` still start a fresh conversation. Back up the persistent OpenClaw home before upgrading from older runtimes because this release migrates session storage to SQLite.
+
+The chart retains the official container entrypoint so OpenClaw runs its supported Doctor migrations before starting the gateway. Installations retaining pre-July plugin, sandbox, or browser JSON state must first follow the upstream intermediate upgrade through OpenClaw `2026.9.7`; the latest runtime refuses those retired formats rather than silently discarding them. Follow the [upstream state migration procedure](https://docs.openclaw.ai/cli/doctor/state-migrations) against a verified backup before activating this chart.
+
+Slack diagnostics remain enabled. OpenClaw `2026.11.4` owns activity-aware stuck-session recovery, with nominal warning and abort thresholds of 120 and 360 seconds; recent activity can defer recovery further. The former configurable 60/150-second thresholds and the chart values `openclaw.slack.diagnostics.stuckSessionWarnMs` and `openclaw.slack.diagnostics.stuckSessionAbortMs` have been removed. Remove those obsolete overrides from retained site values when upgrading.
+
+The Mosaic UI backend signs gateway connection challenges using a persistent device identity stored as `gateway-device.pem` in its audit volume. Keep this private key and the gateway's paired-device state across restarts. Before remote UI operations can succeed, inspect and approve that exact backend device through OpenClaw's normal device pairing flow. The backend does not approve itself; existing UI login and one-time tool approval decisions remain in place. Validate this pairing and a conversation across a restart in an isolated release before upgrading a shared installation.
 
 Retain the working site configuration with:
 

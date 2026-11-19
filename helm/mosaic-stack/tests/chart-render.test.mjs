@@ -11,10 +11,6 @@ import test from "node:test";
 
 const chart = fileURLToPath(new URL("..", import.meta.url));
 const slackManifest = fileURLToPath(new URL("../profiles/slack-app-manifest.json", import.meta.url));
-const slackEnterprisePatch = fileURLToPath(
-  new URL("../files/openclaw-seed/slack-enterprise-grid-patch.mjs", import.meta.url),
-);
-
 function configMapBlock(output, key) {
   const lines = output.split("\n");
   const start = lines.findIndex(line => line.startsWith(`  ${key}: |`));
@@ -92,10 +88,35 @@ function renderDiagnostics(...args) {
 
 test("preserves memory maintenance with embedding-free indexed recall", () => {
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
-  assert.match(seed, /"memorySearch":\s*\{\s*"provider": "none"/);
+  assert.match(seed, /"memory":\s*\{\s*"search":\s*\{\s*"provider": "none"/);
   assert.match(seed, /"vector":\s*\{\s*"enabled": false/);
   assert.doesNotMatch(seed, /"slots":\s*\{\s*"memory": "none"/);
   assert.match(seed, /Use connected operational systems as the source of truth/);
+});
+
+test("native sessions retain continuity across days unless reset is requested", {
+  skip: !process.env.OPENCLAW_RUNTIME_ROOT,
+}, () => {
+  execFileSync(process.execPath, ["--input-type=module", "-e", `
+    import assert from "node:assert/strict";
+    import { pathToFileURL } from "node:url";
+    const { resolveSessionResetPolicy, evaluateSessionFreshness } = await import(
+      pathToFileURL(process.env.OPENCLAW_RUNTIME_ROOT + "/dist/plugin-sdk/session-store-runtime.js")
+    );
+    const now = Date.now();
+    for (const resetType of ["direct", "group", "thread"]) {
+      const policy = resolveSessionResetPolicy({ resetType });
+      for (const days of [2, 7, 30]) {
+        const then = now - days * 86400000;
+        assert.equal(evaluateSessionFreshness({
+          policy, now, updatedAt: then, sessionStartedAt: then, lastInteractionAt: then,
+        }).fresh, true);
+      }
+      assert.equal(evaluateSessionFreshness({ policy, now, updatedAt: 0 }).fresh, false);
+      const daily = resolveSessionResetPolicy({ resetType, sessionCfg: { reset: { mode: "daily" } } });
+      assert.equal(evaluateSessionFreshness({ policy: daily, now, updatedAt: now - 7 * 86400000 }).fresh, false);
+    }
+  `], { env: process.env, stdio: "pipe" });
 });
 
 test("native memory indexes Markdown and preserves appended notes across restarts", {
@@ -124,12 +145,11 @@ test("native memory indexes Markdown and preserves appended notes across restart
         { text: "The fabric inspection is scheduled Friday.", query: "fabric inspection" },
       ];
       fs.writeFileSync(file, entries[0].text + "\\n");
-      const cfg = { agents: {
-        defaults: { workspace, memorySearch: {
+      const cfg = { memory: { search: {
           provider: "none", store: { vector: { enabled: false } },
           sync: { onSessionStart: false, watch: false },
-        } },
-        list: [{ id: "test", workspace }],
+        } }, agents: {
+          defaults: { workspace }, entries: { test: { workspace } },
       } };
       let manager = await MemoryIndexManager.get({ cfg, agentId: "test", purpose: "cli" });
       try {
@@ -218,7 +238,7 @@ test("requires the BCM SSH adapter for Hardware Agent installs", () => {
 test("renders only official OpenClaw and OpenShell runtime images", () => {
   const output = render();
   for (const image of [
-    "ghcr.io/openclaw/openclaw:2026.6.10",
+    "ghcr.io/openclaw/openclaw:2026.11.4",
     "ghcr.io/nvidia/openshell/gateway:0.0.75",
     "ghcr.io/nvidia/openshell/supervisor:0.0.75",
     "ghcr.io/nvidia/openshell-community/sandboxes/base@sha256:aeef1c63f00e2913ea002ccb3aaf925f338b5c5d70e63576f0d95c16a138044e",
@@ -234,6 +254,12 @@ test("pins every default runtime image", () => {
   const output = render();
   assert.match(output, /image: ["']?vllm\/vllm-openai@sha256:[a-f0-9]{64}/);
   assert.doesNotMatch(output, /image:\s*["']?\S+:latest(?:["']|\s|$)/);
+});
+
+test("preserves image activation before the gateway starts", () => {
+  const output = render("--show-only", "templates/openclaw.yaml");
+  assert.match(output, /args: \["node", "\/app\/dist\/index\.js", "gateway", "run"\]/);
+  assert.doesNotMatch(output, /command: \["node", "\/app\/dist\/index\.js", "gateway", "run"\]/);
 });
 
 test("renders namespace labeling with the configured kubectl image", () => {
@@ -382,7 +408,7 @@ test("generates a bearer credential with a chart-managed Research Agent Secret",
 
 test("agent display name defaults preserve the existing agent identity", () => {
   const baseline = openclawConfig();
-  const agent = baseline.agents.list.find(agent => agent.id === "default");
+  const agent = baseline.agents.entries.default;
   assert.equal(agent.name, "AI Factory Operations Agent");
   assert.equal(agent.identity, undefined);
   assert.deepEqual(openclawConfig("--set-string", "openclaw.agentDisplayName="), baseline);
@@ -394,8 +420,8 @@ test("agent display name overrides both names without changing routing or other 
   for (const name of ["Operations Agent", '值班 "Agent" \\ {{ .Release.Name }}\n<support>\u0001']) {
     const config = openclawConfig("--set-json", `openclaw.agentDisplayName=${JSON.stringify(name)}`);
     const expected = structuredClone(baseline);
-    expected.agents.list[0].name = name;
-    expected.agents.list[0].identity = { name };
+    expected.agents.entries.default.name = name;
+    expected.agents.entries.default.identity = { name };
     assert.deepEqual(config, expected);
   }
 });
@@ -522,7 +548,7 @@ test("does not render Slack runtime behavior when disabled", () => {
   const output = render();
   assert.doesNotMatch(output, /"maxConcurrent": 8/);
   assert.doesNotMatch(output, /"dmScope": "per-channel-peer"/);
-  assert.doesNotMatch(output, /"stuckSessionWarnMs": 60000/);
+  assert.equal(JSON.parse(configMapBlock(output, "openclaw.json")).diagnostics, undefined);
   assert.doesNotMatch(output, /slack-enterprise-grid-patch\.mjs/);
   assert.doesNotMatch(output, /init-slack-plugin|SLACK_(?:BOT|APP)_TOKEN/);
   assert.match(output, /"slackEnabled": false/);
@@ -549,10 +575,14 @@ test("renders native Slack Socket Mode with isolated execution", () => {
   assert.match(output, /"streaming": \{"mode":"partial","nativeTransport":true\}/);
   assert.match(output, /"maxConcurrent": 8/);
   assert.match(output, /"dmScope": "per-channel-peer"/);
-  assert.match(output, /"stuckSessionAbortMs": 150000/);
+  const diagnostics = JSON.parse(configMapBlock(output, "openclaw.json")).diagnostics;
+  assert.equal(diagnostics.enabled, true);
+  for (const retired of ["stuckSessionWarnMs", "stuckSessionAbortMs"]) {
+    assert.equal(Object.hasOwn(diagnostics, retired), false);
+  }
   assert.match(output, /"byChannel": \{\s*"slack": "followup"/);
-  assert.match(output, /name: init-slack-plugin[\s\S]*@openclaw\/slack@2026\.6\.6.*--force/);
-  assert.match(output, /node \/seed\/slack-enterprise-grid-patch\.mjs/);
+  assert.match(output, /name: init-slack-plugin[\s\S]*@openclaw\/slack@2026\.11\.4.*--force/);
+  assert.doesNotMatch(output, /slack-enterprise-grid-patch/);
   assert.match(output, /name: "mosaic-slack"[\s\S]*key: "SLACK_BOT_TOKEN"/);
   assert.match(output, /name: "mosaic-slack"[\s\S]*key: "SLACK_APP_TOKEN"/);
   assert.doesNotMatch(output, /xox[baprs]-|xapp-/);
@@ -637,7 +667,7 @@ test("does not render web search when disabled", () => {
   assert.doesNotMatch(config, /duckduckgo|brave|group:web|"web":/);
   assert.doesNotMatch(configMapBlock(seed, "AGENTS.md"), /web_search|web_fetch/);
   assert.equal(JSON.parse(configMapBlock(seed, "agent-deployment.json")).modules.webSearch, false);
-  assert.doesNotMatch(runtime, /init-web-search-plugin|brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
+  assert.doesNotMatch(runtime, /init-web-search-plugin|duckduckgo-plugin|brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
 });
 
 test("enables key-free DuckDuckGo web search by default", () => {
@@ -652,7 +682,9 @@ test("enables key-free DuckDuckGo web search by default", () => {
   const seed = render("--show-only", "templates/openclaw-seed-configmap.yaml");
   assert.match(configMapBlock(seed, "AGENTS.md"), /## Web Search[\s\S]*`web_search`[\s\S]*Never place hostnames/);
   assert.equal(JSON.parse(configMapBlock(seed, "agent-deployment.json")).modules.webSearch, true);
-  assert.doesNotMatch(render("--show-only", "templates/openclaw.yaml"), /init-web-search-plugin|brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
+  const runtime = render("--show-only", "templates/openclaw.yaml");
+  assert.match(runtime, /name: init-web-search-plugin[\s\S]*duckduckgo-plugin/);
+  assert.doesNotMatch(runtime, /brave-plugin|WEB_SEARCH_KEY|BRAVE_API_KEY/);
 });
 
 test("renders Brave web search when selected", () => {
@@ -668,9 +700,9 @@ test("renders Brave web search when selected", () => {
 
   const runtime = render(...braveArgs, "--set", "modules.webSearch.apiKeySecretKey=key", "--show-only", "templates/openclaw.yaml");
   assert.match(runtime, /name: init-web-search-plugin/);
-  assert.match(runtime, /registry\.npmjs\.org\/@openclaw\/brave-plugin\/-\/brave-plugin-2026\.6\.10\.tgz/);
-  assert.match(runtime, /printf '%s  %s\\n' "e922a777[0-9a-f]{56}" "\$plugin" \| sha256sum -c -/);
-  assert.match(runtime, /node \/app\/dist\/index\.js plugins install \/tmp\/brave-plugin --force/);
+  assert.match(runtime, /registry\.npmjs\.org\/@openclaw\/brave-plugin\/-\/brave-plugin-2026\.11\.4\.tgz/);
+  assert.match(runtime, /printf '%s  %s\\n' "e6778cb7[0-9a-f]{56}" "\$plugin" \| sha256sum -c -/);
+  assert.match(runtime, /node \/app\/dist\/index\.js plugins install \/tmp\/web-search-plugin --force/);
   for (const name of ["WEB_SEARCH_KEY", "BRAVE_API_KEY"]) {
     assert.match(runtime, new RegExp(`- name: ${name}\\n\\s+valueFrom:\\n\\s+secretKeyRef:\\n\\s+name: "mosaic-web-search"\\n\\s+key: "key"`));
   }
@@ -780,23 +812,7 @@ test("validates Slack edit identities without weakening the messaging allowlist"
   }
 });
 
-test("patches Slack Enterprise Grid workspace events without weakening app checks", () => {
-  const dir = mkdtempSync(join(tmpdir(), "mosaic-slack-patch-"));
-  const provider = join(dir, "provider.js");
-  writeFileSync(
-    provider,
-    `\t\tconst incomingTeamId = typeof raw.team_id === "string" ? raw.team_id : typeof raw.team?.id === "string" ? raw.team.id : "";\n` +
-    `\t\tif (params.apiAppId && incomingApiAppId && incomingApiAppId !== params.apiAppId) {}\n` +
-    `\t\tif (params.teamId && incomingTeamId && incomingTeamId !== params.teamId) {}`,
-  );
-  execFileSync("node", [slackEnterprisePatch, provider]);
-  execFileSync("node", [slackEnterprisePatch, provider]);
-  const patched = readFileSync(provider, "utf8");
-  rmSync(dir, { recursive: true });
-  assert.match(patched, /incomingEnterpriseId/);
-  assert.match(patched, /incomingEnterpriseId !== params\.teamId/);
-  assert.match(patched, /incomingApiAppId !== params\.apiAppId/);
-});
+
 
 test("exposes only blueprint-owned skills to OpenClaw agents", () => {
   const output = render("--show-only", "templates/openclaw-seed-configmap.yaml");
@@ -1483,7 +1499,7 @@ test("installs either the pinned or overridden sandbox archive with checksum ver
   const archive = "https://artifacts.example.test/openshell-source-build.tgz";
   const checksum = "a".repeat(64);
   const defaults = render("--show-only", "templates/openclaw.yaml");
-  assert.ok(defaults.includes('value: "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz"'));
+  assert.ok(defaults.includes('value: "https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.11.4.tgz"'));
   const overridden = render("--show-only", "templates/openclaw.yaml",
     "--set-string", `openclaw.openshell.pluginArchiveUrl=${archive}`,
     "--set-string", `openclaw.openshell.pluginSha256=${checksum}`);
@@ -1491,8 +1507,8 @@ test("installs either the pinned or overridden sandbox archive with checksum ver
   assert.ok(overridden.includes(`printf '%s  %s\\n' "${checksum}" "$plugin" | sha256sum -c -`));
   assert.ok(overridden.includes('"$OPENSHELL_PLUGIN_ARCHIVE_URL"'));
   assert.equal(
-    defaults.replaceAll("https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.6.6.tgz", archive)
-      .replaceAll("1e0cbbcf105e931b6dc19c9411de73dcf65e76a111e3f41ffde379e8855caa33", checksum),
+    defaults.replaceAll("https://registry.npmjs.org/@openclaw/openshell-sandbox/-/openshell-sandbox-2026.11.4.tgz", archive)
+      .replaceAll("c9a4451a65b1c1da97e7c0f503cb1d3d876feede970c26e9e96a3e9331d373a0", checksum),
     overridden,
   );
 });

@@ -124,13 +124,15 @@ spec:
         - name: init-perms
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
-          command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw && chmod 0775 /home/node/.openclaw"]
+          command: ["sh", "-c", "chown 1000:1000 /home/node/.openclaw /run/openclaw-tmp && chmod 0775 /home/node/.openclaw && chmod 0700 /run/openclaw-tmp"]
           securityContext:
             runAsUser: 0
             runAsGroup: 0
           volumeMounts:
             - name: openclaw-home
               mountPath: /home/node/.openclaw
+            - name: runtime-tmp
+              mountPath: /run/openclaw-tmp
         - name: init-config
           image: busybox:1.37
           imagePullPolicy: IfNotPresent
@@ -340,8 +342,7 @@ spec:
             - sh
             - -c
             - |
-              node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force
-              node /seed/slack-enterprise-grid-patch.mjs
+              node /app/dist/index.js plugins install {{ printf "@openclaw/slack@%v" .Values.openclaw.slack.pluginVersion | quote }} --force --accept-capabilities
           env:
             - name: HOME
               value: /home/node
@@ -354,7 +355,8 @@ spec:
             - name: openclaw-seed
               mountPath: /seed
         {{- end }}
-        {{- if and .Values.modules.webSearch.enabled (eq .Values.modules.webSearch.provider "brave") }}
+        {{- if .Values.modules.webSearch.enabled }}
+        {{- $search := index .Values.modules.webSearch .Values.modules.webSearch.provider }}
         - name: init-web-search-plugin
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
@@ -363,14 +365,14 @@ spec:
             - -c
             - |
               set -eu
-              plugin=/tmp/brave-plugin.tar.gz
+              plugin=/tmp/web-search-plugin.tar.gz
               curl -fsSL --retry 5 --retry-all-errors -o "$plugin" \
-                "https://registry.npmjs.org/@openclaw/brave-plugin/-/brave-plugin-{{ .Values.modules.webSearch.brave.pluginVersion }}.tgz"
-              printf '%s  %s\n' {{ .Values.modules.webSearch.brave.pluginSha256 | quote }} "$plugin" | sha256sum -c -
-              rm -rf /tmp/brave-plugin
-              mkdir -p /tmp/brave-plugin
-              tar -xzf "$plugin" --strip-components=1 -C /tmp/brave-plugin
-              node /app/dist/index.js plugins install /tmp/brave-plugin --force
+                "https://registry.npmjs.org/@openclaw/{{ .Values.modules.webSearch.provider }}-plugin/-/{{ .Values.modules.webSearch.provider }}-plugin-{{ $search.pluginVersion }}.tgz"
+              printf '%s  %s\n' {{ $search.pluginSha256 | quote }} "$plugin" | sha256sum -c -
+              rm -rf /tmp/web-search-plugin
+              mkdir -p /tmp/web-search-plugin
+              tar -xzf "$plugin" --strip-components=1 -C /tmp/web-search-plugin
+              node /app/dist/index.js plugins install /tmp/web-search-plugin --force --accept-capabilities
           env:
             - name: HOME
               value: /home/node
@@ -503,7 +505,7 @@ spec:
             - -c
             - |
               set -eu
-              node /app/dist/index.js plugins install /openshell-plugin --force
+              node /app/dist/index.js plugins install /openshell-plugin --force --accept-capabilities
               config_root=/home/node/.openclaw/.config/openshell
               gateway_name={{ include "mosaic-stack.openshellGatewayName" . | quote }}
               gateway_endpoint={{ include "mosaic-stack.openshellGatewayEndpoint" . | quote }}
@@ -535,14 +537,20 @@ spec:
         - name: gateway
           image: {{ include "mosaic-stack.image" .Values.openclaw.image | quote }}
           imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
-          command: ["node", "/app/dist/index.js", "gateway", "run"]
+          args: ["node", "/app/dist/index.js", "gateway", "run"]
           env:
             {{- $customTmpdir := false }}
+            {{- $customCache := false }}
             {{- range .Values.openclaw.extraEnv }}
             {{- if eq .name "TMPDIR" }}{{- $customTmpdir = true }}{{- end }}
+            {{- if eq .name "XDG_CACHE_HOME" }}{{- $customCache = true }}{{- end }}
             {{- end }}
             {{- if not $customTmpdir }}
             - name: TMPDIR
+              value: /run/openclaw-tmp/runtime
+            {{- end }}
+            {{- if not $customCache }}
+            - name: XDG_CACHE_HOME
               value: /run/openclaw-tmp/runtime
             {{- end }}
             {{- with .Values.openclaw.extraEnv }}
