@@ -84,6 +84,7 @@ export class Bridge {
     const identity = await this.clients.slack('auth.test');
     if (identity.team_id !== this.c.teamId || identity.user_id !== this.c.botUserId || !identity.bot_id)
       throw new Error('slack_identity_mismatch');
+    this.enterpriseId = /^E[A-Z0-9]{5,31}$/.test(identity.enterprise_id) ? identity.enterprise_id : undefined;
     await this.clients.mosaic('/api/openclaw/commands');
     await this.clients.secret('publishToken');
   }
@@ -135,8 +136,13 @@ export class Bridge {
   async dm(user) {
     const result = await this.clients.slack('conversations.open', {users:user,return_im:true});
     const channel = result.channel;
+    // Grid may return a one-to-one DM in the organization's context. An
+    // organization context verified by auth.test is distinct from Slack Connect.
+    const internalEnterpriseDm = channel?.is_org_shared === true &&
+      this.enterpriseId && channel.context_team_id === this.enterpriseId;
     if (!CHANNEL.test(channel?.id) || channel.is_im !== true || channel.user !== user ||
-        channel.is_ext_shared || channel.is_org_shared) throw new Error('dm_identity_mismatch');
+        channel.is_ext_shared || channel.is_pending_ext_shared || channel.connected_team_ids?.length ||
+        ((channel.is_shared || channel.is_org_shared) && !internalEnterpriseDm)) return null;
     return channel.id;
   }
   prompt(row, thread) {
@@ -170,7 +176,7 @@ export class Bridge {
     if (TERMINAL.has(row.state)) return;
     if (!this.allowed.has(row.user)) { row.state = 'rejected'; this.store.save(row); return; }
     const channel = await this.dm(row.user);
-    if (row.channel && row.channel !== channel) {
+    if (!channel || (row.channel && row.channel !== channel)) {
       row.state = 'rejected'; this.store.save(row); this.log('wrong_dm_rejected',row.id); return;
     }
     row.channel = channel;

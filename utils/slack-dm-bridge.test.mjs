@@ -129,6 +129,50 @@ test('DM identity is checked before any model call and removed users are rejecte
   await x.drain(); assert.equal(x.runs.length,0);
 });
 
+test('verifies Grid DMs against the authenticated enterprise and rejects external or unverified sharing', async t => {
+  const enterpriseId = 'E12345678';
+  const sharedDm = {is_shared:true,is_org_shared:true,context_team_id:enterpriseId};
+  const x = await setup(t);
+  const slack = x.clients.slack;
+  let sharing = sharedDm;
+  let authEnterpriseId = enterpriseId;
+  x.clients.slack = async (method,body) => {
+    const response = await slack(method,body);
+    if (method === 'auth.test') return {...response,enterprise_id:authEnterpriseId};
+    if (method === 'conversations.open') return {channel:{...response.channel,...sharing}};
+    return response;
+  };
+  await x.bridge.verify();
+  const publish = n => x.bridge.publish({incidentId:'grid-' + n,userId:'U12345678',report:'Grid report'});
+  const job = publish(1);
+  await x.drain();
+  const incident = x.bridge.store.get(job.id);
+  assert.equal(incident.state,'done');
+  assert.equal(x.bridge.accept(envelope(2,{thread_ts:incident.root})),true);
+  await x.drain();
+  assert.equal(x.runs.length,1);
+  assert.equal(x.sent.at(-1).thread_ts,incident.root);
+
+  for (const [index, flags] of [
+    {is_ext_shared:true}, {is_pending_ext_shared:true}, {connected_team_ids:['T23456789']},
+    {context_team_id:'E23456789'}, {context_team_id:undefined}, {is_org_shared:undefined},
+    {user:'U23456789'}, {is_im:false},
+  ].entries()) {
+    sharing = {...sharedDm,...flags};
+    const rejected = publish(index + 3);
+    await x.drain();
+    assert.equal(x.bridge.store.get(rejected.id).state,'rejected');
+  }
+  sharing = sharedDm;
+  authEnterpriseId = undefined;
+  await x.bridge.verify();
+  const unverified = publish(11);
+  await x.drain();
+  assert.equal(x.bridge.store.get(unverified.id).state,'rejected');
+  assert.equal(x.runs.length,1);
+  assert.equal(x.sent.length,3);
+});
+
 test('incident publication is idempotent and conflicting or unauthorized reports fail closed', async t => {
   const x = await setup(t), report = {incidentId:'xid-1',userId:'U12345678',report:'All complete evidence.'};
   const first = x.bridge.publish(report); assert.equal(first.duplicate,false);

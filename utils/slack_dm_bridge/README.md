@@ -30,7 +30,7 @@ The bridge does not ingest Alertmanager alerts, run an independent investigation
 
 - Node.js **24.11.1 or later in the Node 24 line**, or another supported release providing built-in `node:sqlite`, `fetch`, and `WebSocket`. No npm packages are installed.
 - A running MOSAIC UI/headless service, its machine token, and the main chart's automation guard. The bridge's deterministic `mosaic-automation-alert-slack-…` session names are permanently View mode in that guard. The HTTP request also explicitly selects `accessMode: view`.
-- An approved Slack Bot App installed in **one workspace**, an App token with `connections:write`, and an explicit list of approved Slack user IDs. This first version accepts only ordinary text messages in that workspace's one-to-one DMs. Channels, group DMs, Slack Connect, organization-shared DMs, edits, attachments and interactive approvals are outside its scope.
+- An approved Slack Bot App installed in **one workspace**, an App token with `connections:write`, and an explicit list of approved Slack user IDs. This version accepts ordinary one-to-one DM text events for that installation, including internal Grid DMs whose organization context matches the Bot Token's authenticated enterprise. Channels, group DMs, Slack Connect, edits, attachments and interactive approvals are outside its scope.
 - Connectivity from the bridge to `slack.com`, Slack's `wss://*.slack.com` Socket Mode hosts, the configured MOSAIC service, and an optional credential broker. No public Slack callback is needed. Restrict the publication service to trusted publishers with network policy; add TLS for traffic crossing an untrusted network.
 - A private persistent volume used only by this bridge. It contains full incident reports, incoming questions, recovery prompts, model answers, deduplication records and delivery receipts. These are conversation state, not application logs. Apply the same access controls, encryption, backup and retention policy as for the associated operational evidence.
 - Approved users must be authorized to access **all data exposed by the configured MOSAIC tools**. View mode prevents infrastructure changes; it is not a per-user data access policy. This bridge does not add source-specific authorization or make an existing deployment compliant with an organization's policies automatically.
@@ -195,7 +195,7 @@ Limits are 128 characters for incident IDs, 160 Unicode characters for titles, 1
 | Event redelivery / duplicate message timestamp | Ignore after durable deduplication, including after process restart |
 | Another user or unknown incident thread | Ignore; never borrow another user's report or select the latest incident heuristically |
 | Allowed user removed from configuration | Queued work for that user is rejected after configuration reload/restart |
-| Wrong DM returned by Slack | Reject before calling MOSAIC or delivering content |
+| Wrong recipient, Slack Connect, or unverified shared DM returned by Slack | Reject the job before calling MOSAIC or delivering content |
 | Headless submission times out or process restarts | Read the original session history; do not resubmit an ambiguous Agent turn |
 | Active run, stale answer or tool-call turn | Wait for the final answer matching the full durable prompt |
 | No confirmed completion after 15 minutes | Send a bounded failure notice in the same thread; do not claim successful investigation or resubmit the request |
