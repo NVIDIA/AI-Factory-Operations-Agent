@@ -36,6 +36,36 @@ class DeploymentTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 render(b)
 
+    def test_group_has_distinct_state_session_and_resources_but_reuses_credentials(self):
+        binding = {**BINDING, 'chatType': 'group', 'chatId': 'existing-group',
+                   'allowedUserIds': [BINDING['recipient']]}
+        doc = render(binding)
+        config = json.loads(doc['items'][0]['data']['channel.json'])
+        name = doc['items'][0]['metadata']['name']
+        self.assertTrue(name.startswith('mosaic-teams-group-'))
+        self.assertTrue(all(x['metadata']['name'] == name for x in doc['items']))
+        self.assertNotIn('recipientId', config)
+        self.assertTrue(config['requireMention'])
+        self.assertEqual(config['allowedUserIds'], binding['allowedUserIds'])
+        self.assertNotEqual(config['sessionKey'], json.loads(render(BINDING)['items'][0]['data']['channel.json'])['sessionKey'])
+        dep = next(x for x in doc['items'] if x['kind'] == 'Deployment')['spec']
+        self.assertEqual(dep['selector']['matchLabels']['app'], name)
+        pod = dep['template']
+        self.assertEqual(pod['metadata']['labels']['app'], name)
+        volumes = {v['name']: v for v in pod['spec']['volumes']}
+        self.assertEqual(volumes['config']['configMap']['name'], name)
+        self.assertEqual(volumes['state']['persistentVolumeClaim']['claimName'], name)
+        self.assertEqual(volumes['credentials']['secret']['secretName'], 'mosaic-teams-graph')
+        self.assertNotIn('Service', [i['kind'] for i in doc['items']])
+        for kwargs in [{'name': 'mosaic-teams-graph'}, {'alert_cluster': 'prod'}]:
+            with self.assertRaises(ValueError):
+                render(binding, **kwargs)
+
+    def test_group_allowlist_cannot_be_empty_wildcard_duplicate_or_service_identity(self):
+        for allowed in [[], ['*'], [BINDING['sender']['id']], [BINDING['recipient']] * 2]:
+            with self.assertRaises(ValueError):
+                render({**BINDING, 'chatType': 'group', 'allowedUserIds': allowed})
+
 
 if __name__ == '__main__':
     unittest.main()

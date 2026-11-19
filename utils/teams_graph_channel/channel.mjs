@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Optional delegated Graph bridge: fixed Teams DM -> MOSAIC headless conversation -> same DM.
+// Optional delegated Graph bridge: fixed Teams chat -> MOSAIC headless conversation -> same chat.
 // Credentials are read from mounted files. No password reset or rotation is performed.
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -11,6 +11,9 @@ import { pathToFileURL } from 'node:url';
 import { renderTeamsMessages } from './format.mjs';
 
 const GRAPH = 'https://graph.microsoft.com';
+const GUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+export const groupSessionKey = chatId => 'agent:default:mosaic-automation-alert-teams-group-' +
+  crypto.createHash('sha256').update(chatId).digest('hex').slice(0, 24);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const textOf = m => typeof m.content === 'string' ? m.content :
   (m.content || []).filter(c => c.type === 'text').map(c => c.text || '').join('\n');
@@ -47,11 +50,33 @@ export function chunks(text, bytes = 18000) {
   if (part) result.push(part);
   return result;
 }
+export function groupMessageInput(message, senderId) {
+  // A display-name string is not a mention. Match Graph's structured identity and HTML marker.
+  if (message.body?.contentType !== 'html' || !Array.isArray(message.mentions)) return null;
+  const ids = new Set(message.mentions.filter(m => Number.isInteger(m.id) && m.id >= 0 &&
+    m.mentioned?.user?.id?.toLowerCase() === senderId.toLowerCase()).map(m => String(m.id)));
+  let mentioned = false;
+  const content = String(message.body.content || '').replace(
+    /<at\b[^>]*\bid\s*=\s*(?:"([0-9]+)"|'([0-9]+)'|([0-9]+))[^>]*>[\s\S]*?<\/at>/gi,
+    (whole, a, b, c) => { if (!ids.has(a ?? b ?? c)) return whole; mentioned = true; return ''; });
+  return mentioned ? plainText({contentType:'html', content}) : null;
+}
 export function validateConfig(c) {
-  for (const k of ['chatId','senderId','recipientId','senderUpn','sessionKey','mosaicUrl','credentialFile','machineTokenFile','stateDir']) {
+  c = {...c, chatType:c.chatType ?? 'oneOnOne'};
+  for (const k of ['chatId','senderId','senderUpn','sessionKey','mosaicUrl','credentialFile','machineTokenFile','stateDir']) {
     if (typeof c[k] !== 'string' || !c[k]) throw new Error(`missing_config_${k}`);
   }
-  if (c.senderId === c.recipientId || !/^agent:default:mosaic-automation-alert-teams-[a-z0-9_-]+$/.test(c.sessionKey)) throw new Error('invalid_identity_or_readonly_session');
+  if (!/^agent:default:mosaic-automation-alert-teams-[a-z0-9_-]+$/.test(c.sessionKey)) throw new Error('invalid_identity_or_readonly_session');
+  if (c.chatType === 'group') {
+    if (!GUID.test(c.senderId) || !Array.isArray(c.allowedUserIds) || !c.allowedUserIds.length ||
+        c.allowedUserIds.some(id => typeof id !== 'string' || !GUID.test(id)) ||
+        c.requireMention === false || c.webhook || c.sessionKey !== groupSessionKey(c.chatId)) throw new Error('invalid_group_binding');
+    c.senderId = c.senderId.toLowerCase(); c.allowedUserIds = c.allowedUserIds.map(id => id.toLowerCase());
+    if (new Set(c.allowedUserIds).size !== c.allowedUserIds.length || c.allowedUserIds.includes(c.senderId)) throw new Error('invalid_group_allowlist');
+  } else if (c.chatType !== 'oneOnOne' || typeof c.recipientId !== 'string' || !c.recipientId ||
+             c.senderId === c.recipientId || c.sessionKey.startsWith('agent:default:mosaic-automation-alert-teams-group-')) {
+    throw new Error('invalid_identity_or_readonly_session');
+  }
   const url = new URL(c.mosaicUrl);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/') throw new Error('invalid_mosaic_url');
   if (!Number.isInteger(c.pollSeconds) || c.pollSeconds < 5 || c.pollSeconds > 300) throw new Error('invalid_poll_interval');
@@ -102,23 +127,23 @@ export class Channel {
     try { this.state = JSON.parse(await fs.readFile(this.statePath, 'utf8')); }
     catch (e) {
       if (e.code !== 'ENOENT') throw e;
-      this.state = {version:1, chatId:this.c.chatId, sessionKey:this.c.sessionKey,
+      this.state = {version:1, chatId:this.c.chatId, chatType:this.c.chatType, sessionKey:this.c.sessionKey,
         activatedAt:new Date(this.now()).toISOString(), cursor:new Date(this.now()).toISOString(), messages:{}};
       await this.save();
     }
-    if (this.state.chatId !== this.c.chatId || this.state.sessionKey !== this.c.sessionKey) throw new Error('state_binding_mismatch');
+    if (this.state.chatId !== this.c.chatId || this.state.sessionKey !== this.c.sessionKey ||
+        (this.state.chatType ?? 'oneOnOne') !== this.c.chatType) throw new Error('state_binding_mismatch');
     this.secrets.push((await fs.readFile(this.c.machineTokenFile, 'utf8')).trim());
     await atomic(path.join(this.c.stateDir, 'health.json'), {ready:false, at:new Date(this.now()).toISOString()});
     await this.login();
     const me = await this.graph('/v1.0/me');
     if (me.id !== this.c.senderId || me.userPrincipalName?.toLowerCase() !== this.c.senderUpn.toLowerCase()) throw new Error('sender_identity_mismatch');
-    const chat = await this.graph(this.chatPath());
-    const members = await this.graph(this.chatPath() + '/members');
-    const ids = (members.value || []).map(m => m.userId).sort();
-    if (chat.id !== this.c.chatId || chat.chatType !== 'oneOnOne' || ids.join(',') !== [this.c.senderId,this.c.recipientId].sort().join(',')) throw new Error('chat_identity_mismatch');
+    await this.verifyChat();
     await this.mosaic('/api/openclaw/commands');
     await this.event('ready', {pollSeconds:this.c.pollSeconds, activatedAt:this.state.activatedAt,
-      sessionKey:this.c.sessionKey, senderId:me.id, accessMode:'view', historicalReplay:false});
+      sessionKey:this.c.sessionKey, senderId:me.id, chatType:this.c.chatType,
+      allowedUsers:this.c.chatType === 'group' ? this.c.allowedUserIds.length : 1,
+      requireMention:this.c.chatType === 'group', accessMode:'view', historicalReplay:false});
     await atomic(path.join(this.c.stateDir, 'health.json'), {ready:true, at:new Date(this.now()).toISOString()});
     if (this.c.webhook) await this.startWebhook();
   }
@@ -173,6 +198,24 @@ export class Channel {
     await this.event('webhook_ready',{port:this.c.webhook.port,path:'/alertmanager',matchLabels:this.c.webhook.matchLabels});
   }
   chatPath() { return '/v1.0/chats/' + encodeURIComponent(this.c.chatId); }
+  async verifyChat() {
+    const chat = await this.graph(this.chatPath());
+    if (chat.id !== this.c.chatId || chat.chatType !== this.c.chatType) throw new Error('chat_identity_mismatch');
+    let next = this.chatPath() + '/members', pages = 0; const ids = [];
+    while (next) {
+      if (++pages > 100) throw new Error('member_pagination_limit');
+      const page = await this.graph(next);
+      if (!Array.isArray(page.value) || page.value.some(m => typeof m.userId !== 'string' || !m.userId)) throw new Error('invalid_members_page');
+      ids.push(...page.value.map(m => m.userId.toLowerCase())); next = page['@odata.nextLink'];
+    }
+    if (!ids.includes(this.c.senderId.toLowerCase()) || (this.c.chatType === 'oneOnOne' &&
+        ids.sort().join(',') !== [this.c.senderId,this.c.recipientId].map(id => id.toLowerCase()).sort().join(','))) throw new Error('chat_identity_mismatch');
+    this.memberIds = new Set(ids);
+  }
+  groupSenderAllowed(message) {
+    const id = message?.from?.user?.id?.toLowerCase();
+    return this.c.allowedUserIds.includes(id) && this.memberIds?.has(id);
+  }
   async login() {
     // A single password attempt per renewal. Failure stops the channel, avoiding lockout loops.
     const c = JSON.parse(await fs.readFile(this.c.credentialFile, 'utf8'));
@@ -219,6 +262,7 @@ export class Channel {
     return r.json();
   }
   async poll() {
+    if (this.c.chatType === 'group') await this.verifyChat();
     const floor = Date.parse(this.state.cursor) - 300000;
     let next = this.chatPath() + '/messages?$top=50&$orderby=createdDateTime%20desc';
     let newest = Date.parse(this.state.cursor), all = [], pages = 0;
@@ -235,11 +279,15 @@ export class Channel {
     }
     for (const m of all.sort((a,b) => Date.parse(a.createdDateTime)-Date.parse(b.createdDateTime) || a.id.localeCompare(b.id))) {
       if (Date.parse(m.createdDateTime) < Date.parse(this.state.activatedAt) || this.state.messages[m.id]) continue;
-      if (m.from?.user?.id !== this.c.recipientId || m.deletedDateTime || m.messageType !== 'message') continue;
-      const input = plainText(m.body);
-      if (!input.trim()) continue;
+      if (m.deletedDateTime || m.messageType !== 'message') continue;
+      const group = this.c.chatType === 'group';
+      if (group ? !this.groupSenderAllowed(m) : m.from?.user?.id !== this.c.recipientId) continue;
+      const input = group ? groupMessageInput(m, this.c.senderId) : plainText(m.body);
+      if (!input?.trim()) continue;
       this.state.messages[m.id] = {id:m.id, createdAt:m.createdDateTime, input,
-        rawMessage:m, state:'queued', receipts:[], prompt:`[Teams message ${m.id}; same private conversation]\n${input}`};
+        rawMessage:m, state:'queued', receipts:[], prompt:group ?
+          `[Teams group message ${m.id}; sender ${m.from.user.id}; shared group conversation, separate from private chats]\n${input}` :
+          `[Teams message ${m.id}; same private conversation]\n${input}`};
       await this.event('incoming_queued', {messageId:m.id, createdAt:m.createdDateTime, chars:input.length});
     }
     this.state.cursor = new Date(newest).toISOString();
@@ -250,6 +298,7 @@ export class Channel {
   }
   async process(row) {
     if (['done','send_uncertain','failed'].includes(row.state)) return;
+    if (this.c.chatType === 'group' && !(await this.authorizeGroupRow(row))) return;
     if (row.state === 'queued') {
       row.state = 'running'; row.startedAt = new Date(this.now()).toISOString(); await this.save();
       await this.event('agent_started', {messageId:row.id, sessionKey:this.c.sessionKey});
@@ -276,6 +325,8 @@ export class Channel {
     }
     if (row.state !== 'ready') return;
     for (let i=row.receipts.length; i<row.parts.length; i++) {
+      // Membership/allowlist may have changed while the model was working.
+      if (this.c.chatType === 'group' && !(await this.authorizeGroupRow(row))) return;
       // Durable send intent before HTTP: an interrupted/ambiguous send will not be duplicated.
       row.state = 'send_uncertain'; row.sendingPart = i; await this.save();
       try {
@@ -289,6 +340,12 @@ export class Channel {
       }
     }
     row.state = 'done'; row.finishedAt = new Date(this.now()).toISOString(); await this.save();
+  }
+  async authorizeGroupRow(row) {
+    await this.verifyChat();
+    if (this.groupSenderAllowed(row.rawMessage) && groupMessageInput(row.rawMessage, this.c.senderId)?.trim()) return true;
+    row.state = 'failed'; row.reason = 'group_sender_or_mention_no_longer_allowed'; await this.save();
+    await this.event('group_message_rejected', {messageId:row.id, reason:row.reason}); return false;
   }
   async tick() {
     await this.poll();

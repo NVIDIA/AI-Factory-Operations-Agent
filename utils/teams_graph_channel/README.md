@@ -3,9 +3,9 @@
 
 # Optional delegated Graph conversation bridge
 
-A successful one-shot Graph send does not receive the user's next message. This optional worker polls one verified Teams DM, submits new messages to the existing MOSAIC headless API, and returns the complete assistant answer to the same chat. It preserves the conversation when a simulation alert starts the investigation and a person follows up.
+A successful one-shot Graph send does not receive the user's next message. This optional worker polls one verified Teams chat, submits eligible new messages to the existing MOSAIC headless API, and returns the complete assistant answer to the same chat. The default is a fixed DM; an explicitly bound group accepts allowlisted members who mention the service account. The DM also preserves the conversation when a simulation alert starts the investigation and a person follows up.
 
-This is an experimental, single-user, **View-only** transport. The MOSAIC runtime performs reasoning and tool calls. It is not the native OpenClaw Teams Bot channel, and does not require n8n. It does not enable infrastructure mutation or replace the existing channel configuration.
+This is an experimental, **View-only** transport with one worker and persistent conversation per chat. The MOSAIC runtime performs reasoning and tool calls. It is not the native OpenClaw Teams Bot channel, and does not require n8n. It does not enable infrastructure mutation or replace the existing channel configuration.
 
 ## Relationship to existing Teams work
 
@@ -61,6 +61,39 @@ Use the existing namespace, UI service, Secret and storage class for your instal
 
 Send a **new** ordinary Teams message from the configured recipient to the service account after `ready` appears. The worker ignores pre-activation history and its own messages. No confirmation to an operator is needed. `incoming_queued`, `agent_completed`, and `reply_sent` associate the actual incoming/run/outgoing IDs.
 
+## Add a group alongside the DM
+
+Adding the service account to a Teams group does not register that group with the worker. Create the group in Teams and add the service account and intended participants. Get its exact chat ID using delegated `GET /v1.0/me/chats` (follow `@odata.nextLink`); inspect `GET /v1.0/chats/{chatId}/members` to select explicit Entra user IDs. A matching topic alone is not a durable binding. Use the existing application and service account; each participant does not create another app.
+
+The `bind-group` probe only verifies identity, that exact existing group, and all membership pages. It does not create chats, add members, read messages or send anything. Its delegated scopes are `User.Read` and `Chat.ReadWrite`; the running worker additionally needs the existing `ChatMessage.Send` grant.
+
+```bash
+MOSAIC_TEAMS_CREDENTIAL_FILE="$W/credentials.json" \
+MOSAIC_TEST_RUN_ID=teams-group-bind-initial \
+MOSAIC_TEST_PROBE_MODE=bind-group \
+MOSAIC_TEAMS_GROUP_CHAT_ID='19:replace-with-real-group-id@thread.v2' \
+MOSAIC_TEAMS_ALLOWED_USER_IDS='33333333-3333-3333-3333-333333333333,44444444-4444-4444-4444-444444444444' \
+node --network-family-autoselection-attempt-timeout=2000 \
+  ../teams_graph_probe/probe.cjs > "$W/group-binding.json"
+
+python3 prepare.py --binding "$W/group-binding.json" --namespace "$NS" \
+  --name mosaic-teams-graph-group --credential-secret mosaic-teams-graph \
+  --storage-class standard --ui-secret mosaic-ui-auth \
+  --mosaic-url http://mosaic-ui:3000 --output "$W/group-deployment.json"
+kubectl apply --dry-run=server -f "$W/group-deployment.json"
+kubectl apply -f "$W/group-deployment.json"
+kubectl -n "$NS" rollout status deployment/mosaic-teams-graph-group --timeout=180s
+kubectl -n "$NS" logs deployment/mosaic-teams-graph-group --tail=30
+```
+
+This creates a separate ConfigMap, Deployment and PVC and reuses the mounted credential/UI Secrets. It leaves the DM deployment and other IM channels running. `--name` is optional: group resources otherwise use a hash of the exact chat ID. Use a unique name per group and never reuse another chat's PVC. The group MOSAIC session is independently derived from the chat ID; it does not inherit the service account's private conversations.
+
+After `ready`, an allowed participant selects the service account from Teams' **@ mention picker** and sends a new question. Typing its display name, replying without @, or an ordinary group message does not trigger a run. Matching requires both the service-account user ID in Graph's `mentions` and its corresponding `<at id="...">` marker. Pre-activation history, service-account messages, deleted messages and non-allowlisted users are ignored. No operator relay or send confirmation is involved.
+
+The group has one shared conversation, processed sequentially. Only eligible @ requests enter it; answers are visible to the group under Teams' own membership/history settings. Group members are re-read before intake, before running a queued request and before each reply part. Removing a person from the group or configured allowlist stops their pending answer. A newly joined member is **not automatically authorized**: rerun `bind-group` with the intended explicit user list, regenerate with the same group name and apply that manifest. Group simulation-alert intake and per-user private sessions within a group are not supported.
+
+The Deployment uses Node's `--network-family-autoselection-attempt-timeout=2000` so a slow connection is not abandoned after the default short per-address window. This changes TCP address selection timing, not authentication, scopes or TLS validation. The probe reports a sanitized `transportCode` for connection failures. An Entra `invalid_grant`/MFA/consent error still stops without automatic password retries.
+
 ## Rendering and complete output
 
 Graph v1.0's `chatMessage.body` supports `text` and `html`; Bot Framework's `textFormat` is not the Graph request field. Sending Markdown as plain text displays `##`, `**` and table separators literally. `format.mjs` emits escaped HTML paragraphs, bold headings, code blocks, links and label/value table rows. All rows and columns remain present; large blocks split at Unicode boundaries and each HTML message stays within 18,000 UTF-8 bytes. The original model answer, outgoing parts and Graph receipts remain on the PVC.
@@ -115,12 +148,13 @@ Only matching **firing simulation alerts** are queued; `run_id` and `startsAt` a
 | Item | Behavior |
 |---|---|
 | Teams intake | 10-second poll; 50 messages/page; ordered pagination; 5-minute overlap; durable ID deduplication. Investigation duration is additional. |
-| Conversation | One fixed service identity, recipient, one-to-one chat and View session; sequential processing. |
+| Conversation | One fixed service identity and chat per worker; DM recipient or explicit group-user allowlist; separate View session per group; sequential processing. |
+| Group intake | Real service-account @ mention required; revalidate live members; no automatic enrollment of new members. |
 | State | PVC; atomic fsync/rename; queued/running/ready/send_uncertain/done/failed; complete inputs, answers and receipts. |
 | Unconfirmed Agent submission | Read the same session; do not blindly resubmit. |
 | Unconfirmed outbound send | Save intent and stop automatic resend; operator review required. This chooses duplicate avoidance over guaranteed retry. |
 | Authentication | Read the mounted file for each new login; cache the token; halt on authentication failure without password retry loops. |
-| Limitations | One textual DM only; no attachments, group support, multi-user queue, automatic recovery of uncertain sends, or credential-rotation integration. |
+| Limitations | Textual DM or one allowlisted group per worker; no attachments, per-user private group sessions, parallel execution within a group, automatic recovery of uncertain sends, or credential-rotation integration. |
 | Operational validation still needed | Long-duration renewal, Graph throttling, concurrent-user scaling, real hardware faults, and governed write actions. |
 
 Stop/start without deleting state:
@@ -139,4 +173,4 @@ python3 utils/teams_graph_channel/test_prepare.py
 
 Run these commands from the repository root. [Live validation summary](VALIDATION.md) distinguishes successful transport/tool invocation from diagnosis quality. Public evidence omits deployment identities and addresses; complete private records remain with the deployment owner.
 
-References: [Graph chatMessage body](https://learn.microsoft.com/en-us/graph/api/resources/chatmessage?view=graph-rest-1.0), [send](https://learn.microsoft.com/en-us/graph/api/chatmessage-post?view=graph-rest-1.0), [update](https://learn.microsoft.com/en-us/graph/api/chatmessage-update?view=graph-rest-1.0), [list/pagination](https://learn.microsoft.com/en-us/graph/api/chat-list-messages?view=graph-rest-1.0).
+References: [Graph chatMessage body](https://learn.microsoft.com/en-us/graph/api/resources/chatmessage?view=graph-rest-1.0), [send](https://learn.microsoft.com/en-us/graph/api/chatmessage-post?view=graph-rest-1.0), [update](https://learn.microsoft.com/en-us/graph/api/chatmessage-update?view=graph-rest-1.0), [list/pagination](https://learn.microsoft.com/en-us/graph/api/chat-list-messages?view=graph-rest-1.0), [structured mentions](https://learn.microsoft.com/en-us/graph/api/resources/chatmessagemention?view=graph-rest-1.0), [chat members](https://learn.microsoft.com/en-us/graph/api/chat-list-members?view=graph-rest-1.0), [Node address-selection timeout](https://nodejs.org/api/net.html#netgetdefaultautoselectfamilyattempttimeout).

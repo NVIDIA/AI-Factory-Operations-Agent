@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {Channel, completedAnswer, plainText, chunks, validateConfig} from './channel.mjs';
+import {Channel, completedAnswer, plainText, chunks, validateConfig, groupSessionKey, groupMessageInput} from './channel.mjs';
 const now=Date.parse('2026-11-17T08:00:00Z');
 const cfg={chatId:'fixed',senderId:'svc',recipientId:'jeff',senderUpn:'svc@example.com',
  sessionKey:'agent:default:mosaic-automation-alert-teams-test',mosaicUrl:'http://mosaic-ui:3000',
@@ -79,4 +79,101 @@ test('webhook accepts only matching firing simulations and deduplicates redelive
 test('concurrent webhook and poll writes keep valid durable state',async t=>{
  const c=await setup(t);c.state.messages.a={id:'a'};const a=c.save();c.state.messages.b={id:'b'};const b=c.save();
  await Promise.all([a,b]);assert.deepEqual(Object.keys(JSON.parse(await fs.readFile(c.statePath)).messages),['a','b']);
+});
+
+const svc='22222222-2222-2222-2222-222222222222', user='33333333-3333-3333-3333-333333333333';
+const other='44444444-4444-4444-4444-444444444444';
+const groupConfig={...cfg,chatType:'group',chatId:'group-chat',senderId:svc,recipientId:undefined,
+ allowedUserIds:[user],requireMention:true,sessionKey:groupSessionKey('group-chat')};
+const groupMessage=(id, who=user)=>({...msg(id,who,now-1000,'<at id="0">Service</at> explain Xid'),
+ mentions:[{id:0,mentioned:{user:{id:svc}}}]});
+async function setupGroup(t) {
+ const c=await setup(t);c.c=validateConfig({...groupConfig,stateDir:c.c.stateDir});
+ c.state.chatType='group';c.state.chatId=c.c.chatId;c.state.sessionKey=c.c.sessionKey;
+ return c;
+}
+test('groups require exact chat-derived session, explicit user IDs and mandatory mentions',()=>{
+ assert.doesNotThrow(()=>validateConfig(groupConfig));
+ for (const delta of [{allowedUserIds:[]},{allowedUserIds:['*']},{allowedUserIds:[svc]},
+  {allowedUserIds:[user,user]},{requireMention:false},{webhook:{}},{sessionKey:cfg.sessionKey},
+  {chatId:'different-group'}, {chatType:'meeting'}]) {
+  assert.throws(()=>validateConfig({...groupConfig,...delta}));
+ }
+ assert.notEqual(groupSessionKey('group-chat'),groupSessionKey('other-chat'));
+ assert.throws(()=>validateConfig({...cfg,sessionKey:groupSessionKey('group-chat')}));
+});
+test('group mentions require both structured service identity and matching HTML marker',()=>{
+ const m=groupMessage('a');assert.equal(groupMessageInput(m,svc),'explain Xid');
+ for (const bad of [{...m,mentions:[]},{...m,mentions:[{id:0,mentioned:{user:{id:other}}}]},
+  {...m,mentions:[{id:1,mentioned:{user:{id:svc}}}]},
+  {...m,body:{contentType:'html',content:'@Service explain Xid'}},
+  {...m,body:{contentType:'text',content:'@Service explain Xid'}}]) assert.equal(groupMessageInput(bad,svc),null);
+});
+test('group polling checks paginated members and only queues allowed human mentions once',async t=>{
+ const c=await setupGroup(t);let membershipPages=0;
+ c.graph=async p=>{
+  if(p===c.chatPath())return {id:c.c.chatId,chatType:'group'};
+  if(p.endsWith('/members')){membershipPages++;return {value:[{userId:svc}], '@odata.nextLink':'https://graph.microsoft.com/v1.0/chats/group-chat/members?page=2'};}
+  if(p.endsWith('members?page=2')){membershipPages++;return {value:[{userId:user},{userId:other}]};}
+  return {value:[groupMessage('accepted'),groupMessage('unlisted',other),groupMessage('own',svc),
+   {...groupMessage('unmentioned'),mentions:[]},groupMessage('nonmember','55555555-5555-5555-5555-555555555555'),
+   {...groupMessage('old'),createdDateTime:new Date(now-120000).toISOString()},
+   {...groupMessage('deleted'),deletedDateTime:new Date(now).toISOString()}]};
+ };
+ await c.poll();await c.poll();assert.equal(membershipPages,4);
+ assert.deepEqual(Object.keys(c.state.messages),['accepted']);
+ assert.equal(c.state.messages.accepted.input,'explain Xid');
+ assert.match(c.state.messages.accepted.prompt,/shared group conversation/);
+ assert.match(c.state.messages.accepted.prompt,new RegExp(user));
+});
+test('wrong chat type, absent service or broken member pagination stop group polling',async t=>{
+ for (const scenario of ['wrong-type','absent-service','bad-page','pagination-loop']) {
+  const c=await setupGroup(t);let reads=0;
+  c.graph=async p=>{
+   if(p===c.chatPath())return {id:c.c.chatId,chatType:scenario==='wrong-type'?'oneOnOne':'group'};
+   if(p.includes('/members'))return scenario==='bad-page'?{}:
+    {value:[{userId:scenario==='absent-service'?user:svc}],
+     ...(scenario==='pagination-loop'?{'@odata.nextLink':p}:{})};
+   reads++;return {value:[groupMessage('a')]};
+  };
+  await assert.rejects(()=>c.poll());assert.equal(reads,0);assert.deepEqual(c.state.messages,{});
+ }
+});
+test('group answer stays in its own View session and chat, without manual relay',async t=>{
+ const c=await setupGroup(t);let sends=0,submits=0;
+ c.graph=async(p,method,body)=>{
+  if(p===c.chatPath())return {id:c.c.chatId,chatType:'group'};
+  if(p.endsWith('/members'))return {value:[{userId:svc},{userId:user}]};
+  if(method==='POST') {assert.equal(p,c.chatPath()+'/messages');assert.equal(body.body.contentType,'html');sends++;return {id:'group-answer'};}
+  return {value:[groupMessage('question')]};
+ };
+ c.mosaic=async(p,body)=>{assert.equal(p,'/api/headless/chat');assert.equal(body.sessionKey,groupSessionKey('group-chat'));
+  assert.equal(body.accessMode,'view');submits++;return {runId:'group-run'};};
+ c.history=async()=>({hasActiveRun:false,messages:[{role:'user',content:c.state.messages.question.prompt},
+  {role:'assistant',content:'回答',stopReason:'stop'}]});
+ await c.tick();await c.tick();assert.equal(submits,1);assert.equal(sends,1);
+ assert.equal(c.state.messages.question.state,'done');
+});
+test('revoked group sender is not submitted; removal during investigation suppresses the answer',async t=>{
+ for (const during of [false,true]) {
+  const c=await setupGroup(t);let member=true,submits=0,sends=0;
+  c.graph=async(p,method)=>{
+   if(p===c.chatPath())return {id:c.c.chatId,chatType:'group'};
+   if(p.endsWith('/members'))return {value:[{userId:svc},...(member?[{userId:user}]:[])]};
+   if(method==='POST'){sends++;return {id:'should-not-send'};}
+   return {value:[groupMessage('a')]};
+  };
+  await c.poll();if(!during)c.c.allowedUserIds=[other];
+  c.mosaic=async()=>{submits++;member=false;return {runId:'r'};};
+  c.history=async()=>({hasActiveRun:false,messages:[{role:'user',content:c.state.messages.a.prompt},
+   {role:'assistant',content:'private result',stopReason:'stop'}]});
+  await c.process(c.state.messages.a);
+  assert.equal(submits,during?1:0);assert.equal(sends,0);assert.equal(c.state.messages.a.state,'failed');
+ }
+});
+test('group worker cannot reuse a private-chat state directory',async t=>{
+ const c=await setup(t);await c.save();
+ const group=new Channel({...groupConfig,stateDir:c.c.stateDir});
+ group.login=async()=>assert.fail('state mismatch must fail before login');
+ await assert.rejects(()=>group.init(),/state_binding_mismatch/);
 });

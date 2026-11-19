@@ -23,7 +23,7 @@ async function run(scenario = 'send', config = {}) {
   if (scenario !== 'default') env.MOSAIC_TEST_PROBE_MODE = ['identity','bind'].includes(scenario) ? scenario : 'send';
   Object.assign(env, config);
   const processMock = { env, stdout: { write: value => output.push(value) }, exitCode: 0 };
-  const context = vm.createContext({ URLSearchParams, AbortSignal, Date, JSON, encodeURIComponent,
+  const context = vm.createContext({ URL, URLSearchParams, AbortSignal, Date, JSON, encodeURIComponent,
     process: processMock,
     require: name => name === 'node:fs/promises' ? {
       readFile: async () => scenario === 'invalid-json' ? '{secret:' + password : JSON.stringify(credentials),
@@ -36,6 +36,8 @@ async function run(scenario = 'send', config = {}) {
         assert.equal(options.body.get('grant_type'), 'password');
         if (scenario === 'identity' || scenario === 'default')
           assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read');
+        else if (env.MOSAIC_TEST_PROBE_MODE === 'bind-group')
+          assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.ReadWrite');
         else assert.equal(options.body.get('scope'), 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send' + (scenario === 'bind' ? ' https://graph.microsoft.com/Chat.ReadWrite' : ''));
         if (scenario === 'mfa' || scenario === 'consent') return new Response(JSON.stringify({
           error: 'invalid_grant', error_codes: [scenario === 'mfa' ? 50076 : 65001],
@@ -46,6 +48,17 @@ async function run(scenario = 'send', config = {}) {
       assert.equal(options.headers.Authorization, 'Bearer ' + token);
       if (url.includes('/me?')) return new Response(JSON.stringify({ id: senderId,
         userPrincipalName: scenario === 'wrong-sender' ? 'other@example.invalid' : credentials.username }));
+      if (env.MOSAIC_TEST_PROBE_MODE === 'bind-group') {
+        assert.equal(options.method, 'GET');
+        if (url.endsWith('/members')) return new Response(JSON.stringify({value:[{userId:senderId}],
+          '@odata.nextLink': scenario === 'group-foreign-nextlink' ? 'https://example.invalid/v1.0/members'
+            : 'https://graph.microsoft.com/v1.0/chats/group-fixture/members?page=2'}));
+        if (url.endsWith('members?page=2')) return new Response(JSON.stringify({value:
+          scenario === 'group-nonmember' ? [] : [{userId:recipientId}]}));
+        if (url.endsWith('/chats/group-fixture')) return new Response(JSON.stringify({id:'group-fixture',
+          chatType:scenario === 'group-wrong-type' ? 'oneOnOne' : 'group'}));
+        throw new Error('Unexpected group URL');
+      }
       if (url.endsWith('/chats')) {
         const members = JSON.parse(options.body).members;
         assert.deepEqual(members.map(m => m['user@odata.bind']), [
@@ -92,6 +105,27 @@ test('Teams bind reuses the probe to establish a fixed chat without sending a me
   assert.equal(result.event.chatId, 'fixture-chat');
   assert.equal(result.requests.length, 3);
   assert.ok(result.requests.every(r => !r.url.endsWith('/messages')));
+});
+
+const groupEnv={MOSAIC_TEST_PROBE_MODE:'bind-group',MOSAIC_TEAMS_GROUP_CHAT_ID:'group-fixture',
+  MOSAIC_TEAMS_ALLOWED_USER_IDS:recipientId};
+test('Teams group binding only reads the exact group and all member pages', async () => {
+  const result=await run('group',groupEnv);
+  assert.equal(result.event.stage,'bound');assert.equal(result.event.chatType,'group');
+  assert.deepEqual(result.event.allowedUserIds,[recipientId]);assert.equal(result.requests.length,5);
+  assert.ok(result.requests.slice(1).every(r=>r.method==='GET' && !r.url.includes('/messages')));
+});
+for(const scenario of ['group-nonmember','group-wrong-type','group-foreign-nextlink'])
+test(`Teams ${scenario} fails closed without changing or sending to the group`, async () => {
+  const result=await run(scenario,groupEnv);assert.equal(result.event.stage,'failed');
+  assert.ok(result.requests.every(r=>!r.url.includes('example.invalid') && !r.url.includes('/messages')));
+});
+test('Teams group binding rejects invalid explicit allowlists before login', async () => {
+  for(const delta of [{MOSAIC_TEAMS_ALLOWED_USER_IDS:''},{MOSAIC_TEAMS_ALLOWED_USER_IDS:'*'},
+    {MOSAIC_TEAMS_ALLOWED_USER_IDS:recipientId+','+recipientId},{MOSAIC_TEAMS_GROUP_CHAT_ID:''}]) {
+    const result=await run('group',{...groupEnv,...delta});assert.equal(result.requests.length,0);
+    assert.equal(result.event.reason,'invalid_group_binding');
+  }
 });
 
 for (const scenario of ['mfa', 'consent']) test(`Teams ${scenario} failure is retained without another password attempt`, async () => {

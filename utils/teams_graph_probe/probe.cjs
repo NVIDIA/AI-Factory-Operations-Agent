@@ -10,6 +10,8 @@ const credentialPath = process.env.MOSAIC_TEAMS_CREDENTIAL_FILE || '/var/run/mos
 const runId = process.env.MOSAIC_TEST_RUN_ID;
 const probeMode = process.env.MOSAIC_TEST_PROBE_MODE || 'identity';
 const recipient = process.env.MOSAIC_TEAMS_RECIPIENT_ID || '';
+const groupChatId = process.env.MOSAIC_TEAMS_GROUP_CHAT_ID || '';
+const allowedUserIds = (process.env.MOSAIC_TEAMS_ALLOWED_USER_IDS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
 const guid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const startedAt = new Date().toISOString();
 const events = [];
@@ -66,10 +68,11 @@ async function authenticate() {
   const fields = { client_id: c.clientId, grant_type: 'password', username: c.username,
     password: c.password, scope: probeMode === 'identity'
       ? 'https://graph.microsoft.com/User.Read'
+      : probeMode === 'bind-group' ? 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.ReadWrite'
       : 'https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send' +
         (probeMode === 'bind' ? ' https://graph.microsoft.com/Chat.ReadWrite' : '') };
   if (c.clientSecret) fields.client_secret = c.clientSecret;
-  const response = await fetch(endpoint, { method: 'POST', body: new URLSearchParams(fields),
+  const response = await fetch(endpoint, { method: 'POST', body: new URLSearchParams(fields), redirect: 'error',
     signal: AbortSignal.timeout(30000) });
   const data = await response.json();
   const event = { step: 'entra_login', httpStatus: response.status, endpoint,
@@ -94,9 +97,11 @@ async function authenticate() {
 }
 
 async function graph(token, method, path, body) {
+  const url = new URL(path.startsWith('https:') ? path : '/v1.0' + path, 'https://graph.microsoft.com');
+  if (url.origin !== 'https://graph.microsoft.com' || url.username || url.password || !url.pathname.startsWith('/v1.0/')) throw new Error('invalid_graph_url');
   const clientRequestId = crypto.randomUUID();
-  const response = await fetch('https://graph.microsoft.com/v1.0' + path, {
-    method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json',
+  const response = await fetch(url.href, {
+    method, redirect: 'error', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json',
       'client-request-id': clientRequestId }, body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(30000) });
   let data;
@@ -114,8 +119,10 @@ async function graph(token, method, path, body) {
 
 async function main() {
   if (!/^[a-z0-9-]+$/i.test(runId || '')) throw new Error('invalid_run_id');
-  if (!['send', 'identity', 'bind'].includes(probeMode)) throw new Error('invalid_probe_mode');
-  if (probeMode !== 'identity' && !guid.test(recipient)) throw new Error('recipient_guid_required');
+  if (!['send', 'identity', 'bind', 'bind-group'].includes(probeMode)) throw new Error('invalid_probe_mode');
+  if (['send', 'bind'].includes(probeMode) && !guid.test(recipient)) throw new Error('recipient_guid_required');
+  if (probeMode === 'bind-group' && (!groupChatId || groupChatId.length > 512 || !allowedUserIds.length ||
+      allowedUserIds.some(id => !guid.test(id)) || new Set(allowedUserIds).size !== allowedUserIds.length)) throw new Error('invalid_group_binding');
   const { token, username } = await authenticate();
   const me = await graph(token, 'GET', '/me?$select=id,userPrincipalName,displayName');
   if (me.userPrincipalName?.toLowerCase() !== username.toLowerCase()) {
@@ -128,6 +135,26 @@ async function main() {
     return;
   }
   if (!guid.test(me.id)) throw new Error('invalid_sender_guid');
+  if (probeMode === 'bind-group') {
+    if (allowedUserIds.includes(me.id.toLowerCase())) throw new Error('invalid_group_binding');
+    const base = '/chats/' + encodeURIComponent(groupChatId);
+    const chat = await graph(token, 'GET', base);
+    if (chat.id !== groupChatId || chat.chatType !== 'group') throw new Error('chat_type_mismatch');
+    const members = new Set(); let next = base + '/members', pages = 0;
+    while (next) {
+      if (++pages > 100) throw new Error('member_pagination_limit');
+      const page = await graph(token, 'GET', next);
+      if (!Array.isArray(page.value) || page.value.some(m => typeof m.userId !== 'string')) throw new Error('invalid_members_page');
+      for (const member of page.value) members.add(member.userId.toLowerCase());
+      next = page['@odata.nextLink'];
+    }
+    if (![me.id.toLowerCase(), ...allowedUserIds].every(id => members.has(id))) throw new Error('group_membership_mismatch');
+    emit({ runId, stage: 'bound', startedAt, completedAt: new Date().toISOString(),
+      sender: me, chatId: chat.id, chatType: chat.chatType, allowedUserIds, requireMention: true, events,
+      scope: 'Existing group binding; no chat created, membership changed, history read, or message sent',
+      passwordRotationEnabled: false, passwordResetPerformed: false });
+    return;
+  }
   if (me.id.toLowerCase() === recipient.toLowerCase()) throw new Error('distinct_test_recipient_required');
   const chat = await graph(token, 'POST', '/chats', { chatType: 'oneOnOne', members: [
     { '@odata.type': '#microsoft.graph.aadUserConversationMember', roles: ['owner'],
@@ -156,13 +183,18 @@ async function main() {
 }
 
 main().catch(error => {
+  const transportCode = error.cause?.code;
   emit({ runId, stage: 'failed', startedAt, completedAt: new Date().toISOString(),
     reason: ['credential_file_unreadable', 'credential_file_invalid_json', 'entra_login_failed',
       'graph_request_failed', 'graph_http_failed', 'authenticated_identity_mismatch',
       'invalid_user_principal_name', 'invalid_application_id', 'invalid_tenant_id',
       'invalid_run_id', 'invalid_probe_mode', 'recipient_guid_required', 'invalid_sender_guid',
-      'distinct_test_recipient_required', 'chat_id_missing', 'chat_type_mismatch', 'message_submission_unconfirmed'].includes(error.message) || error.message.startsWith('credential_field_missing_')
-      ? error.message : 'probe_failed', events, passwordResetPerformed: false,
+      'distinct_test_recipient_required', 'chat_id_missing', 'chat_type_mismatch', 'message_submission_unconfirmed',
+      'invalid_group_binding', 'group_membership_mismatch', 'member_pagination_limit', 'invalid_members_page',
+      'invalid_graph_url'].includes(error.message) || error.message.startsWith('credential_field_missing_')
+      ? error.message : 'probe_failed',
+    transportCode: typeof transportCode === 'string' && /^[A-Z0-9_]+$/.test(transportCode) ? transportCode : undefined,
+    events, passwordResetPerformed: false,
     passwordRotationEnabled: false, secretValuesLogged: false });
   process.exitCode = 2;
 });
