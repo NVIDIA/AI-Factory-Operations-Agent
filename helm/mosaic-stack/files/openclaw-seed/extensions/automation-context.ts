@@ -73,6 +73,7 @@ const READ_ONLY_TOOLS = new Set([
   "observability_metric_names",
   "observability_query",
   "observability_range_query",
+  "observability_metric_last_seen",
   "observability_log_labels",
   "observability_logs",
   "pdf",
