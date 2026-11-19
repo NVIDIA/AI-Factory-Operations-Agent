@@ -481,6 +481,8 @@ test("tool-call response recovery is opt-in and packages its runtime module", ()
   const ordinary = render("--show-only", "templates/llm-compat.yaml");
   const enabled = render("--set", "llm.requestCompatibility.toolCallTextRecovery.enabled=true", "--show-only", "templates/llm-compat.yaml");
   assert.match(ordinary, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "false"/);
+  const missing = render("--set-json", "llm.requestCompatibility.toolCallTextRecovery=null", "--show-only", "templates/llm-compat.yaml");
+  assert.match(missing, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "false"/);
   assert.match(enabled, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "true"/);
   assert.match(enabled, /tool-call-recovery\.cjs: \|/);
   assert.match(enabled, /require\('\.\/tool-call-recovery\.cjs'\)/);

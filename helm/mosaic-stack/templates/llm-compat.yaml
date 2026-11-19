@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- $c := deepCopy .Values.llm.requestCompatibility -}}
+{{- $recovery := $c.toolCallTextRecovery | default dict -}}
 {{- if eq (kindOf $c.reasoningEffort) "invalid" -}}
 {{- $effort := "none" -}}
 {{- if eq .Values.llm.mode "vllm" -}}
@@ -105,7 +106,7 @@ spec:
             - name: UPSTREAM_BASE_URL
               value: {{ include "mosaic-stack.llmUpstreamBaseUrl" . | quote }}
             - name: TOOL_CALL_TEXT_RECOVERY_ENABLED
-              value: {{ $c.toolCallTextRecovery.enabled | quote }}
+              value: {{ ($recovery.enabled | default false) | quote }}
             {{- if and (eq .Values.llm.mode "external") .Values.llm.external.caCertificateSecret }}
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/llm-ca/ca.crt
