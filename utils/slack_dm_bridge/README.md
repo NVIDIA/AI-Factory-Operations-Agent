@@ -112,7 +112,9 @@ Set the reviewed channel-to-user mappings in `bridge.json`:
 
 Omit the field or use an empty object for DM-only operation. Each entry is an explicit snapshot. Inviting the App or adding a new member in Slack does not change the bridge allowlist. Edit the configuration and restart the bridge to update access.
 
-An authorized mention creates a fixed acknowledgment in the original Slack thread and opens a private thread for the requester. MOSAIC sees the current question with the Bot mention removed. The answer and subsequent follow-ups use that private View session. Channel recipients receive only the fixed acknowledgment. Each explicit channel mention starts a separate private conversation. Ordinary channel messages, even replies in a channel thread, are ignored. The bridge requires current App membership and same-workspace, non-shared channel metadata. Channel access grants a private thread for that request. Standalone DMs and incident publications still use `allowedUserIds`.
+An authorized mention creates a fixed acknowledgment in the original Slack thread and opens a private thread for the requester. MOSAIC sees the current question with the Bot mention removed. The answer and subsequent follow-ups use that private View session. Channel recipients receive only the fixed acknowledgment. Each explicit channel mention starts a separate private conversation. The bridge requires current App membership and same-workspace, non-shared channel metadata. Channel access grants a private thread for that request. Standalone DMs and incident publications still use `allowedUserIds`.
+
+To let the same requester continue from that channel thread without another mention, set `"channelThreadRepliesEnabled": true`. Subscribe to `message.channels` with `channels:history` for public channels, or `message.groups` with `groups:history` for private channels. Apply any Slack scope changes and restart the bridge. Slack can deliver ordinary channel messages with these subscriptions. The bridge admits only replies from the authorized requester in a thread where that requester already mentioned the Bot. It uses that requester's latest accepted mention in the same thread, and returns each answer to the associated private thread. The default setting is `false`.
 
 ## 3. Deploy alongside MOSAIC
 
@@ -202,7 +204,7 @@ Limits are 128 characters for incident IDs, 160 Unicode characters for titles, 1
 4. Publish a second incident, then ask a follow-up in each thread. Each must retain its own report and session. An unknown thread is ignored instead of being assigned to the latest incident.
 5. Restart the bridge with its persistent volume intact and repeat a follow-up in the first thread. Verify that it retains that report's context.
 6. Try a non-allowlisted user and a different workspace/channel. They must not create Agent runs. Also verify that a request to switch to Edit cannot change the automation session's View restriction.
-7. If channel mentions are enabled, mention the Bot as an approved user in the approved channel. Verify a fixed acknowledgment in the original channel thread and an answer in a separate DM thread. Continue the conversation in that DM thread. Send an ordinary channel message and check that it does not queue a request.
+7. If channel mentions are enabled, mention the Bot as an approved user in the approved channel. Verify a fixed acknowledgment in the original channel thread and an answer in a separate DM thread. Continue in the DM thread. If channel thread replies are enabled, reply in the original channel thread and verify that the answer goes to the same DM thread. A top-level ordinary message or a reply from a different user must not queue a request.
 
 `GET /healthz` reports whether Socket Mode is connected and aggregate queue states. It returns no message or credential contents. Readiness indicates a live socket, not successful completion of every pending investigation. Check the incident status and `send_unknown`/`failed` counters as well.
 
@@ -212,6 +214,7 @@ Limits are 128 characters for incident IDs, 160 Unicode characters for titles, 1
 |---|---|
 | Slack envelope received | Validate workspace, App, sender and message type. Commit the inbox transaction before ACK. Perform no network or model call in the ACK callback. |
 | Event redelivery / duplicate message timestamp | Ignore after durable deduplication, including after process restart |
+| Optional ordinary channel reply | Look up the requester's explicit mention in the same channel thread and reuse its private conversation binding |
 | Another user or unknown incident thread | Ignore; never borrow another user's report or select the latest incident heuristically |
 | Allowed user removed from configuration | Queued work for that user is rejected after configuration reload/restart |
 | Wrong recipient, Slack Connect, or unverified shared DM returned by Slack | Reject the job before calling MOSAIC or delivering content |
@@ -240,4 +243,4 @@ node --test utils/slack-dm-bridge.test.mjs
 
 The automated suite uses temporary SQLite databases, local HTTP/Unix-socket servers, simulated Socket Mode frames, and Slack/MOSAIC protocol fixtures. It tests the complete report-to-thread-to-headless-to-thread path and restart recovery. It does **not** establish that an organization's real App is approved, that its secret broker is configured, or that its deployed Research Agent succeeds. Run the real-workspace checklist above and retain actual message IDs before claiming those results.
 
-Public protocol references: [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode/), [message.im](https://docs.slack.dev/reference/events/message.im/), [app_mention](https://docs.slack.dev/reference/events/app_mention/), [conversations.info](https://docs.slack.dev/reference/methods/conversations.info/), [conversations.open](https://docs.slack.dev/reference/methods/conversations.open/), [chat.postMessage](https://docs.slack.dev/reference/methods/chat.postMessage/).
+Public protocol references: [Socket Mode](https://docs.slack.dev/apis/events-api/using-socket-mode/), [message.im](https://docs.slack.dev/reference/events/message.im/), [app_mention](https://docs.slack.dev/reference/events/app_mention/), [message.channels](https://docs.slack.dev/reference/events/message.channels/), [message.groups](https://docs.slack.dev/reference/events/message.groups/), [conversations.info](https://docs.slack.dev/reference/methods/conversations.info/), [conversations.open](https://docs.slack.dev/reference/methods/conversations.open/), [chat.postMessage](https://docs.slack.dev/reference/methods/chat.postMessage/).

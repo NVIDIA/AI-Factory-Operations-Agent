@@ -16,7 +16,10 @@ export class Store {
       this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA locking_mode=EXCLUSIVE; PRAGMA synchronous=FULL; BEGIN EXCLUSIVE; COMMIT;');
       this.db.exec(`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, state TEXT NOT NULL, message_key TEXT UNIQUE, data TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, data TEXT NOT NULL);`);
+        CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS jobs_channel_ack ON jobs (
+          json_extract(data,'$.channel'), json_extract(data,'$.root'), json_extract(data,'$.user')
+        ) WHERE json_extract(data,'$.kind')='channel_ack';`);
       const existing = this.db.prepare('SELECT value FROM meta WHERE key=?').get('binding');
       const value = JSON.stringify(binding);
       if (existing && existing.value !== value) throw new Error('state_binding_mismatch');
@@ -37,6 +40,11 @@ export class Store {
       WHERE state NOT IN ('done','failed','send_unknown','rejected') ORDER BY rowid`).all();
   }
   hasMessage(id) { return Boolean(this.db.prepare('SELECT id FROM jobs WHERE message_key=?').get(id)); }
+  channelAckId(channel, root, user) {
+    return this.db.prepare(`SELECT id FROM jobs WHERE json_extract(data,'$.kind')='channel_ack'
+      AND json_extract(data,'$.channel')=? AND json_extract(data,'$.root')=? AND json_extract(data,'$.user')=?
+      ORDER BY rowid DESC LIMIT 1`).get(channel,root,user)?.id;
+  }
   counts() { return Object.fromEntries(this.db.prepare('SELECT state,count(*) AS n FROM jobs GROUP BY state').all().map(row => [row.state,row.n])); }
   save(row) { this.db.prepare('UPDATE jobs SET state=?,data=? WHERE id=?').run(row.state,JSON.stringify(row), row.id); }
   add(row) {

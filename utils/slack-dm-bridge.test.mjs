@@ -37,6 +37,10 @@ function mention(n, overrides = {}, payloadOverrides = {}) {
   return envelope(n,{type:'app_mention',channel_type:undefined,channel:'C12345678',
     text:'<@U01234567> Inspect the test job.',...overrides},payloadOverrides);
 }
+function channelReply(n, overrides = {}) {
+  return envelope(n,{channel_type:'channel',channel:'C12345678',thread_ts:timestamp(1),
+    text:'Follow up on the original request.',...overrides});
+}
 async function setup(t, overrides = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'slack-bridge-test-'));
   const clock = {value:1800000000000}; const sent = [], runs = [], logs = [], history = new Map();
@@ -78,7 +82,7 @@ test('configuration fixes workspace/app identity and requires one private creden
     {credentialSocket:'/run/broker.sock'},{credentialsFile:undefined},{stateDir:'relative'},
     {mosaicUrl:'http://user:secret@host/'},{mosaicUrl:'https://host/path'},{concurrency:0},
     {allowedChannels:{'*':['U12345678']}},{allowedChannels:{D12345678:['U12345678']}},
-    {allowedChannels:{C12345678:['U12345678','U12345678']}}]) {
+    {allowedChannels:{C12345678:['U12345678','U12345678']}},{channelThreadRepliesEnabled:'true'}]) {
     assert.throws(() => validateConfig({...config,...delta}));
   }
   assert.doesNotThrow(() => validateConfig({...config,credentialsFile:undefined,credentialSocket:'/run/broker.sock'}));
@@ -130,6 +134,41 @@ test('channel mentions acknowledge the original thread and keep the answer and f
   await x.drain();
   assert.equal(x.runs[1].sessionKey,x.runs[0].sessionKey);
   assert.equal(x.sent.at(-1).thread_ts,timestamp(102));
+});
+
+test('optional unmentioned replies reuse an existing channel request across restart', async t => {
+  const x = await setup(t,{allowedChannels:{C12345678:['U12345678','U23456789']}});
+  assert.equal(x.bridge.accept(mention(1)),true);
+  await x.drain();
+  const privateRoot = x.sent[2].thread_ts;
+  assert.equal(x.bridge.accept(channelReply(2)),false);
+  x.restart({channelThreadRepliesEnabled:true});
+  for (const delta of [{user:'U23456789'},{channel:'C99999999'},
+    {thread_ts:timestamp(10)},{thread_ts:undefined},{text:'<@U01234567> Also check this.'}]) {
+    assert.equal(x.bridge.accept(channelReply(2,delta)),false);
+  }
+  const follow = channelReply(2);
+  assert.equal(x.bridge.accept(follow),true);
+  assert.equal(x.bridge.accept(follow),false);
+  assert.equal(x.bridge.accept(channelReply(3,{ts:timestamp(2)})),false);
+  await x.drain();
+  assert.equal(x.runs.length,2);
+  assert.equal(x.runs[1].sessionKey,x.runs[0].sessionKey);
+  assert.match(x.runs[1].prompt,/Follow up on the original request/);
+  assert.equal(x.sent.length,4);
+  assert.equal(x.sent.at(-1).channel,'D12345678');
+  assert.equal(x.sent.at(-1).thread_ts,privateRoot);
+});
+
+test('thread replies received before the initial DM is sent wait for its verified conversation', async t => {
+  const x = await setup(t,{channelThreadRepliesEnabled:true,allowedChannels:{C12345678:['U12345678']}});
+  assert.equal(x.bridge.accept(channelReply(2)),false);
+  assert.equal(x.bridge.accept(mention(1)),true);
+  assert.equal(x.bridge.accept(channelReply(2)),true);
+  await x.drain();
+  assert.equal(x.runs.length,2);
+  assert.equal(x.runs[1].sessionKey,x.runs[0].sessionKey);
+  assert.equal(x.sent.at(-1).thread_ts,x.sent[2].thread_ts);
 });
 
 test('channel and user allowlists, membership, workspace and DM identity gate channel requests', async t => {

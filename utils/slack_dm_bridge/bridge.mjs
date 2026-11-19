@@ -24,7 +24,8 @@ const validUsers = (ids, bot) => Array.isArray(ids) && ids.length > 0 && ids.len
 export function validateConfig(input) {
   const c = {...input, port:input.port ?? 8790, bind:input.bind ?? '127.0.0.1',
     capacity:input.capacity ?? 10000, concurrency:input.concurrency ?? 2,
-    allowedChannels:input.allowedChannels === undefined ? {} : input.allowedChannels};
+    allowedChannels:input.allowedChannels === undefined ? {} : input.allowedChannels,
+    channelThreadRepliesEnabled:input.channelThreadRepliesEnabled ?? false};
   if (!/^T[A-Z0-9]{5,31}$/.test(c.teamId) || !/^A[A-Z0-9]{5,31}$/.test(c.appId) ||
       !USER.test(c.botUserId)) throw new Error('invalid_slack_identity');
   if (!validUsers(c.allowedUserIds,c.botUserId)) throw new Error('invalid_allowlist');
@@ -32,6 +33,7 @@ export function validateConfig(input) {
       Object.keys(c.allowedChannels).length > 100 ||
       Object.entries(c.allowedChannels).some(([id,users]) => !SLACK_CHANNEL.test(id) ||
         !validUsers(users,c.botUserId))) throw new Error('invalid_channel_allowlist');
+  if (typeof c.channelThreadRepliesEnabled !== 'boolean') throw new Error('invalid_channel_thread_replies');
   for (const name of ['stateDir', c.credentialSocket ? 'credentialSocket' : 'credentialsFile']) {
     if (typeof c[name] !== 'string' || !path.isAbsolute(c[name])) throw new Error('absolute_paths_required');
   }
@@ -110,9 +112,13 @@ export class Bridge {
         e.hidden || !TS.test(e.ts) || (e.thread_ts && !TS.test(e.thread_ts)) ||
         typeof e.text !== 'string' || !e.text.trim() || Buffer.byteLength(e.text) > 32768) return false;
     const mention = '<@' + this.c.botUserId + '>';
-    const channelMention = e.type === 'app_mention' &&
-      this.allowedChannels.get(e.channel)?.has(e.user) && e.text.includes(mention);
-    if (!channelMention && (e.type !== 'message' || e.channel_type !== 'im' || !CHANNEL.test(e.channel))) return false;
+    const channelUser = this.allowedChannels.get(e.channel)?.has(e.user);
+    const channelMention = channelUser && e.type === 'app_mention' && e.text.includes(mention);
+    const dm = e.type === 'message' && e.channel_type === 'im' && CHANNEL.test(e.channel);
+    // Slack can send both event types for an explicit @. Give that message to app_mention.
+    const channelReply = this.c.channelThreadRepliesEnabled && channelUser && e.type === 'message' &&
+      (e.channel_type === 'channel' || e.channel_type === 'group') && e.thread_ts && !e.text.includes(mention);
+    if (!channelMention && !dm && !channelReply) return false;
     const id = key('event',this.c.teamId,payload.event_id);
     if (this.store.get(id)) return false;
     // event_id is the Slack retry identity; this second key catches wrappers
@@ -129,6 +135,14 @@ export class Bridge {
         this.store.add({...job,id:key('channel_dm',id),kind:'chat',sourceChannel:e.channel,input});
       });
       this.log('channel_mention_queued',id);
+      return true;
+    }
+    if (channelReply) {
+      const ack = this.store.channelAckId(e.channel,root,e.user);
+      if (!ack) return false;
+      this.store.add({id,messageKey,kind:'chat',state:'queued',user:e.user,sourceChannel:e.channel,
+        sourceRequestId:key('channel_dm',ack),input:e.text,created:this.now(),receipts:[],nextAt:0});
+      this.log('channel_reply_queued',id);
       return true;
     }
     let thread = this.store.thread(threadId);
@@ -229,6 +243,18 @@ export class Bridge {
       row.parts ??= ['I’m the MOSAIC operations assistant. Check your direct messages for the reply.'];
       row.state = 'ready'; this.store.save(row);
     } else {
+      if (row.sourceRequestId && !row.threadId) {
+        // Jobs for this requester run in order. Reuse the persisted private thread
+        // of the explicit mention, including its binding from earlier releases.
+        const source = this.store.get(row.sourceRequestId);
+        if (!source?.threadId || !source.root || !CHANNEL.test(source.channel) ||
+            source.user !== row.user || source.sourceChannel !== row.sourceChannel) {
+          row.state = 'rejected'; this.store.save(row); this.log('missing_channel_reply_thread',row.id); return;
+        }
+        row.root = source.root;
+        row.threadId = source.threadId;
+        row.channel = source.channel;
+      }
       if (row.sourceChannel && !await this.isMemberChannel(row.sourceChannel)) {
         row.state = 'rejected'; this.store.save(row); this.log('channel_rejected',row.id); return;
       }
@@ -260,7 +286,8 @@ export class Bridge {
       row.state = 'ready'; this.store.save(row);
     } else {
       const thread = this.store.thread(row.threadId);
-      if (!thread || thread.user !== row.user || thread.channel !== row.channel) throw new Error('missing_thread');
+      if (!thread || thread.user !== row.user || thread.channel !== row.channel ||
+          thread.root !== row.root || thread.sourceChannel !== row.sourceChannel) throw new Error('missing_thread');
       if (row.state === 'queued') {
         row.prompt = this.prompt(row,thread); row.session = thread.session;
         row.state = 'running'; row.started = this.now(); this.store.save(row);
