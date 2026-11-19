@@ -16,6 +16,7 @@ import {isReadonlyAutomationSession, sessionAllowsEdit} from '../helm/mosaic-sta
 
 const config = {teamId:'T01234567',appId:'A01234567',botUserId:'U01234567',allowedUserIds:['U12345678','U23456789'],
   mosaicUrl:'http://mosaic-ui:3000',credentialsFile:'/unused/credentials.json',stateDir:'/unused/state',port:0};
+const channelModel = {endpoint:'http://inference:8000/v1/chat/completions',model:'fixture-model'};
 const timestamp = n => `1800000000.${String(n).padStart(6,'0')}`;
 
 test('the CLI starts through a projected ConfigMap symlink', async t => {
@@ -43,9 +44,14 @@ function channelReply(n, overrides = {}) {
 }
 async function setup(t, overrides = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'slack-bridge-test-'));
-  const clock = {value:1800000000000}; const sent = [], runs = [], logs = [], history = new Map();
+  const clock = {value:1800000000000};
+  const sent = [], runs = [], channelRuns = [], logs = [], history = new Map();
   const clients = {
     secret:async name => name === 'publishToken' ? 'fixture-publish-key-with-at-least-32-characters' : 'fixture',
+    channelChat:async messages => {
+      channelRuns.push(messages);
+      return 'Model reply for the channel thread.';
+    },
     slack:async (method,body) => {
       if (method === 'auth.test') return {ok:true,team_id:config.teamId,user_id:config.botUserId,bot_id:'B01234567'};
       if (method === 'conversations.open') return {channel:{id:body.users === 'U12345678' ? 'D12345678' : 'D23456789',is_im:true,user:body.users}};
@@ -68,7 +74,7 @@ async function setup(t, overrides = {}) {
   };
   let bridge = new Bridge({...config,stateDir:dir,...overrides},{clients,now:() => clock.value,log:r => logs.push(r)});
   t.after(async () => { bridge.close(); await fs.rm(dir,{recursive:true,force:true}); });
-  return {get bridge() { return bridge; },clients,sent,runs,logs,clock,dir,
+  return {get bridge() { return bridge; },clients,sent,runs,channelRuns,logs,clock,dir,
     restart(delta = {}) { bridge.close(); bridge = new Bridge({...config,stateDir:dir,...overrides,...delta},
       {clients,now:() => clock.value,log:r => logs.push(r)}); return bridge; },
     async drain(n = 20) { for (let i = 0; i < n && bridge.store.jobs().length; i++) { clock.value += 2000; await bridge.tick(); } },
@@ -82,7 +88,9 @@ test('configuration fixes workspace/app identity and requires one private creden
     {credentialSocket:'/run/broker.sock'},{credentialsFile:undefined},{stateDir:'relative'},
     {mosaicUrl:'http://user:secret@host/'},{mosaicUrl:'https://host/path'},{concurrency:0},
     {allowedChannels:{'*':['U12345678']}},{allowedChannels:{D12345678:['U12345678']}},
-    {allowedChannels:{C12345678:['U12345678','U12345678']}},{channelThreadRepliesEnabled:'true'}]) {
+    {allowedChannels:{C12345678:['U12345678','U12345678']}},{channelThreadRepliesEnabled:'true'},
+    {channelModel:{...channelModel,endpoint:'file:///v1/chat/completions'}},
+    {channelModel:{...channelModel,endpoint:'http://secret@localhost/chat/completions'}}]) {
     assert.throws(() => validateConfig({...config,...delta}));
   }
   assert.doesNotThrow(() => validateConfig({...config,credentialsFile:undefined,credentialSocket:'/run/broker.sock'}));
@@ -169,6 +177,47 @@ test('thread replies received before the initial DM is sent wait for its verifie
   assert.equal(x.runs.length,2);
   assert.equal(x.runs[1].sessionKey,x.runs[0].sessionKey);
   assert.equal(x.sent.at(-1).thread_ts,x.sent[2].thread_ts);
+});
+
+test('opt-in channel replies use their original group thread and isolated conversation history', async t => {
+  const x = await setup(t,{channelModel,channelThreadRepliesEnabled:true,
+    allowedChannels:{C12345678:['U12345678','U23456789']}});
+  assert.equal(x.bridge.accept(mention(1,{text:'<@U01234567> Who are you?'})),true);
+  await x.drain();
+  x.restart();
+  assert.equal(x.bridge.accept(channelReply(2,{user:'U23456789'})),false);
+  assert.equal(x.bridge.accept(channelReply(2)),true);
+  assert.equal(x.bridge.accept(channelReply(3,{ts:timestamp(2)})),false);
+  await x.drain();
+  assert.equal(x.runs.length,0);
+  assert.equal(x.channelRuns.length,2);
+  assert.deepEqual(x.channelRuns[1].slice(1),[
+    {role:'user',content:'Who are you?'},
+    {role:'assistant',content:'Model reply for the channel thread.'},
+    {role:'user',content:'Follow up on the original request.'},
+  ]);
+  assert.deepEqual(x.sent.map(m=>[m.channel,m.thread_ts]),[
+    ['C12345678',timestamp(1)],['C12345678',timestamp(1)],
+  ]);
+});
+
+test('switching existing channels to group replies uses public inputs from legacy threads and excludes DM answers', async t => {
+  const x = await setup(t,{channelThreadRepliesEnabled:true,allowedChannels:{C12345678:['U12345678']}});
+  assert.equal(x.bridge.accept(mention(1,{text:'<@U01234567> Public initial question'})),true);
+  await x.drain();
+  assert.match(x.sent.at(-1).text,/Research guidance/);
+  const root = x.sent.at(-1).thread_ts;
+  x.restart({channelModel});
+  assert.equal(x.bridge.accept(channelReply(2)),true);
+  assert.equal(x.bridge.accept(envelope(3,{thread_ts:root,text:'Separate private question'})),true);
+  await x.drain();
+  assert.equal(x.channelRuns.length,1);
+  const messages = JSON.stringify(x.channelRuns[0]);
+  assert.match(messages,/Public initial question/);
+  assert.doesNotMatch(messages,/Research guidance|Separate private question/);
+  assert.deepEqual(x.sent.slice(-2).map(m=>[m.channel,m.thread_ts]),[
+    ['C12345678',timestamp(1)],['D12345678',root],
+  ]);
 });
 
 test('channel and user allowlists, membership, workspace and DM identity gate channel requests', async t => {
@@ -495,6 +544,20 @@ test('transport disables redirects, separates credentials, bounds errors and hon
   await assert.rejects(client.slack('chat.postMessage'),e => e.definite && e.retryAfter === 45000);
   client.fetch = async () => { throw new Error('SENSITIVE_TOKEN_AND_BODY'); };
   await assert.rejects(client.slack('chat.postMessage'),e => e.message === 'slack_transport_unknown' && !e.definite);
+});
+
+test('channel model requests carry only the channel chat and never advertise tools or send tokens', async () => {
+  const client = new Clients({...config,channelModel}, {
+    readCredential:async () => assert.fail('channel inference must not read credentials'),
+    fetchFn:async (url,opts) => {
+      assert.equal(url,channelModel.endpoint);
+      assert.equal(opts.redirect,'error');
+      assert.equal(opts.headers.authorization,undefined);
+      assert.deepEqual(Object.keys(JSON.parse(opts.body)).sort(),['max_tokens','messages','model','stream']);
+      return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'Channel response'}}]}));
+    },
+  });
+  assert.equal(await client.channelChat([{role:'user',content:'Who are you?'}]),'Channel response');
 });
 
 test('Socket Mode ACK follows durable persistence; disk failure leaves the envelope unacknowledged', async t => {

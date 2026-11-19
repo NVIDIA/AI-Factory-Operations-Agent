@@ -19,7 +19,9 @@ export class Store {
         CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, data TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS jobs_channel_ack ON jobs (
           json_extract(data,'$.channel'), json_extract(data,'$.root'), json_extract(data,'$.user')
-        ) WHERE json_extract(data,'$.kind')='channel_ack';`);
+        ) WHERE json_extract(data,'$.kind')='channel_ack';
+        CREATE INDEX IF NOT EXISTS jobs_channel_chat ON jobs (json_extract(data,'$.threadId'),state)
+          WHERE json_extract(data,'$.kind')='channel_chat';`);
       const existing = this.db.prepare('SELECT value FROM meta WHERE key=?').get('binding');
       const value = JSON.stringify(binding);
       if (existing && existing.value !== value) throw new Error('state_binding_mismatch');
@@ -44,6 +46,11 @@ export class Store {
     return this.db.prepare(`SELECT id FROM jobs WHERE json_extract(data,'$.kind')='channel_ack'
       AND json_extract(data,'$.channel')=? AND json_extract(data,'$.root')=? AND json_extract(data,'$.user')=?
       ORDER BY rowid DESC LIMIT 1`).get(channel,root,user)?.id;
+  }
+  channelTurns(threadId) {
+    return this.db.prepare(`SELECT data FROM jobs WHERE json_extract(data,'$.kind')='channel_chat'
+      AND json_extract(data,'$.threadId')=? AND state='done' ORDER BY rowid DESC LIMIT 6`)
+      .all(threadId).reverse().map(row=>JSON.parse(row.data));
   }
   counts() { return Object.fromEntries(this.db.prepare('SELECT state,count(*) AS n FROM jobs GROUP BY state').all().map(row => [row.state,row.n])); }
   save(row) { this.db.prepare('UPDATE jobs SET state=?,data=? WHERE id=?').run(row.state,JSON.stringify(row), row.id); }

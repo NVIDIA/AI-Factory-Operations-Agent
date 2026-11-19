@@ -104,6 +104,22 @@ export class Clients {
     if (!res.ok) throw new TransportError('mosaic_http_error');
     return boundedJson(res, 8388608);
   }
+  async channelChat(messages) {
+    const {endpoint,model} = this.config.channelModel;
+    let res;
+    try {
+      res = await this.fetch(endpoint,{method:'POST',redirect:'error',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({model,messages,stream:false,max_tokens:1024}),
+        signal:AbortSignal.timeout(90000)});
+    } catch { throw new TransportError('channel_model_unavailable'); }
+    if (!res.ok) throw new TransportError('channel_model_http_error');
+    const data = await boundedJson(res,1048576);
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason !== 'stop' || choice.message?.tool_calls?.length)
+      throw new TransportError('channel_model_incomplete_answer');
+    return choice.message?.content;
+  }
 }
 
 export function socketUrl(value) {

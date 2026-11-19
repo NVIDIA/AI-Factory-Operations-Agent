@@ -116,6 +116,21 @@ An authorized mention creates a fixed acknowledgment in the original Slack threa
 
 To let the same requester continue from that channel thread without another mention, set `"channelThreadRepliesEnabled": true`. Subscribe to `message.channels` with `channels:history` for public channels, or `message.groups` with `groups:history` for private channels. Apply any Slack scope changes and restart the bridge. Slack can deliver ordinary channel messages with these subscriptions. The bridge admits only replies from the authorized requester in a thread where that requester already mentioned the Bot. It uses that requester's latest accepted mention in the same thread, and returns each answer to the associated private thread. The default setting is `false`.
 
+### Direct replies in channel threads
+
+Set `channelModel` when the channel should receive the actual answer. Point it to a trusted OpenAI-compatible inference endpoint available to the bridge:
+
+```json
+{
+  "channelModel": {
+    "endpoint": "http://inference:8000/v1/chat/completions",
+    "model": "your-model"
+  }
+}
+```
+
+In this mode the bridge posts the model answer as a reply to the original channel thread. It keeps a conversation for each authorized requester in that thread. It supplies the model with recent channel turns and the current message. When switching an existing thread to this mode, it can reuse the original channel question. Private answers, incident reports and tool results stay in their existing private conversations. Direct channel replies use text inference without tools. Use the private MOSAIC conversation for live investigations and access-controlled data. The endpoint receives the channel prompt, so select a provider authorized for the channel's content.
+
 ## 3. Deploy alongside MOSAIC
 
 The example uses a separate Pod, a single replica, a persistent volume and `Recreate` updates. It does not give the bridge a Kubernetes API token or any cluster role. Adjust the image mirror/digest, resources and storage class to your environment before applying.
@@ -205,6 +220,7 @@ Limits are 128 characters for incident IDs, 160 Unicode characters for titles, 1
 5. Restart the bridge with its persistent volume intact and repeat a follow-up in the first thread. Verify that it retains that report's context.
 6. Try a non-allowlisted user and a different workspace/channel. They must not create Agent runs. Also verify that a request to switch to Edit cannot change the automation session's View restriction.
 7. If channel mentions are enabled, mention the Bot as an approved user in the approved channel. Verify a fixed acknowledgment in the original channel thread and an answer in a separate DM thread. Continue in the DM thread. If channel thread replies are enabled, reply in the original channel thread and verify that the answer goes to the same DM thread. A top-level ordinary message or a reply from a different user must not queue a request.
+8. If `channelModel` is configured, verify that the actual answer goes to the original channel thread. Check that a follow-up reuses its channel context and that a separate DM continues in its original private session.
 
 `GET /healthz` reports whether Socket Mode is connected and aggregate queue states. It returns no message or credential contents. Readiness indicates a live socket, not successful completion of every pending investigation. Check the incident status and `send_unknown`/`failed` counters as well.
 

@@ -34,6 +34,15 @@ export function validateConfig(input) {
       Object.entries(c.allowedChannels).some(([id,users]) => !SLACK_CHANNEL.test(id) ||
         !validUsers(users,c.botUserId))) throw new Error('invalid_channel_allowlist');
   if (typeof c.channelThreadRepliesEnabled !== 'boolean') throw new Error('invalid_channel_thread_replies');
+  if (c.channelModel !== undefined) {
+    const model = c.channelModel;
+    if (typeof model?.endpoint !== 'string' || typeof model?.model !== 'string' || !model.model.trim())
+      throw new Error('invalid_channel_model');
+    const endpoint = new URL(model.endpoint);
+    if (!['https:','http:'].includes(endpoint.protocol) || endpoint.username || endpoint.password ||
+        endpoint.search || endpoint.hash || !endpoint.pathname.endsWith('/chat/completions'))
+      throw new Error('invalid_channel_model_endpoint');
+  }
   for (const name of ['stateDir', c.credentialSocket ? 'credentialSocket' : 'credentialsFile']) {
     if (typeof c[name] !== 'string' || !path.isAbsolute(c[name])) throw new Error('absolute_paths_required');
   }
@@ -126,6 +135,28 @@ export class Bridge {
     const messageKey = key('message', this.c.teamId,e.channel,e.ts);
     if (this.store.hasMessage(messageKey)) return false;
     const root = e.thread_ts || e.ts, threadId = this.threadId(e.channel,root);
+    if (this.c.channelModel && (channelMention || channelReply)) {
+      const publicThreadId = key('channel_chat',this.c.teamId,e.channel,root,e.user);
+      let thread = this.store.thread(publicThreadId);
+      if (!thread) {
+        const ack = this.store.channelAckId(e.channel,root,e.user);
+        if (!channelMention && !ack) return false;
+        const original = ack ? this.store.get(key('channel_dm',ack)) : undefined;
+        thread = {id:publicThreadId,user:e.user,channel:e.channel,root,
+          // This input came from the original channel event. Its private answer
+          // and the rest of the DM session are not part of channel history.
+          initialQuestion:original?.input};
+      }
+      const input = e.text.replaceAll(mention,'').trim();
+      if (!input) return false;
+      this.store.transaction(() => {
+        this.store.bind(thread);
+        this.store.add({id,messageKey,kind:'channel_chat',state:'queued',user:e.user,
+          channel:e.channel,root,threadId:publicThreadId,input,created:this.now(),receipts:[],nextAt:0});
+      });
+      this.log('channel_chat_queued',id);
+      return true;
+    }
     if (channelMention) {
       const input = e.text.replaceAll(mention,'').trim();
       if (!input) return false;
@@ -230,18 +261,26 @@ export class Bridge {
   }
   async process(row) {
     if (TERMINAL.has(row.state)) return;
-    const sourceChannel = row.kind === 'channel_ack' ? row.channel : row.sourceChannel;
+    const publicResponse = row.kind === 'channel_ack' || row.kind === 'channel_chat';
+    const sourceChannel = publicResponse ? row.channel : row.sourceChannel;
     if (!this.allowsUser(row.user,sourceChannel)) { row.state = 'rejected'; this.store.save(row); return; }
     // A crash between an HTTP send and its receipt is deliberately not retried.
     if (row.state === 'sending') {
       row.state = 'send_unknown'; this.store.save(row); this.log('send_requires_reconciliation',row.id); return;
     }
-    if (row.kind === 'channel_ack') {
+    if (publicResponse) {
       if (!await this.isMemberChannel(row.channel)) {
         row.state = 'rejected'; this.store.save(row); this.log('channel_rejected',row.id); return;
       }
-      row.parts ??= ['I’m the MOSAIC operations assistant. Check your direct messages for the reply.'];
-      row.state = 'ready'; this.store.save(row);
+      if (row.kind === 'channel_chat') {
+        if (!this.c.channelModel) {
+          row.state = 'rejected'; this.store.save(row); return;
+        }
+        if (row.state === 'queued') await this.prepareChannelReply(row);
+      } else {
+        row.parts ??= ['I’m the MOSAIC operations assistant. Check your direct messages for the reply.'];
+        row.state = 'ready'; this.store.save(row);
+      }
     } else {
       if (row.sourceRequestId && !row.threadId) {
         // Jobs for this requester run in order. Reuse the persisted private thread
@@ -279,6 +318,33 @@ export class Bridge {
     if (row.state === 'ready') {
       row.state = 'done'; row.completed = this.now(); this.store.save(row); this.log('job_completed',row.id);
     }
+  }
+  async prepareChannelReply(row) {
+    const thread = this.store.thread(row.threadId);
+    if (!thread || thread.channel !== row.channel || thread.root !== row.root || thread.user !== row.user)
+      throw new Error('missing_channel_conversation');
+    const messages = [{role:'system',content:'You are the MOSAIC AI Factory Operations Assistant in a Slack channel. ' +
+      'Answer in the language of the question. You can explain general operations concepts and help users phrase inquiries. ' +
+      'For a question requiring live infrastructure or access-controlled sources, ask them to start a private investigation. ' +
+      'Use only the channel conversation below and general knowledge. Never claim to have inspected live systems.'}];
+    if (thread.initialQuestion) messages.push({role:'user',content:thread.initialQuestion.slice(-8000)});
+    for (const turn of this.store.channelTurns(thread.id)) {
+      messages.push({role:'user',content:turn.input.slice(-4000)},
+        {role:'assistant',content:turn.parts.join('').slice(-4000)});
+    }
+    messages.push({role:'user',content:row.input});
+    let answer;
+    try {
+      answer = await this.clients.channelChat(messages);
+      if (typeof answer !== 'string' || !answer.trim() || Buffer.byteLength(answer) > 1048576)
+        throw new Error('missing_channel_answer');
+    } catch {
+      answer = 'MOSAIC could not generate a reply. Please try again in this thread.';
+      this.log('channel_model_failed',row.id);
+    }
+    row.parts = chunks(answer);
+    row.state = 'ready';
+    this.store.save(row);
   }
   async preparePrivateReply(row) {
     if (row.kind === 'incident') {
