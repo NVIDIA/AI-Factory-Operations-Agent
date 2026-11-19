@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 
 def render(binding, namespace='mosaic', mosaic_url='http://mosaic-ui:3000',
            storage_class='standard', ui_secret='mosaic-ui-auth', alert_cluster=None,
-           name=None, credential_secret='mosaic-teams-graph'):
+           name=None, credential_secret='mosaic-teams-graph', allow_quoted_replies=False):
     guid = r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
     sender = binding.get('sender', {})
     group = binding.get('chatType') == 'group'
@@ -36,6 +36,8 @@ def render(binding, namespace='mosaic', mosaic_url='http://mosaic-ui:3000',
         if name == 'mosaic-teams-graph':
             raise ValueError('Use a separate group deployment and PVC; preserve the default DM')
     else:
+        if allow_quoted_replies:
+            raise ValueError('Quoted replies are an optional group trigger')
         if (not re.fullmatch(guid, binding.get('recipient', ''))
                 or sender['id'].lower() == binding['recipient'].lower()):
             raise ValueError('A DM requires a distinct recipient GUID')
@@ -53,6 +55,8 @@ def render(binding, namespace='mosaic', mosaic_url='http://mosaic-ui:3000',
     }
     if group:
         config.update(allowedUserIds=[x.lower() for x in allowed], requireMention=True)
+        if allow_quoted_replies:
+            config['allowQuotedReplies'] = True
     else:
         config['recipientId'] = binding['recipient']
     if alert_cluster:
@@ -109,11 +113,13 @@ if __name__ == '__main__':
     parser.add_argument('--test-alert-cluster')
     parser.add_argument('--name', help='Separate Deployment/ConfigMap/PVC name; groups default to a chat-ID hash')
     parser.add_argument('--credential-secret', default='mosaic-teams-graph')
+    parser.add_argument('--allow-quoted-replies', action='store_true',
+                        help='Allow group replies that quote a message sent by this worker')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     manifest = render(json.loads(args.binding.read_text()), args.namespace, args.mosaic_url,
                       args.storage_class, args.ui_secret, args.test_alert_cluster,
-                      args.name, args.credential_secret)
+                      args.name, args.credential_secret, args.allow_quoted_replies)
     os.umask(0o077)
     with args.output.open('w') as out:
         json.dump(manifest, out, indent=2)

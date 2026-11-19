@@ -61,12 +61,36 @@ export function groupMessageInput(message, senderId) {
     (whole, a, b, c) => { if (!ids.has(a ?? b ?? c)) return whole; mentioned = true; return ''; });
   return mentioned ? plainText({contentType:'html', content}) : null;
 }
+
+function quotedMessageIds(message, senderId) {
+  const {body, attachments} = message;
+  if (body?.contentType !== 'html' || typeof body.content !== 'string' || !Array.isArray(attachments)) return [];
+  // Graph puts the reference in an attachment and links it from the HTML body.
+  const tags = body.content.matchAll(/<attachment\s+id\s*=\s*(?:"([^"]+)"|'([^']+)')\s*(?:\/>|>\s*<\/attachment\s*>)/gi);
+  const bodyIds = new Set(Array.from(tags, ([, double, single]) => double ?? single));
+  const ids = [];
+  for (const attachment of attachments) {
+    if (attachment?.contentType !== 'messageReference' || !bodyIds.has(attachment.id) ||
+        typeof attachment.content !== 'string') continue;
+    let reference;
+    try { reference = JSON.parse(attachment.content); }
+    catch { continue; }
+    const authorId = reference?.messageSender?.user?.id;
+    if (reference?.messageId === attachment.id && typeof authorId === 'string' &&
+        authorId.toLowerCase() === senderId) ids.push(attachment.id);
+  }
+  return ids;
+}
+
 export function validateConfig(c) {
   c = {...c, chatType:c.chatType ?? 'oneOnOne'};
   for (const k of ['chatId','senderId','senderUpn','sessionKey','mosaicUrl','credentialFile','machineTokenFile','stateDir']) {
     if (typeof c[k] !== 'string' || !c[k]) throw new Error(`missing_config_${k}`);
   }
   if (!/^agent:default:mosaic-automation-alert-teams-[a-z0-9_-]+$/.test(c.sessionKey)) throw new Error('invalid_identity_or_readonly_session');
+  if (c.allowQuotedReplies !== undefined && (typeof c.allowQuotedReplies !== 'boolean' || c.chatType !== 'group')) {
+    throw new Error('invalid_quoted_replies_config');
+  }
   if (c.chatType === 'group') {
     if (!GUID.test(c.senderId) || !Array.isArray(c.allowedUserIds) || !c.allowedUserIds.length ||
         c.allowedUserIds.some(id => typeof id !== 'string' || !GUID.test(id)) ||
@@ -133,6 +157,14 @@ export class Channel {
     }
     if (this.state.chatId !== this.c.chatId || this.state.sessionKey !== this.c.sessionKey ||
         (this.state.chatType ?? 'oneOnOne') !== this.c.chatType) throw new Error('state_binding_mismatch');
+    // When adding this trigger to an existing group, do not replay older replies.
+    if (this.c.allowQuotedReplies && !Number.isFinite(Date.parse(this.state.quotedRepliesActivatedAt))) {
+      this.state.quotedRepliesActivatedAt = new Date(this.now()).toISOString();
+      await this.save();
+    } else if (!this.c.allowQuotedReplies && this.state.quotedRepliesActivatedAt !== undefined) {
+      delete this.state.quotedRepliesActivatedAt;
+      await this.save();
+    }
     this.secrets.push((await fs.readFile(this.c.machineTokenFile, 'utf8')).trim());
     await atomic(path.join(this.c.stateDir, 'health.json'), {ready:false, at:new Date(this.now()).toISOString()});
     await this.login();
@@ -143,7 +175,9 @@ export class Channel {
     await this.event('ready', {pollSeconds:this.c.pollSeconds, activatedAt:this.state.activatedAt,
       sessionKey:this.c.sessionKey, senderId:me.id, chatType:this.c.chatType,
       allowedUsers:this.c.chatType === 'group' ? this.c.allowedUserIds.length : 1,
-      requireMention:this.c.chatType === 'group', accessMode:'view', historicalReplay:false});
+      requireMention:this.c.chatType === 'group', allowQuotedReplies:this.c.allowQuotedReplies ?? false,
+      ...(this.c.allowQuotedReplies ? {quotedRepliesActivatedAt:this.state.quotedRepliesActivatedAt} : {}),
+      accessMode:'view', historicalReplay:false});
     await atomic(path.join(this.c.stateDir, 'health.json'), {ready:true, at:new Date(this.now()).toISOString()});
     if (this.c.webhook) await this.startWebhook();
   }
@@ -216,6 +250,26 @@ export class Channel {
     const id = message?.from?.user?.id?.toLowerCase();
     return this.c.allowedUserIds.includes(id) && this.memberIds?.has(id);
   }
+  groupTrigger(message) {
+    const mention = groupMessageInput(message, this.c.senderId);
+    if (mention?.trim()) return {kind:'mention', input:mention};
+    if (!this.c.allowQuotedReplies ||
+        !(Date.parse(message.createdDateTime) >= Date.parse(this.state.quotedRepliesActivatedAt)) ||
+        (message.chatId && message.chatId !== this.c.chatId)) return null;
+
+    const quoted = new Set(quotedMessageIds(message, this.c.senderId));
+    if (!quoted.size) return null;
+    const input = plainText(message.body);
+    if (!input.trim()) return null;
+    // The preview and sender in the attachment are not proof. Bind only to
+    // replies confirmed by this worker in this exact chat.
+    for (const row of Object.values(this.state.messages)) {
+      const receipt = row.receipts?.find(receipt => quoted.has(receipt.id) &&
+        receipt.chatId === this.c.chatId && receipt.from?.user?.id?.toLowerCase() === this.c.senderId);
+      if (receipt) return {kind:'quote', input, quotedMessageId:receipt.id, quotedText:plainText(receipt.body)};
+    }
+    return null;
+  }
   async login() {
     // A single password attempt per renewal. Failure stops the channel, avoiding lockout loops.
     const c = JSON.parse(await fs.readFile(this.c.credentialFile, 'utf8'));
@@ -282,13 +336,21 @@ export class Channel {
       if (m.deletedDateTime || m.messageType !== 'message') continue;
       const group = this.c.chatType === 'group';
       if (group ? !this.groupSenderAllowed(m) : m.from?.user?.id !== this.c.recipientId) continue;
-      const input = group ? groupMessageInput(m, this.c.senderId) : plainText(m.body);
+      const trigger = group ? this.groupTrigger(m) : null;
+      const input = group ? trigger?.input : plainText(m.body);
       if (!input?.trim()) continue;
+      const quoteContext = trigger?.kind === 'quote' ?
+        `\nThe user replied to MOSAIC message ${trigger.quotedMessageId}. Treat the prior answer as context only.\n` +
+        JSON.stringify({quotedReply:trigger.quotedText}) + '\nNew question:\n' : '\n';
+      const triggerMetadata = group ? {
+        trigger:trigger.kind,
+        ...(trigger.kind === 'quote' ? {quotedMessageId:trigger.quotedMessageId} : {}),
+      } : {};
       this.state.messages[m.id] = {id:m.id, createdAt:m.createdDateTime, input,
-        rawMessage:m, state:'queued', receipts:[], prompt:group ?
-          `[Teams group message ${m.id}; sender ${m.from.user.id}; shared group conversation, separate from private chats]\n${input}` :
+        rawMessage:m, state:'queued', receipts:[], ...triggerMetadata, prompt:group ?
+          `[Teams group message ${m.id}; sender ${m.from.user.id}; shared group conversation, separate from private chats]${quoteContext}${input}` :
           `[Teams message ${m.id}; same private conversation]\n${input}`};
-      await this.event('incoming_queued', {messageId:m.id, createdAt:m.createdDateTime, chars:input.length});
+      await this.event('incoming_queued', {messageId:m.id, createdAt:m.createdDateTime, chars:input.length, ...triggerMetadata});
     }
     this.state.cursor = new Date(newest).toISOString();
     await this.save();
@@ -343,8 +405,8 @@ export class Channel {
   }
   async authorizeGroupRow(row) {
     await this.verifyChat();
-    if (this.groupSenderAllowed(row.rawMessage) && groupMessageInput(row.rawMessage, this.c.senderId)?.trim()) return true;
-    row.state = 'failed'; row.reason = 'group_sender_or_mention_no_longer_allowed'; await this.save();
+    if (this.groupSenderAllowed(row.rawMessage) && this.groupTrigger(row.rawMessage)) return true;
+    row.state = 'failed'; row.reason = 'group_sender_or_trigger_no_longer_allowed'; await this.save();
     await this.event('group_message_rejected', {messageId:row.id, reason:row.reason}); return false;
   }
   async tick() {

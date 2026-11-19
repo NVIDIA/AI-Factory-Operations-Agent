@@ -3,7 +3,7 @@
 
 # Optional delegated Graph conversation bridge
 
-A successful one-shot Graph send does not receive the user's next message. This optional worker polls one verified Teams chat, submits eligible new messages to the existing MOSAIC headless API, and returns the complete assistant answer to the same chat. The default is a fixed DM; an explicitly bound group accepts allowlisted members who mention the service account. The DM also preserves the conversation when a simulation alert starts the investigation and a person follows up.
+A successful one-shot Graph send does not receive the user's next message. This optional worker polls one verified Teams chat, submits eligible new messages to the existing MOSAIC headless API, and returns the complete assistant answer to the same chat. The default is a fixed DM. A bound group accepts mentions from allowlisted members and can also accept replies that quote a previous MOSAIC answer. The DM also preserves the conversation when a simulation alert starts the investigation and a person follows up.
 
 This is an experimental, **View-only** transport with one worker and persistent conversation per chat. The MOSAIC runtime performs reasoning and tool calls. It is not the native OpenClaw Teams Bot channel, and does not require n8n. It does not enable infrastructure mutation or replace the existing channel configuration.
 
@@ -88,9 +88,11 @@ kubectl -n "$NS" logs deployment/mosaic-teams-graph-group --tail=30
 
 This creates a separate ConfigMap, Deployment and PVC and reuses the mounted credential/UI Secrets. It leaves the DM deployment and other IM channels running. `--name` is optional: group resources otherwise use a hash of the exact chat ID. Use a unique name per group and never reuse another chat's PVC. The group MOSAIC session is independently derived from the chat ID; it does not inherit the service account's private conversations.
 
-After `ready`, an allowed participant selects the service account from Teams' **@ mention picker** and sends a new question. Typing its display name, replying without @, or an ordinary group message does not trigger a run. Matching requires both the service-account user ID in Graph's `mentions` and its corresponding `<at id="...">` marker. Pre-activation history, service-account messages, deleted messages and non-allowlisted users are ignored. No operator relay or send confirmation is involved.
+After `ready`, an allowed participant selects the service account from Teams' **@ mention picker** and sends a new question. The worker matches both the service-account user ID in Graph's `mentions` and its corresponding `<at id="...">` marker. Ordinary group messages and display-name text are ignored.
 
-The group has one shared conversation, processed sequentially. Only eligible @ requests enter it; answers are visible to the group under Teams' own membership/history settings. Group members are re-read before intake, before running a queued request and before each reply part. Removing a person from the group or configured allowlist stops their pending answer. A newly joined member is **not automatically authorized**: rerun `bind-group` with the intended explicit user list, regenerate with the same group name and apply that manifest. Group simulation-alert intake and per-user private sessions within a group are not supported.
+To enable replies without an @ in this group, add `--allow-quoted-replies` to the `prepare.py` command above and apply the manifest with the same chat binding, deployment name and PVC. An allowlisted member can then use Teams' **Reply** action on a MOSAIC answer and send a follow-up. The worker matches the [Graph message reference](https://learn.microsoft.com/en-us/graph/teams-messaging-overview#message-attachment) to a confirmed outbound receipt saved for that group, and includes the recorded answer text as context. A forward, a quote of another member or an unrecorded answer does not qualify. This option starts accepting new quote replies when enabled, and the activation time and receipts survive a restart. Answers sent before enabling can be quoted if their receipts are still on the PVC.
+
+The group has one shared conversation, processed sequentially. Answers are visible to the group under Teams' membership and history settings. Group membership and the configured allowlist apply to both ways of addressing MOSAIC. The worker checks membership before intake, before a queued request runs and before each reply part. Removing a person from the group or configured allowlist stops their pending answer. To authorize a new member, rerun `bind-group` with the intended explicit user list, regenerate with the same group name and apply that manifest. The worker ignores pre-activation history, its own messages and deleted messages.
 
 The Deployment uses Node's `--network-family-autoselection-attempt-timeout=2000` so a slow connection is not abandoned after the default short per-address window. This changes TCP address selection timing, not authentication, scopes or TLS validation. The probe reports a sanitized `transportCode` for connection failures. An Entra `invalid_grant`/MFA/consent error still stops without automatic password retries.
 
@@ -149,12 +151,12 @@ Only matching **firing simulation alerts** are queued; `run_id` and `startsAt` a
 |---|---|
 | Teams intake | 10-second poll; 50 messages/page; ordered pagination; 5-minute overlap; durable ID deduplication. Investigation duration is additional. |
 | Conversation | One fixed service identity and chat per worker; DM recipient or explicit group-user allowlist; separate View session per group; sequential processing. |
-| Group intake | Real service-account @ mention required; revalidate live members; no automatic enrollment of new members. |
+| Group intake | Require a structured service-account @ mention or, when enabled, a quote of a confirmed MOSAIC answer from the same group. Revalidate live membership against the configured allowlist. |
 | State | PVC; atomic fsync/rename; queued/running/ready/send_uncertain/done/failed; complete inputs, answers and receipts. |
 | Unconfirmed Agent submission | Read the same session; do not blindly resubmit. |
 | Unconfirmed outbound send | Save intent and stop automatic resend; operator review required. This chooses duplicate avoidance over guaranteed retry. |
 | Authentication | Read the mounted file for each new login; cache the token; halt on authentication failure without password retry loops. |
-| Limitations | Textual DM or one allowlisted group per worker; no attachments, per-user private group sessions, parallel execution within a group, automatic recovery of uncertain sends, or credential-rotation integration. |
+| Limitations | Textual DM or one allowlisted group per worker. The quote trigger reads message references. File and media attachments, per-user private group sessions, group simulation-alert intake, parallel execution within a group, automatic recovery of uncertain sends, and credential-rotation integration are outside this bridge's scope. |
 | Operational validation still needed | Long-duration renewal, Graph throttling, concurrent-user scaling, real hardware faults, and governed write actions. |
 
 Stop/start without deleting state:

@@ -87,6 +87,22 @@ const groupConfig={...cfg,chatType:'group',chatId:'group-chat',senderId:svc,reci
  allowedUserIds:[user],requireMention:true,sessionKey:groupSessionKey('group-chat')};
 const groupMessage=(id, who=user)=>({...msg(id,who,now-1000,'<at id="0">Service</at> explain Xid'),
  mentions:[{id:0,mentioned:{user:{id:svc}}}]});
+const receiptId = '1700000000001';
+const quoteMessage = (id, at, who = user, targetId = receiptId) => ({
+ ...msg(id,who,at,`<attachment id="${targetId}"></attachment><p>Separate agents and services.</p>`),
+ chatId:groupConfig.chatId, replyToId:null, mentions:[],
+ attachments:[{id:targetId,contentType:'messageReference',content:JSON.stringify({
+  messageId:targetId,messageSender:{user:{id:svc}},messagePreview:'An abbreviated preview.',
+ })}],
+});
+const mosaicReceipt = {
+ id:receiptId,chatId:groupConfig.chatId,from:{user:{id:svc}},
+ body:{contentType:'html',content:'<p>The prior full answer in this group.</p>'},
+};
+function recordReply(c) {
+ c.state.messages.previous = {id:'previous',state:'done',createdAt:new Date(now-2000).toISOString(),
+  receipts:[mosaicReceipt]};
+}
 async function setupGroup(t) {
  const c=await setup(t);c.c=validateConfig({...groupConfig,stateDir:c.c.stateDir});
  c.state.chatType='group';c.state.chatId=c.c.chatId;c.state.sessionKey=c.c.sessionKey;
@@ -101,6 +117,8 @@ test('groups require exact chat-derived session, explicit user IDs and mandatory
  }
  assert.notEqual(groupSessionKey('group-chat'),groupSessionKey('other-chat'));
  assert.throws(()=>validateConfig({...cfg,sessionKey:groupSessionKey('group-chat')}));
+ assert.throws(()=>validateConfig({...cfg,allowQuotedReplies:true}),/invalid_quoted_replies_config/);
+ assert.throws(()=>validateConfig({...groupConfig,allowQuotedReplies:'true'}),/invalid_quoted_replies_config/);
 });
 test('group mentions require both structured service identity and matching HTML marker',()=>{
  const m=groupMessage('a');assert.equal(groupMessageInput(m,svc),'explain Xid');
@@ -176,4 +194,88 @@ test('group worker cannot reuse a private-chat state directory',async t=>{
  const group=new Channel({...groupConfig,stateDir:c.c.stateDir});
  group.login=async()=>assert.fail('state mismatch must fail before login');
  await assert.rejects(()=>group.init(),/state_binding_mismatch/);
+});
+
+test('quote trigger requires an opt-in, live body reference and a confirmed reply in this chat',async t=>{
+ const c = await setupGroup(t);
+ const quote = quoteMessage('followup',now);
+ recordReply(c);
+ assert.equal(c.groupTrigger(quote),null);
+ c.c.allowQuotedReplies = true;
+ c.state.quotedRepliesActivatedAt = new Date(now).toISOString();
+ assert.deepEqual(c.groupTrigger(quote),{kind:'quote',input:'Separate agents and services.',
+  quotedMessageId:receiptId,quotedText:'The prior full answer in this group.'});
+ const ref = quote.attachments[0];
+ for (const invalid of [
+  quoteMessage('unknown-target',now,user,'1700000000002'),
+  {...quote,chatId:'different-chat'},
+  {...quote,attachments:[{...ref,contentType:'forwardedMessageReference'}]},
+  {...quote,attachments:[{...ref,content:'malformed JSON'}]},
+  {...quote,attachments:[{...ref,content:JSON.stringify({messageId:receiptId,messageSender:{user:{id:other}}})}]},
+  {...quote,body:{contentType:'html',content:'<p>Service said something.</p>'}},
+  {...quote,body:{contentType:'html',content:`<attachment id="${receiptId}"></attachment>`}},
+ ]) assert.equal(c.groupTrigger(invalid),null);
+ c.state.messages.previous.receipts = [{...mosaicReceipt,chatId:'different-chat'}];
+ assert.equal(c.groupTrigger(quote),null);
+ c.state.messages.previous.receipts = [{...mosaicReceipt,from:{user:{id:other}}}];
+ assert.equal(c.groupTrigger(quote),null);
+});
+
+test('group upgrade accepts new quotes once in the existing View session and ignores earlier quotes',async t=>{
+ const old = await setupGroup(t);
+ recordReply(old);
+ await old.save();
+ const machineTokenFile = path.join(old.c.stateDir,'fixture-token');
+ await fs.writeFile(machineTokenFile,'fixture');
+ const config = {...old.c,machineTokenFile,allowQuotedReplies:true};
+ const newQuote = quoteMessage('new-quote',now+500);
+ const oldQuote = quoteMessage('old-quote',now-500);
+ const unlisted = quoteMessage('unlisted-quote',now+500,other);
+ let submits = 0, sends = 0;
+ const open = async at => {
+  const c = new Channel(config,{now:()=>at});
+  c.event = async()=>{};
+  c.login = async()=>{};
+  c.graph = async(p,method,body)=>{
+   if(p==='/v1.0/me') return {id:svc,userPrincipalName:config.senderUpn};
+   if(p===c.chatPath()) return {id:c.c.chatId,chatType:'group'};
+   if(p.endsWith('/members')) return {value:[{userId:svc},{userId:user},{userId:other}]};
+   if(method==='POST') {
+    assert.equal(p,c.chatPath()+'/messages');
+    assert.equal(body.body.contentType,'html');
+    sends++;
+    return {...mosaicReceipt,id:'1700000000003'};
+   }
+   return {value:[newQuote,oldQuote,unlisted]};
+  };
+  c.mosaic = async(p,body)=>{
+   if(p==='/api/openclaw/commands') return {};
+   assert.equal(p,'/api/headless/chat');
+   assert.equal(body.sessionKey,groupConfig.sessionKey);
+   assert.equal(body.accessMode,'view');
+   assert.match(body.prompt,/The prior full answer in this group\./);
+   assert.match(body.prompt,/Separate agents and services\./);
+   assert.doesNotMatch(body.prompt,/An abbreviated preview\./);
+   submits++;
+   return {runId:'quote-run'};
+  };
+  c.history = async()=>({hasActiveRun:false,messages:[
+   {role:'user',content:c.state.messages['new-quote'].prompt},
+   {role:'assistant',content:'Agents and services listed separately.',stopReason:'stop'},
+  ]});
+  await c.init();
+  return c;
+ };
+ const c = await open(now);
+ await c.poll();
+ assert.deepEqual(Object.keys(c.state.messages),['previous','new-quote']);
+ assert.equal(c.state.messages['new-quote'].trigger,'quote');
+ assert.equal(c.state.messages['new-quote'].quotedMessageId,receiptId);
+ const restarted = await open(now+2000);
+ assert.equal(restarted.state.quotedRepliesActivatedAt,new Date(now).toISOString());
+ await restarted.tick();
+ await restarted.tick();
+ assert.equal(restarted.state.messages['new-quote'].state,'done');
+ assert.equal(submits,1);
+ assert.equal(sends,1);
 });

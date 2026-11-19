@@ -66,6 +66,20 @@ class DeploymentTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 render({**BINDING, 'chatType': 'group', 'allowedUserIds': allowed})
 
+    def test_group_quote_trigger_requires_opt_in(self):
+        group = {**BINDING, 'chatType': 'group', 'allowedUserIds': [BINDING['recipient']]}
+        original = render(group)
+        enabled = render(group, allow_quoted_replies=True)
+        original_config = json.loads(original['items'][0]['data']['channel.json'])
+        enabled_config = json.loads(enabled['items'][0]['data']['channel.json'])
+        self.assertEqual(enabled_config, {**original_config, 'allowQuotedReplies': True})
+        old_deployment = next(item for item in original['items'] if item['kind'] == 'Deployment')
+        new_deployment = next(item for item in enabled['items'] if item['kind'] == 'Deployment')
+        self.assertNotEqual(old_deployment['spec']['template']['metadata']['annotations'],
+                            new_deployment['spec']['template']['metadata']['annotations'])
+        with self.assertRaises(ValueError):
+            render(BINDING, allow_quoted_replies=True)
+
 
 if __name__ == '__main__':
     unittest.main()
