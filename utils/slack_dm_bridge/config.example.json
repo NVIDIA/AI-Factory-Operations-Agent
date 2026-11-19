@@ -3,6 +3,7 @@
   "appId": "A01234567",
   "botUserId": "U01234567",
   "allowedUserIds": ["U12345678"],
+  "allowedChannels": {},
   "mosaicUrl": "http://mosaic-ui:3000",
   "credentialsFile": "/credentials/bridge.json",
   "stateDir": "/state",

@@ -13,19 +13,25 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const key = (...parts) => hash(JSON.stringify(parts));
 const USER = /^[UW][A-Z0-9]{5,31}$/;
 const CHANNEL = /^D[A-Z0-9]{5,31}$/;
+const SLACK_CHANNEL = /^[CG][A-Z0-9]{5,31}$/;
 const TS = /^[0-9]{10,16}\.[0-9]{6}$/;
 const TERMINAL = new Set(['done','failed','send_unknown','rejected']);
 const textOf = message => typeof message?.content === 'string' ? message.content :
   (Array.isArray(message?.content) ? message.content : []).filter(p => p.type === 'text').map(p => p.text || '').join('\n');
+const validUsers = (ids, bot) => Array.isArray(ids) && ids.length > 0 && ids.length <= 100 &&
+  ids.every(id => typeof id === 'string' && USER.test(id) && id !== bot) && new Set(ids).size === ids.length;
 
 export function validateConfig(input) {
   const c = {...input, port:input.port ?? 8790, bind:input.bind ?? '127.0.0.1',
-    capacity:input.capacity ?? 10000, concurrency:input.concurrency ?? 2};
+    capacity:input.capacity ?? 10000, concurrency:input.concurrency ?? 2,
+    allowedChannels:input.allowedChannels === undefined ? {} : input.allowedChannels};
   if (!/^T[A-Z0-9]{5,31}$/.test(c.teamId) || !/^A[A-Z0-9]{5,31}$/.test(c.appId) ||
       !USER.test(c.botUserId)) throw new Error('invalid_slack_identity');
-  if (!Array.isArray(c.allowedUserIds) || !c.allowedUserIds.length || c.allowedUserIds.length > 100 ||
-      c.allowedUserIds.some(id => !USER.test(id) || id === c.botUserId) ||
-      new Set(c.allowedUserIds).size !== c.allowedUserIds.length) throw new Error('invalid_allowlist');
+  if (!validUsers(c.allowedUserIds,c.botUserId)) throw new Error('invalid_allowlist');
+  if (!c.allowedChannels || typeof c.allowedChannels !== 'object' || Array.isArray(c.allowedChannels) ||
+      Object.keys(c.allowedChannels).length > 100 ||
+      Object.entries(c.allowedChannels).some(([id,users]) => !SLACK_CHANNEL.test(id) ||
+        !validUsers(users,c.botUserId))) throw new Error('invalid_channel_allowlist');
   for (const name of ['stateDir', c.credentialSocket ? 'credentialSocket' : 'credentialsFile']) {
     if (typeof c[name] !== 'string' || !path.isAbsolute(c[name])) throw new Error('absolute_paths_required');
   }
@@ -70,7 +76,9 @@ export class Bridge {
   constructor(config, {clients, now = () => Date.now(), log} = {}) {
     this.c = validateConfig(config); this.clients = clients ?? new Clients(this.c); this.now = now;
     this.audit = log ?? (record => process.stdout.write(JSON.stringify(record) + '\n'));
-    this.allowed = new Set(this.c.allowedUserIds); this.connected = false; this.stopping = false;
+    this.allowed = new Set(this.c.allowedUserIds);
+    this.allowedChannels = new Map(Object.entries(this.c.allowedChannels).map(([id,users]) => [id,new Set(users)]));
+    this.connected = false; this.stopping = false;
     this.store = new Store(this.c.stateDir, {version:1,teamId:this.c.teamId,appId:this.c.appId,
       botUserId:this.c.botUserId,mosaicUrl:this.c.mosaicUrl}, this.c.capacity);
   }
@@ -79,6 +87,9 @@ export class Bridge {
   session(user, channel, ts) {
     // The existing automation guard enforces View even if the prompt asks for Edit.
     return 'agent:default:mosaic-automation-alert-slack-' + key(this.c.appId,this.c.teamId,user,channel,ts);
+  }
+  allowsUser(user, sourceChannel) {
+    return sourceChannel ? this.allowedChannels.get(sourceChannel)?.has(user) === true : this.allowed.has(user);
   }
   async verify() {
     const identity = await this.clients.slack('auth.test');
@@ -94,10 +105,14 @@ export class Bridge {
     if (payload?.type !== 'event_callback' || payload.team_id !== this.c.teamId ||
         payload.api_app_id !== this.c.appId || payload.is_ext_shared_channel === true ||
         typeof payload.event_id !== 'string' || !/^Ev[A-Za-z0-9]{1,100}$/.test(payload.event_id) ||
-        e?.type !== 'message' || e.channel_type !== 'im' || !CHANNEL.test(e.channel) ||
-        !this.allowed.has(e.user) || e.user === this.c.botUserId || e.bot_id || e.app_id || e.subtype ||
+        typeof e?.user !== 'string' || !USER.test(e.user) || e.user === this.c.botUserId ||
+        e.bot_id || e.app_id || e.subtype ||
         e.hidden || !TS.test(e.ts) || (e.thread_ts && !TS.test(e.thread_ts)) ||
         typeof e.text !== 'string' || !e.text.trim() || Buffer.byteLength(e.text) > 32768) return false;
+    const mention = '<@' + this.c.botUserId + '>';
+    const channelMention = e.type === 'app_mention' &&
+      this.allowedChannels.get(e.channel)?.has(e.user) && e.text.includes(mention);
+    if (!channelMention && (e.type !== 'message' || e.channel_type !== 'im' || !CHANNEL.test(e.channel))) return false;
     const id = key('event',this.c.teamId,payload.event_id);
     if (this.store.get(id)) return false;
     // event_id is the Slack retry identity; this second key catches wrappers
@@ -105,14 +120,27 @@ export class Bridge {
     const messageKey = key('message', this.c.teamId,e.channel,e.ts);
     if (this.store.hasMessage(messageKey)) return false;
     const root = e.thread_ts || e.ts, threadId = this.threadId(e.channel,root);
+    if (channelMention) {
+      const input = e.text.replaceAll(mention,'').trim();
+      if (!input) return false;
+      const job = {state:'queued',user:e.user,created:this.now(),receipts:[],nextAt:0};
+      this.store.transaction(() => {
+        this.store.add({...job,id,messageKey,kind:'channel_ack',channel:e.channel,root});
+        this.store.add({...job,id:key('channel_dm',id),kind:'chat',sourceChannel:e.channel,input});
+      });
+      this.log('channel_mention_queued',id);
+      return true;
+    }
     let thread = this.store.thread(threadId);
     if (e.thread_ts && !thread) return false; // Never guess the latest incident.
     if (thread && thread.user !== e.user) return false;
+    if (!this.allowsUser(e.user,thread?.sourceChannel)) return false;
     thread ??= {id:threadId,user:e.user,channel:e.channel,root,session:this.session(e.user,e.channel,root)};
     this.store.transaction(() => {
       this.store.bind(thread);
       this.store.add({id,messageKey,kind:'chat',state:'queued',user:e.user,channel:e.channel,
-        root,threadId,input:e.text,created:this.now(),receipts:[],nextAt:0});
+        root,threadId,input:e.text,sourceChannel:thread.sourceChannel,
+        created:this.now(),receipts:[],nextAt:0});
     });
     this.log('event_queued',id); return true;
   }
@@ -145,6 +173,20 @@ export class Bridge {
         ((channel.is_shared || channel.is_org_shared) && !internalEnterpriseDm)) return null;
     return channel.id;
   }
+  async isMemberChannel(id) {
+    if (!this.allowedChannels.has(id)) return false;
+    let channel;
+    try {
+      ({channel} = await this.clients.slack('conversations.info',{channel:id}));
+    } catch (error) {
+      if (error.definite && !error.retryAfter) return false;
+      throw error;
+    }
+    return channel?.id === id && channel.context_team_id === this.c.teamId && channel.is_member === true &&
+      (channel.is_channel === true || channel.is_group === true) && !channel.is_mpim && !channel.is_im &&
+      !channel.is_archived && !channel.is_shared && !channel.is_org_shared && !channel.is_ext_shared &&
+      !channel.is_pending_ext_shared && !channel.connected_team_ids?.length;
+  }
   prompt(row, thread) {
     const incident = thread.incident ? this.store.get(thread.incident) : undefined;
     return `[MOSAIC Slack event ${row.id}]\n` +
@@ -174,20 +216,46 @@ export class Bridge {
   }
   async process(row) {
     if (TERMINAL.has(row.state)) return;
-    if (!this.allowed.has(row.user)) { row.state = 'rejected'; this.store.save(row); return; }
-    const channel = await this.dm(row.user);
-    if (!channel || (row.channel && row.channel !== channel)) {
-      row.state = 'rejected'; this.store.save(row); this.log('wrong_dm_rejected',row.id); return;
-    }
-    row.channel = channel;
+    const sourceChannel = row.kind === 'channel_ack' ? row.channel : row.sourceChannel;
+    if (!this.allowsUser(row.user,sourceChannel)) { row.state = 'rejected'; this.store.save(row); return; }
     // A crash between an HTTP send and its receipt is deliberately not retried.
     if (row.state === 'sending') {
       row.state = 'send_unknown'; this.store.save(row); this.log('send_requires_reconciliation',row.id); return;
     }
-    if (row.kind === 'incident') {
-      if (!row.root) {
-        if (!await this.send(row, `MOSAIC incident: ${row.incidentId}\n${row.title}\nReply in this thread to discuss this report.`, true)) return;
+    if (row.kind === 'channel_ack') {
+      if (!await this.isMemberChannel(row.channel)) {
+        row.state = 'rejected'; this.store.save(row); this.log('channel_rejected',row.id); return;
       }
+      row.parts ??= ['I’m the MOSAIC operations assistant. Check your direct messages for the reply.'];
+      row.state = 'ready'; this.store.save(row);
+    } else {
+      if (row.sourceChannel && !await this.isMemberChannel(row.sourceChannel)) {
+        row.state = 'rejected'; this.store.save(row); this.log('channel_rejected',row.id); return;
+      }
+      const channel = await this.dm(row.user);
+      if (!channel || (row.channel && row.channel !== channel)) {
+        row.state = 'rejected'; this.store.save(row); this.log('wrong_dm_rejected',row.id); return;
+      }
+      row.channel = channel;
+      if (!row.root && (row.kind === 'incident' || row.sourceChannel)) {
+        const title = row.kind === 'incident' ?
+          `MOSAIC incident: ${row.incidentId}\n${row.title}\nReply in this thread to discuss this report.` :
+          'MOSAIC channel question\nReply in this private thread to continue.';
+        await this.send(row,title,true);
+        return;
+      }
+      await this.preparePrivateReply(row);
+    }
+    while (row.state === 'ready' && row.receipts.length < row.parts.length) {
+      if (this.stopping) return;
+      if (!await this.send(row,row.parts[row.receipts.length],false)) return;
+    }
+    if (row.state === 'ready') {
+      row.state = 'done'; row.completed = this.now(); this.store.save(row); this.log('job_completed',row.id);
+    }
+  }
+  async preparePrivateReply(row) {
+    if (row.kind === 'incident') {
       row.parts ??= chunks(row.report);
       row.state = 'ready'; this.store.save(row);
     } else {
@@ -223,13 +291,6 @@ export class Bridge {
         this.log('agent_completed',row.id);
       }
     }
-    while (row.state === 'ready' && row.receipts.length < row.parts.length) {
-      if (this.stopping) return;
-      if (!await this.send(row,row.parts[row.receipts.length],false)) return;
-    }
-    if (row.state === 'ready') {
-      row.state = 'done'; row.completed = this.now(); this.store.save(row); this.log('job_completed',row.id);
-    }
   }
   async send(row,text,root) {
     // A provider failure before the intent is a safe retry. The request itself
@@ -248,9 +309,11 @@ export class Bridge {
       if (root) {
         row.root = receipt.ts; row.threadId = this.threadId(row.channel,row.root);
         this.store.transaction(() => {
+          const incident = row.kind === 'incident';
           this.store.bind({id:row.threadId,user:row.user,channel:row.channel,root:row.root,
-            session:this.session(row.user,row.channel,row.root),incident:row.id});
-          row.state = 'ready'; this.store.save(row);
+            session:this.session(row.user,row.channel,row.root),...(incident ? {incident:row.id} : {}),
+            ...(row.sourceChannel ? {sourceChannel:row.sourceChannel} : {})});
+          row.state = incident ? 'ready' : 'queued'; this.store.save(row);
         });
       } else {
         row.receipts.push({ts:receipt.ts,sha256:hash(text)}); row.state = 'ready'; this.store.save(row);
@@ -262,7 +325,7 @@ export class Bridge {
       return false;
     } catch (error) {
       if (error.definite && error.retryAfter) {
-        row.state = row.kind === 'incident' && !row.root ? 'queued' : 'ready';
+        row.state = root ? 'queued' : 'ready';
         row.nextAt = this.now() + error.retryAfter;
       } else {
         row.state = error.definite ? 'failed' : 'send_unknown';

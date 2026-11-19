@@ -20,6 +20,10 @@ function envelope(n = 1, overrides = {}, payloadOverrides = {}) {
     api_app_id:config.appId,event_id:'Ev' + n,event:{type:'message',channel_type:'im',channel:'D12345678',
       user:'U12345678',text:'Collect logs and consult the Research Agent.',ts:timestamp(n),...overrides},...payloadOverrides}};
 }
+function mention(n, overrides = {}, payloadOverrides = {}) {
+  return envelope(n,{type:'app_mention',channel_type:undefined,channel:'C12345678',
+    text:'<@U01234567> Inspect the test job.',...overrides},payloadOverrides);
+}
 async function setup(t, overrides = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'slack-bridge-test-'));
   const clock = {value:1800000000000}; const sent = [], runs = [], logs = [], history = new Map();
@@ -28,6 +32,8 @@ async function setup(t, overrides = {}) {
     slack:async (method,body) => {
       if (method === 'auth.test') return {ok:true,team_id:config.teamId,user_id:config.botUserId,bot_id:'B01234567'};
       if (method === 'conversations.open') return {channel:{id:body.users === 'U12345678' ? 'D12345678' : 'D23456789',is_im:true,user:body.users}};
+      if (method === 'conversations.info') return {channel:{id:body.channel,context_team_id:config.teamId,
+        is_channel:true,is_member:true}};
       if (method === 'chat.postMessage') {
         sent.push(body); return {ok:true,channel:body.channel,ts:timestamp(100 + sent.length)};
       }
@@ -57,7 +63,9 @@ test('configuration fixes workspace/app identity and requires one private creden
   for (const delta of [{teamId:'*'},{appId:'wrong'},{allowedUserIds:[]},{allowedUserIds:['*']},
     {allowedUserIds:[config.botUserId]},{allowedUserIds:['U12345678','U12345678']},
     {credentialSocket:'/run/broker.sock'},{credentialsFile:undefined},{stateDir:'relative'},
-    {mosaicUrl:'http://user:secret@host/'},{mosaicUrl:'https://host/path'},{concurrency:0}]) {
+    {mosaicUrl:'http://user:secret@host/'},{mosaicUrl:'https://host/path'},{concurrency:0},
+    {allowedChannels:{'*':['U12345678']}},{allowedChannels:{D12345678:['U12345678']}},
+    {allowedChannels:{C12345678:['U12345678','U12345678']}}]) {
     assert.throws(() => validateConfig({...config,...delta}));
   }
   assert.doesNotThrow(() => validateConfig({...config,credentialsFile:undefined,credentialSocket:'/run/broker.sock'}));
@@ -71,11 +79,82 @@ test('startup verifies Bot Token identity against the configured workspace and b
 
 test('workspace/app/sender/DM filters reject unauthorized, bot, edit and shared-channel events', async t => {
   const x = await setup(t);
+  assert.equal(x.bridge.accept(mention(1)),false);
   for (const event of [{user:'U99999999'},{user:config.botUserId},{bot_id:'B01234567'},{app_id:'A99999999'},
     {subtype:'message_changed'},{subtype:'message_deleted'},{channel_type:'group'},{channel:'C12345678'},
     {hidden:true},{text:' '},{ts:'bad'},{thread_ts:'bad'}]) assert.equal(x.bridge.accept(envelope(1,event)),false);
   for (const payload of [{team_id:'T99999999'},{api_app_id:'A99999999'},{is_ext_shared_channel:true}])
     assert.equal(x.bridge.accept(envelope(1,{},payload)),false);
+  assert.deepEqual(x.bridge.store.counts(),{});
+});
+
+test('channel mentions acknowledge the original thread and keep the answer and follow-ups private', async t => {
+  const x = await setup(t,{allowedChannels:{C12345678:['U12345678']},allowedUserIds:['U23456789']});
+  const question = 'Channel fixture question';
+  const event = mention(2,{text:'<@U01234567> ' + question,thread_ts:timestamp(1)});
+  assert.equal(x.bridge.accept(event),true);
+  assert.equal(x.bridge.accept(event),false);
+  assert.equal(x.bridge.accept(mention(3,{ts:timestamp(2)})),false);
+  assert.equal(x.bridge.accept(mention(4,{type:'message',channel_type:'channel',ts:timestamp(2)})),false);
+  assert.equal(x.bridge.accept(envelope(8)),false);
+  assert.throws(() => x.bridge.publish({incidentId:'other',userId:'U12345678',report:'report'}),/invalid_incident/);
+  x.restart();
+  await x.drain();
+  assert.equal(x.sent.length,3);
+  assert.deepEqual(x.sent.map(m=>[m.channel,m.thread_ts]),[
+    ['C12345678',timestamp(1)],['D12345678',undefined],['D12345678',timestamp(102)],
+  ]);
+  assert.match(x.sent[0].text,/MOSAIC operations assistant/);
+  assert.doesNotMatch(x.sent[0].text,/Channel fixture question|Research guidance/);
+  assert.match(x.sent[2].text,/Research guidance/);
+  assert.equal(x.runs.length,1);
+  assert.equal(x.runs[0].accessMode,'view');
+  assert.ok(isReadonlyAutomationSession(x.runs[0].sessionKey));
+  assert.match(x.runs[0].prompt,/Channel fixture question/);
+  assert.doesNotMatch(x.runs[0].prompt,/<@U01234567>/);
+  x.restart();
+  assert.equal(x.bridge.accept(envelope(5,{thread_ts:timestamp(102)})),true);
+  await x.drain();
+  assert.equal(x.runs[1].sessionKey,x.runs[0].sessionKey);
+  assert.equal(x.sent.at(-1).thread_ts,timestamp(102));
+});
+
+test('channel and user allowlists, membership, workspace and DM identity gate channel requests', async t => {
+  const x = await setup(t,{allowedChannels:{C12345678:['U12345678']}});
+  for (const change of [{channel:'C99999999'},{user:'U99999999'},{user:'U23456789'},{subtype:'bot_message'},
+    {text:'<@U99999999> Other app'},{text:'<@U01234567>'}]) {
+    assert.equal(x.bridge.accept(mention(1,change)),false);
+  }
+  assert.equal(x.bridge.accept(mention(1,{}, {is_ext_shared_channel:true})),false);
+  const call = x.clients.slack;
+  let flags = {};
+  x.clients.slack = async (method, body) => {
+    const response = await call(method,body);
+    return method === 'conversations.info' ? {channel:{...response.channel,...flags}} : response;
+  };
+  for (const [i,change] of [
+    {is_member:false}, {is_ext_shared:true}, {is_org_shared:true}, {is_shared:true},
+    {context_team_id:'T99999999'}, {is_mpim:true}, {is_archived:true}, {is_pending_ext_shared:true},
+  ].entries()) {
+    flags = change;
+    assert.equal(x.bridge.accept(mention(i+2)),true);
+    await x.drain();
+  }
+  flags = {};
+  assert.equal(x.bridge.accept(mention(10)),true);
+  x.restart({allowedChannels:{}});
+  await x.drain();
+  assert.equal(x.runs.length,0);
+  assert.equal(x.sent.length,0);
+  assert.deepEqual(x.bridge.store.counts(),{rejected:18});
+  assert.equal(x.bridge.accept(envelope(11)),true);
+  await x.drain();
+  assert.equal(x.runs.length,1);
+});
+
+test('channel acknowledgment and private request are admitted in one durable transaction', async t => {
+  const x = await setup(t,{capacity:1,allowedChannels:{C12345678:['U12345678']}});
+  assert.throws(() => x.bridge.accept(mention(1)),/state_capacity/);
   assert.deepEqual(x.bridge.store.counts(),{});
 });
 
@@ -352,10 +431,14 @@ test('transport disables redirects, separates credentials, bounds errors and hon
     fetchFn:async (url,options) => { calls.push({url:String(url),options}); return new Response(JSON.stringify({ok:true}),{status:200}); }});
   await client.slack('apps.connections.open'); await client.slack('auth.test');
   await client.mosaic('/api/headless/chat',{prompt:'question'});
-  assert.deepEqual(secrets,['appToken','botToken','mosaicToken']);
+  await client.slack('conversations.info',{channel:'C12345678'});
+  assert.deepEqual(secrets,['appToken','botToken','mosaicToken','botToken']);
   assert.ok(calls.every(c => c.options.redirect === 'error'));
   assert.equal(calls[2].options.headers.authorization,'Bearer fixture-mosaicToken');
   assert.doesNotMatch(calls[2].options.body,/botToken|appToken/);
+  assert.equal(calls[3].url,'https://slack.com/api/conversations.info?channel=C12345678');
+  assert.equal(calls[3].options.method,'GET');
+  assert.equal(calls[3].options.body,undefined);
   client.fetch = async () => new Response('',{status:429,headers:{'retry-after':'45'}});
   await assert.rejects(client.slack('chat.postMessage'),e => e.definite && e.retryAfter === 45000);
   client.fetch = async () => { throw new Error('SENSITIVE_TOKEN_AND_BODY'); };

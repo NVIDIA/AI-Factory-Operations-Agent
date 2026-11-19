@@ -68,11 +68,14 @@ export class Clients {
   secret(name) { return this.readCredential(this.config, name); }
   async slack(method, body = {}) {
     const token = await this.secret(method === 'apps.connections.open' ? 'appToken' : 'botToken');
+    const readChannel = method === 'conversations.info';
+    const url = new URL('https://slack.com/api/' + method);
+    if (readChannel) url.searchParams.set('channel',body.channel);
     let res;
     try {
-      res = await this.fetch('https://slack.com/api/' + method, {method:'POST', redirect:'error',
+      res = await this.fetch(url.href, {method:readChannel ? 'GET' : 'POST', redirect:'error',
         headers:{authorization:'Bearer ' + token, 'content-type':'application/json; charset=utf-8'},
-        body:JSON.stringify(body), signal:AbortSignal.timeout(30000)});
+        body:readChannel ? undefined : JSON.stringify(body), signal:AbortSignal.timeout(30000)});
     } catch { throw new TransportError('slack_transport_unknown'); }
     if (res.status === 429) {
       const seconds = Number(res.headers.get('retry-after'));
