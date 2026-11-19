@@ -46,6 +46,42 @@ modules:
     enabled: true
   observability:
     enabled: true
+  alertAutomation:
+    # Native OpenClaw service. Disabled until a fixed recipient conversation is configured.
+    enabled: false
+    # poll, webhook, or both. Polling requires no inbound route from Alertmanager.
+    sourceMode: poll
+    # Empty uses observability.alertmanagerUrl.
+    alertmanagerUrl: ""
+    # Literal labels; {} accepts every alert from the configured source.
+    matchLabels: {}
+    includeExisting: false
+    pollSeconds: 30
+    timeoutSeconds: 900
+    maxPending: 100
+    agentId: default
+    # Below the Gateway state directory on openclaw-home-pvc.
+    stateDirectory: alert-automation
+    messagePrefix: MOSAIC automated alert report
+    reportLanguage: English
+    investigationContext: ""
+    redactValues: []
+    delivery:
+      # Any installed native channel with a text outbound adapter.
+      channel: ""
+      target: ""
+      # Exact conversation used by that channel for the selected Agent.
+      sessionKey: ""
+      accountId: ""
+    alertmanagerAuth:
+      existingSecret: ""
+      tokenKey: token
+    webhook:
+      path: /mosaic/alertmanager
+      maxBodyBytes: 1048576
+      # A separate bearer token (at least 24 characters), required for webhook/both.
+      existingSecret: ""
+      tokenKey: token
   grafana:
     enabled: true
   bcm:

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Loopback-only MOSAIC API connection for the background investigator
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mosaic-alert-worker/deployment.env
+ExecStart=/usr/bin/env ${KUBECTL} --context ${KUBE_CONTEXT} -n ${KUBE_NAMESPACE} --cache-dir=%h/.local/state/mosaic-alert-worker/kubectl-cache port-forward --address=127.0.0.1 svc/mosaic-ui 13300:3000
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
