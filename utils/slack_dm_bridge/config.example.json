@@ -1,0 +1,13 @@
+{
+  "teamId": "T01234567",
+  "appId": "A01234567",
+  "botUserId": "U01234567",
+  "allowedUserIds": ["U12345678"],
+  "mosaicUrl": "http://mosaic-ui:3000",
+  "credentialsFile": "/credentials/bridge.json",
+  "stateDir": "/state",
+  "bind": "0.0.0.0",
+  "port": 8790,
+  "capacity": 10000,
+  "concurrency": 2
+}
