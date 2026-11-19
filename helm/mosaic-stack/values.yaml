@@ -129,6 +129,10 @@ llm:
     # Null uses the selected inference runtime policy; external endpoints use none.
     # Empty passes reasoning settings through unchanged.
     reasoningEffort: null
+    # Buffer eligible completions and retry text-form tool invocations once.
+    # The proxy never executes or converts the text into a tool call.
+    toolCallTextRecovery:
+      enabled: false
     name: llm-openai-compat
     port: 8000
   external:

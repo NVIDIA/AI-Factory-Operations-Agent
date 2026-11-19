@@ -70,3 +70,25 @@ Action: The assistant routes general execution through OpenClaw/OpenShell, appli
 Summary: The team needs to understand which agents and tools were used during an investigation and whether users approved the result.
 Problem: Multi-agent operations are hard to review after the fact if tool calls, generated answers, and feedback are scattered.
 Action: The assistant records tool calls, agent activity, thumbs-up and thumbs-down feedback, and dashboard or terminal usage in the Audit and Dashboard tabs so operators can review outcomes and improve workflows.
+
+## Troubleshooting Empty Answers And Printed Tool Calls
+
+A completed message is not evidence that a tool ran. Check the actual tool-call and result records when an operational request returns an empty answer or text such as `<run_kubectl args=["get", "nodes"]}`. Confirm that the model supports tool calling and that the inference service has the appropriate tool parser configured.
+
+For providers that intermittently produce these responses despite correct configuration, enable the optional guard in the existing compatibility proxy:
+
+```yaml
+llm:
+  requestCompatibility:
+    enabled: true
+    toolCallTextRecovery:
+      enabled: true
+```
+
+The default is disabled. Apply this override with the same chart version and existing deployment values. To disable it again, set `llm.requestCompatibility.toolCallTextRecovery.enabled=false`.
+
+For single-choice chat completions with function tools and automatic tool choice, the proxy buffers the response. If it contains no structured calls and is either whitespace-only or contains invocation markup for a registered tool, the proxy asks the same model for one corrected response. The original conversation, tools, tool choice, target instructions and authorization remain in the request. The correction explicitly prohibits repeating successful or denied operations. The proxy never interprets text as executable arguments and never executes a tool; the runtime still validates and authorizes any native tool call.
+
+Already structured calls are returned unchanged and never replayed by the guard. Ordinary answers, fenced examples, quoted examples, explicit silent-response markers and upstream HTTP errors retain their normal behavior. Named/disabled tool choice, requests without tools and multiple-choice requests use the existing transport. A second empty or malformed response, incomplete stream, excessive response size, or timeout returns an explicit `tool_call_recovery_error`, rather than a successful empty answer or printed command. Detection is limited to recognizable invocation markup; it does not verify factual correctness or detect every possible malformed format.
+
+Eligible responses are buffered up to 16 MiB, with one 180-second deadline across both model requests. This delays visible streaming until generation completes, including ordinary answers with tools available. Corrective generation consumes an additional model request. Logs contain recovery events and reasons, not request/response bodies. A recovered completion must still be followed by actual runtime tool results before claiming that an operational task succeeded.
