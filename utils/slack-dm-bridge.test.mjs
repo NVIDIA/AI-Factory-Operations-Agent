@@ -3,10 +3,12 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import {fileURLToPath} from 'node:url';
 import {Bridge, chunks, completedAnswer, validateConfig} from './slack_dm_bridge/bridge.mjs';
 import {Clients, credential, socketLoop, socketUrl, TransportError} from './slack_dm_bridge/transport.mjs';
 import {Store} from './slack_dm_bridge/store.mjs';
@@ -15,6 +17,17 @@ import {isReadonlyAutomationSession, sessionAllowsEdit} from '../helm/mosaic-sta
 const config = {teamId:'T01234567',appId:'A01234567',botUserId:'U01234567',allowedUserIds:['U12345678','U23456789'],
   mosaicUrl:'http://mosaic-ui:3000',credentialsFile:'/unused/credentials.json',stateDir:'/unused/state',port:0};
 const timestamp = n => `1800000000.${String(n).padStart(6,'0')}`;
+
+test('the CLI starts through a projected ConfigMap symlink', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(),'slack-bridge-entry-'));
+  t.after(() => fs.rm(dir,{recursive:true,force:true}));
+  const actual = fileURLToPath(new URL('./slack_dm_bridge/bridge.mjs',import.meta.url));
+  const mounted = path.join(dir,'bridge.mjs');
+  await fs.symlink(actual,mounted);
+  const run = spawnSync(process.execPath,[mounted,path.join(dir,'missing.json')],{encoding:'utf8'});
+  assert.equal(run.status,1);
+  assert.match(run.stderr,/Slack bridge stopped/);
+});
 function envelope(n = 1, overrides = {}, payloadOverrides = {}) {
   return {type:'events_api',envelope_id:'envelope-' + n,payload:{type:'event_callback',team_id:config.teamId,
     api_app_id:config.appId,event_id:'Ev' + n,event:{type:'message',channel_type:'im',channel:'D12345678',

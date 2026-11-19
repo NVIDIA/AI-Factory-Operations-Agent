@@ -379,7 +379,9 @@ export class Bridge {
   close() { this.stop(); this.store.close(); }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+// Kubernetes ConfigMaps project the entry point through a symlink.
+const entryFile = process.argv[1] && await fs.realpath(process.argv[1]).catch(() => null);
+if (entryFile && import.meta.url === pathToFileURL(entryFile).href) {
   let bridge;
   try {
     const config = JSON.parse(await fs.readFile(process.argv[2] ?? '/config/bridge.json','utf8'));
