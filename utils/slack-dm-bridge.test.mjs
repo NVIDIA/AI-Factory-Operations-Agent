@@ -89,6 +89,7 @@ test('configuration fixes workspace/app identity and requires one private creden
     {mosaicUrl:'http://user:secret@host/'},{mosaicUrl:'https://host/path'},{concurrency:0},
     {allowedChannels:{'*':['U12345678']}},{allowedChannels:{D12345678:['U12345678']}},
     {allowedChannels:{C12345678:['U12345678','U12345678']}},{channelThreadRepliesEnabled:'true'},
+    {channelModel:{...channelModel,maxTokens:'8192'}},{channelModel:{...channelModel,maxTokens:0}},
     {channelModel:{...channelModel,endpoint:'file:///v1/chat/completions'}},
     {channelModel:{...channelModel,endpoint:'http://secret@localhost/chat/completions'}}]) {
     assert.throws(() => validateConfig({...config,...delta}));
@@ -553,11 +554,15 @@ test('channel model requests carry only the channel chat and never advertise too
       assert.equal(url,channelModel.endpoint);
       assert.equal(opts.redirect,'error');
       assert.equal(opts.headers.authorization,undefined);
-      assert.deepEqual(Object.keys(JSON.parse(opts.body)).sort(),['max_tokens','messages','model','stream']);
+      const payload = JSON.parse(opts.body);
+      assert.deepEqual(Object.keys(payload).sort(),['max_tokens','messages','model','stream']);
+      assert.equal(payload.max_tokens, client.config.channelModel.maxTokens ?? 1024);
       return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'Channel response'}}]}));
     },
   });
   assert.equal(await client.channelChat([{role:'user',content:'Who are you?'}]),'Channel response');
+  client.config.channelModel = {...channelModel,maxTokens:8192};
+  assert.equal(await client.channelChat([{role:'user',content:'What can you do?'}]),'Channel response');
 });
 
 test('Socket Mode ACK follows durable persistence; disk failure leaves the envelope unacknowledged', async t => {

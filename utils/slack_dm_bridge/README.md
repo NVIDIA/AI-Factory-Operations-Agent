@@ -124,12 +124,15 @@ Set `channelModel` when the channel should receive the actual answer. Point it t
 {
   "channelModel": {
     "endpoint": "http://inference:8000/v1/chat/completions",
-    "model": "your-model"
+    "model": "your-model",
+    "maxTokens": 8192
   }
 }
 ```
 
 In this mode the bridge posts the model answer as a reply to the original channel thread. It keeps a conversation for each authorized requester in that thread. It supplies the model with recent channel turns and the current message. When switching an existing thread to this mode, it can reuse the original channel question. Private answers, incident reports and tool results stay in their existing private conversations. Direct channel replies use text inference without tools. Use the private MOSAIC conversation for live investigations and access-controlled data. The endpoint receives the channel prompt, so select a provider authorized for the channel's content.
+
+`maxTokens` sets the channel's per-request output allowance and defaults to 1024. Choose an allowance that fits the model and its context window. For reasoning models, the allowance may cover reasoning tokens as well as the visible answer.
 
 ## 3. Deploy alongside MOSAIC
 

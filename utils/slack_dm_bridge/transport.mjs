@@ -105,13 +105,15 @@ export class Clients {
     return boundedJson(res, 8388608);
   }
   async channelChat(messages) {
-    const {endpoint,model} = this.config.channelModel;
+    const {endpoint,model,maxTokens = 1024} = this.config.channelModel;
+    // Allow longer generations to finish while keeping an upper bound on request time.
+    const timeoutMs = Math.max(90000, Math.min(600000, maxTokens * 30));
     let res;
     try {
       res = await this.fetch(endpoint,{method:'POST',redirect:'error',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({model,messages,stream:false,max_tokens:1024}),
-        signal:AbortSignal.timeout(90000)});
+        body:JSON.stringify({model,messages,stream:false,max_tokens:maxTokens}),
+        signal:AbortSignal.timeout(timeoutMs)});
     } catch { throw new TransportError('channel_model_unavailable'); }
     if (!res.ok) throw new TransportError('channel_model_http_error');
     const data = await boundedJson(res,1048576);

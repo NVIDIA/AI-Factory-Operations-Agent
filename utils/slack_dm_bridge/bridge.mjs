@@ -38,6 +38,8 @@ export function validateConfig(input) {
     const model = c.channelModel;
     if (typeof model?.endpoint !== 'string' || typeof model?.model !== 'string' || !model.model.trim())
       throw new Error('invalid_channel_model');
+    if (model.maxTokens !== undefined && (!Number.isSafeInteger(model.maxTokens) || model.maxTokens < 1))
+      throw new Error('invalid_channel_model_max_tokens');
     const endpoint = new URL(model.endpoint);
     if (!['https:','http:'].includes(endpoint.protocol) || endpoint.username || endpoint.password ||
         endpoint.search || endpoint.hash || !endpoint.pathname.endsWith('/chat/completions'))
