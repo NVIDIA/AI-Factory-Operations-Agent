@@ -339,13 +339,11 @@ environment variable. Use a proxy credential restricted to read-only query APIs.
 Do not put credentials in the URL or values file. Omit the Secret setting for
 an endpoint that does not require authentication.
 
-To verify, configure the endpoint and ask the agent to discover fields, inspect
-a discovered field's values, and retrieve a few matching logs. Confirm the source,
-time range, and original fields in the result. An empty URL leaves the tools
-unregistered. Apply configuration changes with a Helm upgrade.
+An empty `observability.victoriaLogs.url` leaves the tools unregistered. Apply
+connection changes with a Helm upgrade. Verify access by asking the agent for a
+few recent logs and confirming the expected source and tenant.
 
-See the [VictoriaLogs query reference](victorialogs.md) for tool usage, examples,
-and query limits.
+For query syntax, see the upstream [LogsQL reference](https://docs.victoriametrics.com/victorialogs/logsql/).
 
 ### Read-only Loki logs
 
