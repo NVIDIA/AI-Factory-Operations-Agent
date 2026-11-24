@@ -198,7 +198,14 @@ export default definePluginEntry({
         const values = ((payload.data as unknown as string[]) || []) as string[];
         const filter = stringParam(rawParams.filter);
         const limit = Math.trunc(boundedNumber(rawParams.limit, 200, 1, 5000));
-        const regex = filter ? new RegExp(filter, "i") : null;
+        let regex: RegExp | null = null;
+        if (filter) {
+          try {
+            regex = new RegExp(filter, "i");
+          } catch {
+            throw new Error(`Invalid filter regex: ${filter}`);
+          }
+        }
         const names = values
           .filter((name) => !regex || regex.test(name))
           .sort();
