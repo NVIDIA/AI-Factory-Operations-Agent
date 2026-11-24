@@ -22,7 +22,7 @@ NVIDIA = ("https://images.nvidia.com/etc/designs/nvidiaGDC/clientlibs_base/fonts
 
 
 def get(url, dest=None, referer=None):
-    cmd = ["curl", "-sSL", "-A", UA]
+    cmd = ["curl", "-fsSL", "-A", UA]
     if referer:
         cmd += ["-e", referer]
     if dest:
