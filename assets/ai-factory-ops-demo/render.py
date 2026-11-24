@@ -9,12 +9,25 @@
 import pathlib
 import sys
 
-from playwright.sync_api import sync_playwright
-
 HERE = pathlib.Path(__file__).parent
-out = pathlib.Path(sys.argv[1])
-out.mkdir(parents=True, exist_ok=True)
-frames = [int(x) for x in sys.argv[2:]] or None
+
+def parse_args(argv: list[str]) -> tuple[pathlib.Path, list[int] | None]:
+    if len(argv) < 2:
+        raise SystemExit("Usage: python render.py <output_dir> [frame ...]")
+
+    out_dir = pathlib.Path(argv[1])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        frame_ids = [int(x) for x in argv[2:]] or None
+    except ValueError as exc:
+        raise SystemExit(f"Invalid frame index: {exc}") from exc
+
+    return out_dir, frame_ids
+
+
+out, frames = parse_args(sys.argv)
+
+from playwright.sync_api import sync_playwright
 
 with sync_playwright() as pw:
     b = pw.chromium.launch(args=["--force-color-profile=srgb", "--disable-lcd-text"])
