@@ -26,6 +26,7 @@ Prefer these tools over shell `curl` when answering questions about historical c
 - `observability_metric_names` lists available Prometheus or VictoriaMetrics metrics.
 - `observability_query` runs an instant PromQL or MetricsQL query supported by the configured backend.
 - `observability_range_query` runs a historical range query.
+- `observability_metric_last_seen` searches backward for a missing metric's last original source sample.
 - `dashboard_list` discovers Grafana datasource names, types, and UIDs and searches dashboards.
 - `dashboard_create` validates explicit panel PromQL, MetricsQL or LogQL, creates a Grafana dashboard, and opens it in the UI Grafana tab.
 - `dashboard_open` opens an existing Grafana dashboard UID in the UI Grafana tab.
@@ -56,6 +57,67 @@ materially hotter than the rest.
 When the user asks for a dashboard, provide explicit panel queries, validate the
 appropriate source queries first, then create the dashboard. Do not claim dashboard success unless
 `dashboard_create` returns `created: true`.
+
+## Incident onset and missing metrics
+
+A query's `start` and `end` delimit the investigation window, not the incident.
+An empty window proves only that the query returned no matching samples there;
+never report its start as the outage onset. Distinguish missing samples, stale
+samples, zero values, and explicit unhealthy values. Metrics alone do not prove
+that a collector or network failed.
+
+For a missing metric, call `observability_metric_last_seen` with the discovered
+metric and exact source labels, including on a follow-up after an empty recent
+query. Actually perform the historical search; suggesting that the user widen
+the window does not answer when the data stopped. Keep the source fixed. Supply
+`expectedIntervalSeconds` only when the sampling cadence is independently known.
+Use a cadence already supplied by the user or environment; do not call it
+unknown merely because the history response does not discover it.
+The tool searches adjacent raw-sample windows automatically, with a 7-day default
+and a 30-day maximum. Normally omit `lookbackHours`: an earlier empty chart window
+does not limit an unrestricted onset follow-up. Respect an explicit user time
+boundary via `end` and `lookbackHours` (use generic queries for windows shorter
+than one hour); these limits are not guarantees of backend retention.
+
+Use `lastSample.iso` as the last observed source time. `firstExpectedMissing.iso`
+is conditional on the supplied cadence, not a measured physical fault time.
+`recent_sample` with value zero is not missing data. `ambiguous_series` requires
+more exact source labels, not combining GPUs. For `incomplete` or
+`not_found_in_checked_history`, report the checked range and unknown onset;
+errors, partial responses, and empty history do not establish retention or an
+outage boundary. A found sample proves presence, not that its value was healthy.
+Report `searchedStartIso`/`searchedEndIso` and `searchedDurationHours` as actual
+coverage; the requested budget may be longer than the completed search.
+Use `elapsedSinceLastSample` for the age of a found sample; searched coverage
+includes earlier present data and is not the outage duration.
+
+This tool requires raw Prometheus range-vector support; a backend returning
+evaluated vectors instead fails closed. If it is unavailable, or the question
+concerns a threshold breach or an older recovered gap, use historical queries
+to bracket the last present/healthy and first missing/unhealthy observations.
+For wholly empty or abnormal windows, query earlier or progressively wider
+windows (hours, then days), keeping the source fixed. `rangeMinutes` supports
+10080 minutes (7 days); explicit ISO `start`/`end` can query older windows.
+
+After locating a candidate transition, narrow the interval and query at finer
+resolution. Range-result timestamps are evaluation times; Prometheus lookback
+can reuse an older sample. For a discovered selector, `timestamp(<selector>)`
+exposes the source sample timestamp as the value. Distinguish that value from
+its evaluation timestamp. Apply `timestamp` directly to the original selector,
+before aggregation. Set `valueFormat: "unix_seconds"` for that query to obtain
+the source time as `valueIso`; use returned ISO fields instead of mentally
+converting epoch seconds. Do not use this format for ordinary metric values,
+counts, or durations. Account for scrape cadence, lookback, and reporting
+delay. Check `downsampled`, `pointCount`, and `truncated`: reduced points or
+omitted series cannot establish a precise onset or continuous absence.
+
+Report the last successful observation, the first missing/unhealthy observation,
+the resulting interval and its uncertainty, the source selector, and windows
+checked. If available history or query/time limits never reveal an earlier good
+point, report the onset as unknown, state the evidence gap, and do not invent
+a precise time. Without evidence that this exact series previously existed,
+do not even claim that an outage predates the checked window. Do not infer
+backend retention merely from an empty response.
 
 ## Historical logs
 
