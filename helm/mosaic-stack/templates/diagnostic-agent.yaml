@@ -25,7 +25,7 @@ spec:
       {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
       {{- include "mosaic-stack.tolerations" . | nindent 6 }}
       initContainers:
-        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        {{- if and .Values.diagnosticAgent.config.bcmLookupEnabled (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
         - name: prepare-bcm-ca
           image: {{ include "mosaic-stack.image" .Values.diagnosticAgent.image | quote }}
           command: ["python", "-c"]
@@ -75,7 +75,7 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            {{- if and .Values.diagnosticAgent.config.bcmLookupEnabled (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
             - name: SSL_CERT_FILE
               value: /etc/combined-ca/ca.crt
             - name: REQUESTS_CA_BUNDLE
@@ -106,6 +106,7 @@ spec:
                   key: AGENT_API_KEYS
             - name: DIAGNOSTIC_AGENT_AUTH_MODE
               value: required
+            {{- if .Values.diagnosticAgent.config.bcmLookupEnabled }}
             - name: BCM_WEBHOOK_TIMEOUT_SECONDS
               value: {{ .Values.diagnosticAgent.config.bcmWebhookTimeoutSeconds | quote }}
             - name: BCM_WEBHOOK_URL
@@ -120,6 +121,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.diagnosticAgent.apiKeySecretName }}
                   key: BCM_WEBHOOK_TOKEN
+            {{- end }}
             - name: DEBUGHUB_REASONING__REQUIRE_FINDINGS_MATCH
               value: {{ .Values.diagnosticAgent.config.reasoningRequireFindingsMatch | quote }}
             - name: MOSAIC_UI_URL
@@ -153,7 +155,7 @@ spec:
           volumeMounts:
             - name: diagnostic-agent-bin
               mountPath: /opt/mosaic-bin
-            {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+            {{- if and .Values.diagnosticAgent.config.bcmLookupEnabled (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
             - name: combined-ca
               mountPath: /etc/combined-ca
               readOnly: true
@@ -164,7 +166,7 @@ spec:
               readOnly: true
             {{- end }}
       volumes:
-        {{- if and (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
+        {{- if and .Values.diagnosticAgent.config.bcmLookupEnabled (eq .Values.bcmMcp.mode "external") .Values.bcmMcp.caCertificateSecret }}
         - name: bcm-ca
           secret:
             secretName: {{ .Values.bcmMcp.caCertificateSecret | quote }}

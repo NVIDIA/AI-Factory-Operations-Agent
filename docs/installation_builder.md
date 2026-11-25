@@ -12,6 +12,8 @@ complete the [head-node service setup](installation.md#use-a-head-node-mcp-serve
 and enter its HTTPS endpoint and token Secret. **Use SSH adapter instead
 (experimental)** selects the [SSH alternative](installation.md#base-command-manager).
 
+For Hardware diagnostics without a manager, select **Direct BMC credentials (API)** and follow the [Hardware Agent setup](installation.md#hardware-agent). Credentials are submitted through a private API request file.
+
 The optional **Read-only Redfish** checkbox appears inside the Base Command Manager module block. See the [Redfish installation guide](installation.md#read-only-redfish) for BMC credential resolution and TLS verification settings.
 
 For a checksum-verified mirrored or source-built sandbox backend package, configure the advanced values described under [OpenShell dependency](installation.md#openshell-dependency).
