@@ -110,6 +110,11 @@
       }
     ]
   },
+  {{- if and .Values.openclaw.msteams.enabled (not .Values.openclaw.slack.enabled) }}
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  {{- end }}
   {{- if .Values.openclaw.slack.enabled }}
   "session": {
     "dmScope": {{ .Values.openclaw.slack.session.dmScope | quote }}
@@ -154,8 +159,29 @@
     "servers": {{ $managedMcpServers | toJson }}
   },
   {{- end }}
-  {{- if .Values.openclaw.slack.enabled }}
+  {{- if or .Values.openclaw.slack.enabled .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
   "channels": {
+    {{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }}
+    "msteams": {
+      "enabled": {{ .Values.openclaw.msteams.enabled }},
+      {{- if .Values.openclaw.msteams.enabled }}
+      "appId": "${MSTEAMS_APP_ID}",
+      "appPassword": "${MSTEAMS_APP_PASSWORD}",
+      "tenantId": "${MSTEAMS_TENANT_ID}",
+      {{- end }}
+      "configWrites": false,
+      "dmPolicy": "allowlist",
+      "allowFrom": {{ .Values.openclaw.msteams.allowedUserIds | toJson }},
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": {{ .Values.openclaw.msteams.allowedUserIds | toJson }},
+      {{- with .Values.openclaw.msteams.defaultTo }}
+      "defaultTo": {{ . | quote }},
+      {{- end }}
+      "teams": {{ .Values.openclaw.msteams.teams | toJson }},
+      "webhook": { "port": 3978, "path": "/api/messages" }
+    }{{- if .Values.openclaw.slack.enabled }},{{- end }}
+    {{- end }}
+    {{- if .Values.openclaw.slack.enabled }}
     "slack": {
       "enabled": true,
       "mode": "socket",
@@ -190,6 +216,7 @@
       "unfurlLinks": false,
       "unfurlMedia": false
     }
+    {{- end }}
   },
   {{- end }}
   "models": {
@@ -229,7 +256,7 @@
     }
   },
   "cron": {
-    "enabled": false
+    "enabled": {{ .Values.openclaw.cron.enabled }}
   },
   "plugins": {
     "allow": [
@@ -243,7 +270,8 @@
       "observability",
       "remote-ssh",
       "slurm",
-      "llm"{{- if .Values.openclaw.slack.enabled }},
+      "llm"{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
+      "msteams"{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack"{{- end }}{{- if .Values.modules.webSearch.enabled }},
       {{ .Values.modules.webSearch.provider | quote }}{{- end }}
     ],
@@ -279,7 +307,10 @@
       },
       "llm": {
         "enabled": true
-      }{{- if .Values.openclaw.slack.enabled }},
+      }{{- if or .Values.openclaw.msteams.install .Values.openclaw.msteams.enabled }},
+      "msteams": {
+        "enabled": true
+      }{{- end }}{{- if .Values.openclaw.slack.enabled }},
       "slack": {
         "enabled": true
       }{{- end }}{{- if .Values.modules.webSearch.enabled }},

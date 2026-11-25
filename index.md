@@ -46,6 +46,8 @@ Use cases <docs/use_cases>
 Slurm root cause analysis <docs/slurm_rca>
 Loki query reference <docs/loki>
 Headless integration <docs/skills/ai-factory-operations-agent-headless/SKILL>
+Delegated Teams conversation bridge <utils/teams_graph_channel/README>
+Teams bridge validation <utils/teams_graph_channel/VALIDATION>
 ```
 
 ```{toctree}
