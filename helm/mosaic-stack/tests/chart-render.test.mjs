@@ -477,6 +477,18 @@ test("the Nemotron profile retains non-thinking generation", () => {
   assert.match(output, /--default-chat-template-kwargs=.*enable_thinking.*false/);
 });
 
+test("tool-call response recovery is opt-in and packages its runtime module", () => {
+  const ordinary = render("--show-only", "templates/llm-compat.yaml");
+  const enabled = render("--set", "llm.requestCompatibility.toolCallTextRecovery.enabled=true", "--show-only", "templates/llm-compat.yaml");
+  assert.match(ordinary, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "false"/);
+  const missing = render("--set-json", "llm.requestCompatibility.toolCallTextRecovery=null", "--show-only", "templates/llm-compat.yaml");
+  assert.match(missing, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "false"/);
+  assert.match(enabled, /TOOL_CALL_TEXT_RECOVERY_ENABLED\s+value: "true"/);
+  assert.match(enabled, /tool-call-recovery\.cjs: \|/);
+  assert.match(enabled, /require\('\.\/tool-call-recovery\.cjs'\)/);
+  assert.notEqual(ordinary.match(/checksum\/config: (\w+)/)[1], enabled.match(/checksum\/config: (\w+)/)[1]);
+});
+
 test("defaults to a single Qwen inference pod with one B200", () => {
   const output = render("--show-only", "templates/vllm.yaml");
   assert.equal((output.match(/kind: StatefulSet/g) ?? []).length, 1);
