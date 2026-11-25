@@ -1496,3 +1496,21 @@ test("installs either the pinned or overridden sandbox archive with checksum ver
     overridden,
   );
 });
+
+test("VictoriaLogs configures tenant headers and Secret access only for the observability runtime", () => {
+  const args = ["--set-string", "observability.victoriaLogs.url=https://vl.example.com,observability.victoriaLogs.accountId=12,observability.victoriaLogs.projectId=3,observability.victoriaLogs.auth.existingSecret=vl-readonly,observability.victoriaLogs.auth.authorizationKey=header"];
+  const seed = render(...args, "--show-only", "templates/openclaw-seed-configmap.yaml");
+  const config = JSON.parse(configMapBlock(seed, "openclaw.json"));
+  const observability = config.plugins.entries.observability.config;
+  assert.equal(observability.victoriaLogsUrl, "https://vl.example.com");
+  assert.equal(observability.victoriaLogsAccountId, "12");
+  assert.equal(observability.victoriaLogsProjectId, "3");
+  const runtime = render(...args, "--show-only", "templates/openclaw.yaml");
+  assert.match(runtime, /cp \/seed\/observability.victorialogs.ts/);
+  assert.match(runtime, /name: MOSAIC_VICTORIALOGS_AUTHORIZATION\s+valueFrom:\s+secretKeyRef:\s+name: "vl-readonly"\s+key: "header"/);
+  assert.doesNotMatch(render(...args, "--show-only", "templates/mosaic-ui.yaml"), /vl-readonly|MOSAIC_VICTORIALOGS_AUTHORIZATION/);
+  for (const overrides of [[], ["--set", "modules.observability.enabled=false"], ["--set-string", "observability.victoriaLogs.url="]]) {
+    const output = render(...(overrides.length ? args : []), ...overrides, "--show-only", "templates/openclaw.yaml");
+    assert.doesNotMatch(output, /name: MOSAIC_VICTORIALOGS_AUTHORIZATION/);
+  }
+});

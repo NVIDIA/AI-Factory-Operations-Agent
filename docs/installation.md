@@ -303,6 +303,48 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
+### Read-only VictoriaLogs
+
+Connect to an existing VictoriaLogs single-node service, cluster query endpoint
+(vlselect), or authentication proxy by adding these flags to your Helm install:
+
+```bash
+--set modules.observability.enabled=true \
+--set-string observability.victoriaLogs.url=https://victorialogs.example.com
+```
+
+This enables LogsQL field discovery and queries in View mode. No server or
+collector is installed. Loki can be configured at the same time.
+A configured URL path prefix is preserved before `/select/logsql/`.
+
+```yaml
+observability:
+  victoriaLogs:
+    url: https://victorialogs.example.com
+    accountId: "12"
+    projectId: "3"
+    auth:
+      existingSecret: victorialogs-readonly
+      authorizationKey: authorization
+```
+
+Account and project IDs are optional unsigned 32-bit integers sent as `AccountID`
+and `ProjectID` headers. Omit them to use the server's default tenant. They are
+operator configuration; tool calls cannot change tenants or credentials.
+
+If authentication is required, provision the named Secret in the release namespace
+with the complete Authorization header in its `authorization` key, using your
+secret-management workflow. The chart exposes that value only through an
+environment variable. Use a proxy credential restricted to read-only query APIs.
+Do not put credentials in the URL or values file. Omit the Secret setting for
+an endpoint that does not require authentication.
+
+An empty `observability.victoriaLogs.url` leaves the tools unregistered. Apply
+connection changes with a Helm upgrade. Verify access by asking the agent for a
+few recent logs and confirming the expected source and tenant.
+
+For query syntax, see the upstream [LogsQL reference](https://docs.victoriametrics.com/victorialogs/logsql/).
+
 ### Read-only Loki logs
 
 To connect Mosaic to an existing Loki service, run:
@@ -319,9 +361,48 @@ helm upgrade aifoa "$MOSAIC_CHART" \
   --timeout 12m
 ```
 
-Mosaic queries existing logs; it does not install Loki or a collector. For endpoints
-requiring authentication or a tenant ID, see [Loki connection options](loki.md#connection-options).
-Verify access by asking Mosaic to show 10 log entries from the past 15 minutes.
+Mosaic queries existing logs; it does not install Loki or a collector.
+
+If Loki requires authentication, provision a Secret in Mosaic's namespace using
+your secret-management process:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loki-readonly
+  namespace: aifoa
+type: Opaque
+stringData:
+  authorization: "Bearer <your-read-only-token>"
+```
+
+For basic authentication, use `Basic <base64(username:password)>` instead.
+Keep credentials out of Helm values and source control.
+
+Add these options to the installation command, replacing the Secret name and
+tenant ID with your values:
+
+```bash
+--set-string observability.loki.auth.existingSecret=loki-readonly \
+--set-string observability.loki.tenantId=your-tenant-id
+```
+
+Omit the Secret option if authentication is not required, and omit the tenant
+option if your Loki service does not require a tenant ID. The Secret's default
+key is `authorization`; use `observability.loki.auth.authorizationKey` if yours
+differs. The Secret must exist in the release namespace before upgrading.
+
+- Use HTTPS for remote endpoints. Internal HTTP service URLs are supported.
+- Redirects are rejected; configure the endpoint directly.
+- `tenantId` supplies the `X-Scope-OrgID` header. It does not replace authentication.
+- An empty `observability.loki.url` disables log queries. Apply connection changes
+  with a Helm upgrade.
+
+Verify access by asking Mosaic to discover available log labels, then show 10 log
+entries from a selected source over the past 15 minutes. Confirm the source,
+time range, and returned entries. See the [Loki query reference](loki.md) for
+example questions and query limits.
 
 ### Alertmanager
 
