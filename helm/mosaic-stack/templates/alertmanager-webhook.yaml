@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+{{- $webhook := .Values.alertmanagerWebhook }}
+{{- if $webhook.enabled }}
+{{- $uiAuth := .Values.mosaicUi.auth }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosaic-alertmanager-webhook
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+data:
+  receiver.mjs: |
+{{ .Files.Get "files/alertmanager-webhook.mjs" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosaic-alertmanager-webhook
+  labels:
+    app: mosaic-alertmanager-webhook
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mosaic-alertmanager-webhook
+  template:
+    metadata:
+      labels:
+        app: mosaic-alertmanager-webhook
+      annotations:
+        checksum/receiver: {{ .Files.Get "files/alertmanager-webhook.mjs" | sha256sum }}
+        checksum/ui-auth: {{ include (print $.Template.BasePath "/mosaic-ui-auth-secret.yaml") . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "mosaic-stack.imagePullSecrets" . | nindent 6 }}
+      {{- include "mosaic-stack.nodeSelector" . | nindent 6 }}
+      {{- include "mosaic-stack.tolerations" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: receiver
+          # Reuse the stack's Node runtime; no additional image or npm download.
+          image: {{ include "mosaic-stack.image" .Values.mosaicUi.image | quote }}
+          imagePullPolicy: {{ .Values.mosaicUi.image.pullPolicy }}
+          command: ["node", "/receiver/receiver.mjs"]
+          env:
+            - name: PORT
+              value: {{ $webhook.service.port | quote }}
+            - name: MOSAIC_UI_URL
+              value: {{ printf "http://mosaic-ui:%v" .Values.mosaicUi.service.port | quote }}
+            - name: MOSAIC_ALERTMANAGER_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $webhook.auth.existingSecret | quote }}
+                  key: {{ $webhook.auth.tokenKey | quote }}
+            - name: MOSAIC_UI_MACHINE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default $uiAuth.name $uiAuth.existingSecret | quote }}
+                  key: machineToken
+          ports:
+            - name: http
+              containerPort: {{ $webhook.service.port }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 15
+          resources:
+            {{- toYaml $webhook.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: receiver
+              mountPath: /receiver
+              readOnly: true
+      volumes:
+        - name: receiver
+          configMap:
+            name: mosaic-alertmanager-webhook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosaic-alertmanager-webhook
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: mosaic-alertmanager-webhook
+  ports:
+    - name: http
+      port: {{ $webhook.service.port }}
+      targetPort: http
+{{- if $webhook.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mosaic-alertmanager-webhook
+  labels:
+    {{- include "mosaic-stack.labels" . | nindent 4 }}
+  {{- with $webhook.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $webhook.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  tls:
+    - hosts: [{{ $webhook.ingress.host | quote }}]
+      secretName: {{ $webhook.ingress.tlsSecretName | quote }}
+  rules:
+    - host: {{ $webhook.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api/alertmanager/webhook
+            pathType: Exact
+            backend:
+              service:
+                name: mosaic-alertmanager-webhook
+                port:
+                  number: {{ $webhook.service.port }}
+{{- end }}
+{{- end }}
