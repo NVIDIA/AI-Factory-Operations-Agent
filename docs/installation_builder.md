@@ -18,6 +18,14 @@ For a checksum-verified mirrored or source-built sandbox backend package, config
 
 To customize the default agent’s name, follow [Agent display name](installation.md#agent-display-name).
 
+Select **Automatic alert investigation** to install the
+[native alert automation plugin](alert_automation_plugin.md). Configure the
+native messaging application first, then supply its channel, fixed report target
+and verified recipient conversation. The generated settings use Alertmanager
+polling. The plugin guide covers source filters, webhook intake, credentials and
+migration from the retained deployment-host worker.
+
+
 ```{raw} html
 <div id="install-command-builder"><noscript>Enable JavaScript to use the builder, or follow the <a href="installation.html">installation guide</a>.</noscript></div>
 ```

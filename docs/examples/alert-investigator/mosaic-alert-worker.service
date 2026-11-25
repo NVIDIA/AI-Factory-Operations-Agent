@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=MOSAIC background read-only alert investigation and native report delivery
+Wants=mosaic-alert-ui-forward.service
+After=mosaic-alert-ui-forward.service
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mosaic-alert-worker/credentials.env
+ExecStart=/usr/bin/python3 %h/.local/share/mosaic-alert-worker/mosaic-alert-worker.py --config %h/.config/mosaic-alert-worker/config.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
