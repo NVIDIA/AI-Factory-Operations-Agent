@@ -214,7 +214,7 @@ function triageSummary(value: unknown) {
   return {
     triage_id: triage.triage_id,
     status: triage.status,
-    dut_id: dut.id,
+    dut_id: dut.id || triage.dut_id,
     event_text: text(request.event_text || triage.event_summary, 500),
     root_cause: text(triage.root_cause, 1000),
     severity: triage.severity,
